@@ -6,6 +6,7 @@ import { GameEngine } from "./engine/game-engine";
 import { SimpleTextRenderer } from "./renderers/simple-text";
 import { getCreatureMap } from "./config/creatures";
 import { getItemMap } from "./config/items";
+import { logger } from "./logger";
 
 const statePath =
   process.env.TERMOMON_STATE_PATH ||
@@ -134,6 +135,11 @@ try {
   }
 } catch (err: unknown) {
   const message = err instanceof Error ? err.message : String(err);
+  logger.error(`Command "${command}" failed`, {
+    args: args.join(" "),
+    error: message,
+    stack: err instanceof Error ? err.stack : undefined,
+  });
   if (jsonMode) {
     console.log(JSON.stringify({ error: message }));
   } else {

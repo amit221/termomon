@@ -4,3 +4,4 @@ coverage/
 *.tgz
 .termomon/
 .superpowers/
+.playwright-mcp/

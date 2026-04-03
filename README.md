@@ -35,7 +35,30 @@ npm run build
 claude --plugin-dir .
 ```
 
-The `--plugin-dir .` flag loads the project root as a plugin. Hooks auto-track your activity and slash commands (`/scan`, `/catch`, etc.) become available.
+The `--plugin-dir .` flag loads skills and slash commands (`/scan`, `/catch`, etc.).
+
+**Important:** `--plugin-dir` does **not** load hooks. To enable hooks during development (passive tick tracking and creature spawn notifications), add them manually to `~/.claude/settings.json`:
+
+```json
+{
+  "hooks": {
+    "PostToolUse": [
+      { "hooks": [{ "type": "command", "command": "node \"/path/to/termomon/scripts/tick-hook.js\"" }] }
+    ],
+    "UserPromptSubmit": [
+      { "hooks": [{ "type": "command", "command": "node \"/path/to/termomon/scripts/tick-hook.js\"" }] }
+    ],
+    "Stop": [
+      { "hooks": [{ "type": "command", "command": "node \"/path/to/termomon/scripts/tick-hook.js\"" }] }
+    ],
+    "SessionStart": [
+      { "hooks": [{ "type": "command", "command": "node \"/path/to/termomon/scripts/tick-hook.js\"" }] }
+    ]
+  }
+}
+```
+
+Replace `/path/to/termomon` with the absolute path to your clone. When installed via a marketplace, hooks load automatically.
 
 To reload after changes: `/reload-plugins`
 
