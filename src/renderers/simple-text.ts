@@ -55,25 +55,45 @@ export class SimpleTextRenderer implements Renderer {
     const c = result.creature;
 
     if (result.success) {
-      let out = `Caught! ${c.name} captured with ${result.itemUsed.name}.\n`;
-      out += `+${result.xpEarned} XP | Fragments: ${result.totalFragments}`;
+      let out = `╔════════════════════════════════╗\n`;
+      out += `║ ✓✓✓ CAUGHT! ✓✓✓${" ".repeat(Math.max(0, 13))}║\n`;
+      out += `╠════════════════════════════════╣\n`;
+      out += `║ ${c.name} captured with ${result.itemUsed.name}${" ".repeat(Math.max(0, 30 - c.name.length - result.itemUsed.name.length))}║\n`;
+      out += `╠════════════════════════════════╣\n`;
+      out += `║ +${result.xpEarned} XP${" ".repeat(Math.max(0, 26 - result.xpEarned.toString().length))}║\n`;
+      out += `║ Fragments: ${result.totalFragments}`;
       if (c.evolution) {
         out += `/${c.evolution.fragmentCost}`;
       }
+      out += `${" ".repeat(Math.max(0, 18 - result.totalFragments.toString().length - (c.evolution ? c.evolution.fragmentCost.toString().length + 1 : 0)))}║\n`;
+
       if (result.evolutionReady) {
-        out += ` — Ready to evolve!`;
+        out += `║ ★ Ready to evolve!${" ".repeat(Math.max(0, 12))}║\n`;
       }
       if (result.bonusItem) {
-        out += `\nBonus: +${result.bonusItem.count}x ${result.bonusItem.item.name}`;
+        out += `║ Bonus: +${result.bonusItem.count}x ${result.bonusItem.item.name}${" ".repeat(Math.max(0, 21 - result.bonusItem.count.toString().length - result.bonusItem.item.name.length))}║\n`;
       }
+      out += `╚════════════════════════════════╝`;
       return out;
     }
 
     if (result.fled) {
-      return `${c.name} fled! The ${result.itemUsed.name} was used but ${c.name} got away for good.`;
+      let out = `╔════════════════════════════════╗\n`;
+      out += `║ ✕ FLED!${" ".repeat(Math.max(0, 23))}║\n`;
+      out += `╠════════════════════════════════╣\n`;
+      out += `║ ${c.name} slipped away for good.${" ".repeat(Math.max(0, 30 - c.name.length - 20))}║\n`;
+      out += `║ The ${result.itemUsed.name} was used.${" ".repeat(Math.max(0, 30 - result.itemUsed.name.length - 14))}║\n`;
+      out += `╚════════════════════════════════╝`;
+      return out;
     }
 
-    return `${c.name} escaped the ${result.itemUsed.name}! It's still nearby — try again.`;
+    let out = `╔════════════════════════════════╗\n`;
+    out += `║ ✗ ESCAPED${" ".repeat(Math.max(0, 20))}║\n`;
+    out += `╠════════════════════════════════╣\n`;
+    out += `║ ${c.name} broke free!${" ".repeat(Math.max(0, 30 - c.name.length - 12))}║\n`;
+    out += `║ Try again with another ${result.itemUsed.name}${" ".repeat(Math.max(0, 30 - result.itemUsed.name.length - 18))}║\n`;
+    out += `╚════════════════════════════════╝`;
+    return out;
   }
 
   renderCollection(

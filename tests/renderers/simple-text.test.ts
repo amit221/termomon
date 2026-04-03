@@ -47,7 +47,7 @@ describe("SimpleTextRenderer", () => {
       fled: false,
       evolutionReady: false,
     });
-    expect(result).toContain("Caught");
+    expect(result).toContain("CAUGHT!");
     expect(result).toContain("Mousebyte");
     expect(result).toContain("3");
   });
@@ -63,7 +63,7 @@ describe("SimpleTextRenderer", () => {
       fled: false,
       evolutionReady: false,
     });
-    expect(result).toContain("escaped");
+    expect(result).toContain("ESCAPED");
   });
 
   test("renderCatch shows fled", () => {
@@ -77,7 +77,7 @@ describe("SimpleTextRenderer", () => {
       fled: true,
       evolutionReady: false,
     });
-    expect(result).toContain("fled");
+    expect(result).toContain("FLED!");
   });
 
   test("renderCollection shows creatures with fragment counts", () => {
