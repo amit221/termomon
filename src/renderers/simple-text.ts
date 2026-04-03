@@ -140,15 +140,47 @@ export class SimpleTextRenderer implements Renderer {
     const entries = Object.entries(inventory).filter(([, count]) => count > 0);
 
     if (entries.length === 0) {
-      return "Inventory is empty.";
+      return "Inventory is empty. Complete tasks and catches to earn items.";
     }
 
-    let out = "INVENTORY\n\n";
+    // Separate capture and catalyst items
+    const captureItems: typeof entries = [];
+    const catalystItems: typeof entries = [];
+
     for (const [itemId, count] of entries) {
       const item = items.get(itemId);
       if (!item) continue;
-      out += `${item.name} x${count}\n`;
-      out += `  ${item.description}\n\n`;
+      if (item.type === "capture") {
+        captureItems.push([itemId, count]);
+      } else {
+        catalystItems.push([itemId, count]);
+      }
+    }
+
+    let out = `┌──────────────────────────────────┐\n`;
+    out += `│ INVENTORY${" ".repeat(24)}│\n`;
+    out += `└──────────────────────────────────┘\n\n`;
+
+    if (captureItems.length > 0) {
+      out += `CAPTURE DEVICES\n`;
+      for (const [itemId, count] of captureItems) {
+        const item = items.get(itemId);
+        if (!item) continue;
+        out += `  ├─ ${item.name} x${count}\n`;
+        out += `  │  ${item.description}\n`;
+      }
+      out += "\n";
+    }
+
+    if (catalystItems.length > 0) {
+      out += `EVOLUTION CATALYSTS\n`;
+      for (const [itemId, count] of catalystItems) {
+        const item = items.get(itemId);
+        if (!item) continue;
+        out += `  ├─ ${item.name} x${count}\n`;
+        out += `  │  ${item.description}\n`;
+      }
+      out += "\n";
     }
 
     return out.trimEnd();
