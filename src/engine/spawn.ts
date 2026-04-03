@@ -5,6 +5,7 @@ import {
   TICKS_PER_SPAWN_CHECK,
   SPAWN_PROBABILITY,
   MAX_NEARBY,
+  INITIAL_SPAWN_COUNT,
   CREATURE_LINGER_MS,
   MAX_CATCH_ATTEMPTS,
   SPAWN_WEIGHTS,
@@ -76,18 +77,25 @@ export function processSpawns(
   if (!rollSpawn(rng)) return spawned;
 
   const hour = new Date(now).getHours();
-  const creature = pickCreature(hour, state.profile.totalTicks, rng);
-  if (!creature) return spawned;
 
-  if (state.nearby.some((n) => n.creatureId === creature.id)) return spawned;
+  // Spawn up to INITIAL_SPAWN_COUNT creatures (respecting MAX_NEARBY)
+  for (let i = 0; i < INITIAL_SPAWN_COUNT; i++) {
+    if (state.nearby.length >= MAX_NEARBY) break;
 
-  state.nearby.push({
-    creatureId: creature.id,
-    spawnedAt: now,
-    failedAttempts: 0,
-    maxAttempts: MAX_CATCH_ATTEMPTS,
-  });
-  spawned.push(creature);
+    const creature = pickCreature(hour, state.profile.totalTicks, rng);
+    if (!creature) continue;
+
+    // Don't spawn duplicate creatures
+    if (state.nearby.some((n) => n.creatureId === creature.id)) continue;
+
+    state.nearby.push({
+      creatureId: creature.id,
+      spawnedAt: now,
+      failedAttempts: 0,
+      maxAttempts: MAX_CATCH_ATTEMPTS,
+    });
+    spawned.push(creature);
+  }
 
   return spawned;
 }

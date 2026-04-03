@@ -89,7 +89,7 @@ describe("processSpawns", () => {
   test("does not exceed MAX_NEARBY", () => {
     const now = Date.now();
     const state = makeState({
-      nearby: Array.from({ length: 5 }, (_, i) => ({
+      nearby: Array.from({ length: 10 }, (_, i) => ({
         creatureId: `creature_${i}`,
         spawnedAt: now,
         failedAttempts: 0,
@@ -102,6 +102,6 @@ describe("processSpawns", () => {
     });
     const spawned = processSpawns(state, now, () => 0.01);
     expect(spawned).toHaveLength(0);
-    expect(state.nearby.length).toBeLessThanOrEqual(5);
+    expect(state.nearby.length).toBeLessThanOrEqual(10);
   });
 });

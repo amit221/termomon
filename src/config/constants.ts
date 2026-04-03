@@ -2,7 +2,8 @@
 
 export const TICKS_PER_SPAWN_CHECK = 10;
 export const SPAWN_PROBABILITY = 0.6;
-export const MAX_NEARBY = 5;
+export const MAX_NEARBY = 10;  // Changed from 5 to 10
+export const INITIAL_SPAWN_COUNT = 3;  // New: max creatures to spawn per check
 export const CREATURE_LINGER_MS = 30 * 60 * 1000;  // 30 minutes
 export const MAX_CATCH_ATTEMPTS = 3;
 
