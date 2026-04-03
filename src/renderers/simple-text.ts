@@ -10,6 +10,7 @@ import {
   ItemDefinition,
   RARITY_STARS,
 } from "../types";
+import { MAX_CATCH_ATTEMPTS } from "../config/constants";
 
 function stars(rarity: string): string {
   const count = RARITY_STARS[rarity as keyof typeof RARITY_STARS] || 1;
@@ -39,9 +40,9 @@ export class SimpleTextRenderer implements Renderer {
       out += `┌─ [${entry.index + 1}] ${c.name}${"─".repeat(Math.max(0, 22 - entry.index.toString().length - c.name.length))}┐\n`;
       out += art + "\n";
       out += `│ ${stars(c.rarity)} ${rarityLabel(c.rarity)}${" ".repeat(Math.max(0, 28 - rarityLabel(c.rarity).length))}│\n`;
-      out += `│ Catch rate: ${Math.round(entry.catchRate * 100)}%${" ".repeat(Math.max(0, 20 - Math.round(entry.catchRate * 100).toString().length))}│\n`;
+      out += `│ Catch rate: ${Math.round(entry.catchRate * 100)}%${" ".repeat(Math.max(0, 19 - Math.round(entry.catchRate * 100).toString().length))}│\n`;
       if (entry.attemptsRemaining !== undefined) {
-        out += `│ Attempts: ${entry.attemptsRemaining}/3${" ".repeat(Math.max(0, 21 - entry.attemptsRemaining.toString().length))}│\n`;
+        out += `│ Attempts: ${entry.attemptsRemaining}/${MAX_CATCH_ATTEMPTS}${" ".repeat(Math.max(0, 20 - entry.attemptsRemaining.toString().length - MAX_CATCH_ATTEMPTS.toString().length))}│\n`;
       }
       out += `└──────────────────────────────────┘\n\n`;
     }

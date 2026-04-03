@@ -59,4 +59,72 @@ describe("SimpleTextRenderer scan inventory summary", () => {
     expect(output).toContain("Attempts: 3/3");
     expect(output).toContain("Attempts: 1/3");
   });
+
+  it("should show 0 attempts remaining when creature is about to flee", () => {
+    const renderer = new SimpleTextRenderer();
+    const scanResult: ScanResult = {
+      nearby: [
+        {
+          index: 0,
+          creature: mockCreature,
+          spawnedAt: Date.now(),
+          catchRate: 0.8,
+          attemptsRemaining: 0,
+        },
+      ],
+      totalCatchItems: 5,
+    };
+    const output = renderer.renderScan(scanResult);
+
+    expect(output).toContain("Attempts: 0/3");
+  });
+
+  it("should handle missing attemptsRemaining for backward compatibility", () => {
+    const renderer = new SimpleTextRenderer();
+    const scanResult: ScanResult = {
+      nearby: [
+        {
+          index: 0,
+          creature: mockCreature,
+          spawnedAt: Date.now(),
+          catchRate: 0.8,
+          // attemptsRemaining intentionally omitted
+        },
+      ],
+      totalCatchItems: 5,
+    };
+    const output = renderer.renderScan(scanResult);
+
+    expect(output).toContain("TestMonster");
+    expect(output).toContain("NEARBY SIGNALS");
+    // Should render gracefully without attempts line
+  });
+
+  it("should display multiple creatures with different attempt counts", () => {
+    const renderer = new SimpleTextRenderer();
+    const creature2: CreatureDefinition = { ...mockCreature, id: "test2", name: "TestMonster2" };
+    const scanResult: ScanResult = {
+      nearby: [
+        {
+          index: 0,
+          creature: mockCreature,
+          spawnedAt: Date.now(),
+          catchRate: 0.8,
+          attemptsRemaining: 3,
+        },
+        {
+          index: 1,
+          creature: creature2,
+          spawnedAt: Date.now(),
+          catchRate: 0.7,
+          attemptsRemaining: 0,
+        },
+      ],
+      totalCatchItems: 10,
+    };
+    const output = renderer.renderScan(scanResult);
+
+    expect(output).toContain("Attempts: 3/3");
+    expect(output).toContain("Attempts: 0/3");
+  });
 });
