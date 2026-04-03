@@ -84,22 +84,30 @@ export class SimpleTextRenderer implements Renderer {
       return "Your collection is empty. Use /scan to find creatures nearby.";
     }
 
-    let out = `COLLECTION — ${collection.length} creatures\n\n`;
+    let out = `┌──────────────────────────────────┐\n`;
+    out += `│ COLLECTION — ${collection.length} creatures${" ".repeat(Math.max(0, 14 - collection.length.toString().length))}│\n`;
+    out += `└──────────────────────────────────┘\n\n`;
 
     for (const entry of collection) {
       const c = creatures.get(entry.creatureId);
       if (!c) continue;
 
       const evolvedLabel = entry.evolved ? " [EVOLVED]" : "";
-      out += `${c.name}${evolvedLabel}  ${stars(c.rarity)}\n`;
-      out += `  Caught: ${entry.totalCaught}x`;
+      out += `┌─ ${c.name}${evolvedLabel}${" ".repeat(Math.max(0, 26 - c.name.length - (entry.evolved ? 9 : 0)))}┐\n`;
+      out += `│ ${stars(c.rarity)}${" ".repeat(Math.max(0, 30 - stars(c.rarity).length))}│\n`;
+
+      // Display creature art
+      const art = c.art.simple.map((line) => "  " + line).join("\n");
+      out += art + "\n";
+
+      out += `│ Caught: ${entry.totalCaught}x${" ".repeat(Math.max(0, 24 - entry.totalCaught.toString().length))}│\n`;
       if (c.evolution && !entry.evolved) {
-        out += ` | Fragments: ${entry.fragments}/${c.evolution.fragmentCost}`;
+        out += `│ Fragments: ${entry.fragments}/${c.evolution.fragmentCost}${" ".repeat(Math.max(0, 18 - entry.fragments.toString().length - c.evolution.fragmentCost.toString().length))}│\n`;
         if (entry.fragments >= c.evolution.fragmentCost) {
-          out += ` — Ready to evolve!`;
+          out += `│ ✓ Ready to evolve!${" ".repeat(Math.max(0, 12))}│\n`;
         }
       }
-      out += "\n\n";
+      out += `└──────────────────────────────────┘\n\n`;
     }
 
     return out.trimEnd();
