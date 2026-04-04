@@ -41,51 +41,57 @@
   "rewards": {
     "passiveDripInterval": 25,
     "passiveDripItems": [
-      { "id": "bytetrap", "count": 2, "probability": 0.7 },
-      { "id": "netsnare", "count": 1, "probability": 0.25 },
-      { "id": "corelock", "count": 1, "probability": 0.05 }
+      { "itemId": "bytetrap", "count": 2, "weight": 0.7 },
+      { "itemId": "netsnare", "count": 1, "weight": 0.25 },
+      { "itemId": "corelock", "count": 1, "weight": 0.05 }
     ],
     "sessionRewardItems": [
-      { "id": "bytetrap", "count": 3, "probability": 0.6 },
-      { "id": "netsnare", "count": 1, "probability": 0.3 },
-      { "id": "shard", "count": 1, "probability": 0.1 }
+      { "itemId": "bytetrap", "count": 3, "weight": 0.6 },
+      { "itemId": "netsnare", "count": 1, "weight": 0.3 },
+      { "itemId": "shard", "count": 1, "weight": 0.1 }
     ],
     "milestones": [
       {
         "id": "first_catch",
-        "label": "First catch!",
+        "description": "First catch!",
         "condition": { "type": "totalCatches", "threshold": 1 },
-        "reward": { "id": "bytetrap", "count": 3 }
+        "reward": [{ "itemId": "bytetrap", "count": 5 }],
+        "oneTime": true
       },
       {
-        "id": "ten_catches",
-        "label": "10 catches",
+        "id": "catch_10",
+        "description": "10 catches!",
         "condition": { "type": "totalCatches", "threshold": 10 },
-        "reward": { "id": "netsnare", "count": 2 }
+        "reward": [{ "itemId": "netsnare", "count": 3 }, { "itemId": "shard", "count": 1 }],
+        "oneTime": true
       },
       {
-        "id": "first_evolution",
-        "label": "First evolution",
-        "condition": { "type": "totalEvolutions", "threshold": 1 },
-        "reward": { "id": "shard", "count": 1 }
+        "id": "catch_50",
+        "description": "50 catches!",
+        "condition": { "type": "totalCatches", "threshold": 50 },
+        "reward": [{ "itemId": "corelock", "count": 2 }, { "itemId": "prism", "count": 1 }],
+        "oneTime": true
       },
       {
-        "id": "level_5",
-        "label": "Reach level 5",
-        "condition": { "type": "playerLevel", "threshold": 5 },
-        "reward": { "id": "corelock", "count": 1 }
+        "id": "streak_3",
+        "description": "3-day streak!",
+        "condition": { "type": "currentStreak", "threshold": 3 },
+        "reward": [{ "itemId": "bytetrap", "count": 3 }],
+        "oneTime": true
       },
       {
-        "id": "collection_10",
-        "label": "10 unique creatures",
-        "condition": { "type": "uniqueSpecies", "threshold": 10 },
-        "reward": { "id": "netsnare", "count": 3 }
+        "id": "streak_7",
+        "description": "7-day streak!",
+        "condition": { "type": "currentStreak", "threshold": 7 },
+        "reward": [{ "itemId": "netsnare", "count": 3 }, { "itemId": "shard", "count": 2 }],
+        "oneTime": true
       },
       {
-        "id": "level_10",
-        "label": "Reach level 10",
-        "condition": { "type": "playerLevel", "threshold": 10 },
-        "reward": { "id": "prism", "count": 1 }
+        "id": "streak_30",
+        "description": "30-day streak!",
+        "condition": { "type": "currentStreak", "threshold": 30 },
+        "reward": [{ "itemId": "corelock", "count": 3 }, { "itemId": "prism", "count": 2 }],
+        "oneTime": true
       }
     ]
   },
