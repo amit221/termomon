@@ -59,7 +59,9 @@ export class SimpleTextRenderer implements Renderer {
   }
 
   private formatCreatureRow(entries: ScanResult["nearby"]): string {
-    const colWidth = 20;
+    const artWidth = 10;
+    const detailsWidth = 25;
+    const cardWidth = artWidth + detailsWidth;
 
     // Get max height of art to align rows
     const maxArtHeight = Math.max(
@@ -72,69 +74,48 @@ export class SimpleTextRenderer implements Renderer {
     // Top border
     let topBorder = "";
     for (let i = 0; i < entries.length; i++) {
-      topBorder += "+" + "-".repeat(colWidth - 1);
+      topBorder += "+" + "-".repeat(cardWidth);
     }
     topBorder += "+";
     lines.push(topBorder);
 
-    // Name/header line
-    let nameLine = "|";
-    for (const entry of entries) {
-      const label = `[${entry.index + 1}] ${entry.creature.name}`;
-      nameLine += label.padEnd(colWidth - 1) + "|";
-    }
-    lines.push(nameLine);
-
-    // Art lines
-    for (let artLine = 0; artLine < maxArtHeight; artLine++) {
-      let artRowLine = "|";
+    // Art + Details lines
+    for (let lineIdx = 0; lineIdx < Math.max(maxArtHeight, 6); lineIdx++) {
+      let rowLine = "";
       for (const entry of entries) {
         const c = entry.creature;
-        const line =
-          artLine < c.art.simple.length ? c.art.simple[artLine] : "";
-        artRowLine += line.padEnd(colWidth - 1) + "|";
+        const artLine =
+          lineIdx < c.art.simple.length ? c.art.simple[lineIdx] : "";
+
+        // Build details for this line
+        let detail = "";
+        if (lineIdx === 0) {
+          detail = `[${entry.index + 1}] ${c.name}`.substring(0, detailsWidth - 1);
+        } else if (lineIdx === 1) {
+          detail = `${stars(c.rarity)} ${rarityLabel(c.rarity)}`;
+        } else if (lineIdx === 2) {
+          const rate = Math.round(entry.catchRate * 100);
+          detail = `Rate: ${rate}%`;
+        } else if (lineIdx === 3) {
+          if (entry.attemptsRemaining !== undefined) {
+            const attemptBar =
+              "*".repeat(entry.attemptsRemaining) +
+              "o".repeat(MAX_CATCH_ATTEMPTS - entry.attemptsRemaining);
+            detail = `Att: [${attemptBar}]`;
+          } else {
+            detail = "Att: [***]";
+          }
+        }
+
+        rowLine += `|${artLine.padEnd(artWidth)}${detail.padEnd(detailsWidth - 1)}`;
       }
-      lines.push(artRowLine);
+      lines.push(rowLine + "|");
     }
-
-    // Rarity line
-    let rarityLine = "|";
-    for (const entry of entries) {
-      const c = entry.creature;
-      const rarity = `${stars(c.rarity)} ${rarityLabel(c.rarity)}`;
-      rarityLine += rarity.padEnd(colWidth - 1) + "|";
-    }
-    lines.push(rarityLine);
-
-    // Catch rate line
-    let rateLine = "|";
-    for (const entry of entries) {
-      const rate = Math.round(entry.catchRate * 100);
-      const rateStr = `Rate: ${rate}%`;
-      rateLine += rateStr.padEnd(colWidth - 1) + "|";
-    }
-    lines.push(rateLine);
-
-    // Attempts line
-    let attemptsLine = "|";
-    for (const entry of entries) {
-      let attStr = "";
-      if (entry.attemptsRemaining !== undefined) {
-        const attemptBar =
-          "*".repeat(entry.attemptsRemaining) +
-          "o".repeat(MAX_CATCH_ATTEMPTS - entry.attemptsRemaining);
-        attStr = `Att: [${attemptBar}]`;
-      } else {
-        attStr = "Att: [***]";
-      }
-      attemptsLine += attStr.padEnd(colWidth - 1) + "|";
-    }
-    lines.push(attemptsLine);
 
     // Bottom border
     let bottomBorder = "";
     for (let i = 0; i < entries.length; i++) {
-      bottomBorder += "+" + "-".repeat(colWidth - 1);
+      bottomBorder += "+" + "-".repeat(cardWidth);
     }
     bottomBorder += "+";
     lines.push(bottomBorder);
