@@ -1,11 +1,17 @@
 import { GameState, Tick, TimeOfDay } from "../types";
-import { TICK_PRUNE_COUNT } from "../config/constants";
+import { TICK_PRUNE_COUNT, TIME_OF_DAY_RANGES } from "../config/constants";
 
 export function getTimeOfDay(hour: number): TimeOfDay {
-  if (hour >= 6 && hour < 12) return "morning";
-  if (hour >= 12 && hour < 17) return "afternoon";
-  if (hour >= 17 && hour < 21) return "evening";
-  return "night";
+  for (const [period, [start, end]] of Object.entries(TIME_OF_DAY_RANGES)) {
+    if (start < end) {
+      // Normal range (e.g., morning: 6-12)
+      if (hour >= start && hour < end) return period as TimeOfDay;
+    } else {
+      // Wrapping range (e.g., night: 21-6)
+      if (hour >= start || hour < end) return period as TimeOfDay;
+    }
+  }
+  return "night"; // fallback
 }
 
 export function deriveStreak(
