@@ -93,7 +93,8 @@ describe("SimpleTextRenderer collection with art", () => {
 
     const output = renderer.renderCollection(collection, creatures);
 
-    expect(output).toContain("Fragments: 3/5");
+    expect(output).toContain("Frags: [");
+    expect(output).toContain("3/5");
   });
 
   it("should display evolution ready indicator", () => {
@@ -124,7 +125,8 @@ describe("SimpleTextRenderer collection with art", () => {
 
     const output = renderer.renderCollection(collection, creatures);
 
-    expect(output).toContain("Fragments: 5/5");
+    expect(output).toContain("Frags: [");
+    expect(output).toContain("5/5");
     expect(output).toContain("Ready to evolve");
   });
 });

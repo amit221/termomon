@@ -2,7 +2,8 @@
 // scripts/tick-hook.js
 //
 // Claude Code hook script. Receives JSON on stdin, records a game tick.
-// Configured to fire on: PostToolUse, UserPromptSubmit, Stop, SessionStart
+// Fires on: PostToolUse, Stop, SessionStart (via plugin hooks/hooks.json)
+// UserPromptSubmit must be registered in settings.json (plugin bug workaround)
 
 const { execFileSync } = require("child_process");
 const path = require("path");
@@ -30,13 +31,10 @@ function log(level, message, extra) {
   } catch {}
 }
 
-log("DEBUG", "tick-hook invoked", { pid: process.pid, argv: process.argv.slice(2) });
-
 let input = "";
 process.stdin.setEncoding("utf-8");
 process.stdin.on("data", (chunk) => { input += chunk; });
 process.stdin.on("end", () => {
-  log("DEBUG", "stdin ended", { inputLength: input.length, input: input.substring(0, 500) });
   try {
     const data = JSON.parse(input);
     const sessionId = data.session_id || "";
@@ -56,6 +54,7 @@ process.stdin.on("end", () => {
   }
 
   // Output notification context for Claude (only works on UserPromptSubmit)
+  // Must use plain text stdout, not JSON (Claude Code bug workaround)
   try {
     const data = JSON.parse(input);
     if (data.hook_event_name === "UserPromptSubmit") {
@@ -66,10 +65,7 @@ process.stdin.on("end", () => {
       });
       const scan = JSON.parse(result);
       if (scan.nearby && scan.nearby.length > 0) {
-        const notification = {
-          additionalContext: `[Termomon] ${scan.nearby.length} creature(s) nearby. The user can run /scan to see them.`,
-        };
-        process.stdout.write(JSON.stringify(notification));
+        console.log(`[Termomon] ${scan.nearby.length} creature(s) nearby. The user can run /scan to see them.`);
       }
     }
   } catch (err) {

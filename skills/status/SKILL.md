@@ -4,10 +4,6 @@ model: claude-haiku-4-5-20251001
 description: View your player profile and game stats
 ---
 
-Run the termomon status command and display the results.
+Use the `mcp__termomon__status` tool to view player profile and stats.
 
-```bash
-node "$CLAUDE_PLUGIN_ROOT/dist/cli.js" status
-```
-
-Display the output exactly as returned.
+CRITICAL: Output the tool's text response AS-IS in a code block. Do NOT summarize, paraphrase, or reformat.

@@ -4,11 +4,6 @@ model: claude-haiku-4-5-20251001
 description: Show nearby creatures that can be caught
 ---
 
-Run the termomon scan command and display the results to the user.
+Use the `mcp__termomon__scan` tool to scan for nearby creatures.
 
-Run this Bash command:
-```bash
-node "$CLAUDE_PLUGIN_ROOT/dist/cli.js" scan
-```
-
-Display the output exactly as returned — it contains ASCII art and creature information. Do not summarize or reformat.
+CRITICAL: Output the tool's text response AS-IS in a code block. Do NOT summarize, paraphrase, or reformat. The output contains ASCII art that must be preserved exactly. Just put the entire response inside a code block and nothing else.

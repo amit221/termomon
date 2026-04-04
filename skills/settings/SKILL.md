@@ -11,8 +11,8 @@ Usage:
 - `/settings renderer [rich|simple|browser|terminal]` — change renderer
 - `/settings notifications [minimal|moderate|off]` — change notification level
 
-```bash
-node "$CLAUDE_PLUGIN_ROOT/dist/cli.js" settings $ARGUMENTS
-```
+Parse the arguments to determine `key` and `value` (both optional strings).
 
-Display the output exactly as returned.
+Use the `mcp__termomon__settings` tool with the parsed arguments.
+
+CRITICAL: Output the tool's text response AS-IS in a code block. Do NOT summarize, paraphrase, or reformat.

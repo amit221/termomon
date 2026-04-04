@@ -56,8 +56,8 @@ describe("SimpleTextRenderer scan inventory summary", () => {
     };
     const output = renderer.renderScan(scanResult);
 
-    expect(output).toContain("Attempts: 3/3");
-    expect(output).toContain("Attempts: 1/3");
+    expect(output).toContain("Attempts: [●●●]");
+    expect(output).toContain("Attempts: [●○○]");
   });
 
   it("should show 0 attempts remaining when creature is about to flee", () => {
@@ -76,7 +76,7 @@ describe("SimpleTextRenderer scan inventory summary", () => {
     };
     const output = renderer.renderScan(scanResult);
 
-    expect(output).toContain("Attempts: 0/3");
+    expect(output).toContain("Attempts: [○○○]");
   });
 
   it("should handle missing attemptsRemaining for backward compatibility", () => {
@@ -124,7 +124,7 @@ describe("SimpleTextRenderer scan inventory summary", () => {
     };
     const output = renderer.renderScan(scanResult);
 
-    expect(output).toContain("Attempts: 3/3");
-    expect(output).toContain("Attempts: 0/3");
+    expect(output).toContain("Attempts: [●●●]");
+    expect(output).toContain("Attempts: [○○○]");
   });
 });

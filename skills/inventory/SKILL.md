@@ -4,10 +4,6 @@ model: claude-haiku-4-5-20251001
 description: View your items
 ---
 
-Run the termomon inventory command and display the results.
+Use the `mcp__termomon__inventory` tool to view your items.
 
-```bash
-node "$CLAUDE_PLUGIN_ROOT/dist/cli.js" inventory
-```
-
-Display the output exactly as returned.
+CRITICAL: Output the tool's text response AS-IS in a code block. Do NOT summarize, paraphrase, or reformat.
