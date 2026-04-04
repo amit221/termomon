@@ -52,10 +52,10 @@ export class SimpleTextRenderer implements Renderer {
       const c = entry.creature;
       const art = c.art.simple.map((line) => "    " + line).join("\n");
 
-      // Header with name
-      const headerIndex = `[${entry.index + 1}] `;
-      const dashes = Math.max(0, 32 - headerIndex.length - c.name.length - 1); // -1 for space before closing
-      out += `┌${headerIndex}${c.name}${" ".repeat(dashes)}┐\n`;
+      // Header with name - format: ┌─ [1] Name───────┐
+      const headerLabel = `[${entry.index + 1}] ${c.name}`;
+      const dashes = Math.max(0, 30 - headerLabel.length); // 34 - 2(borders) - 2(─ and space)
+      out += `┌─ ${headerLabel}${" ".repeat(dashes)}┐\n`;
 
       out += art + "\n";
 
