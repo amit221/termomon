@@ -11,7 +11,9 @@ import {
   ItemDefinition,
 } from "../types";
 import { getCreatureMap, getSpawnableCreatures, CREATURES } from "../config/creatures";
-import { getItemMap } from "../config/items";
+import { getItemMap, ITEMS } from "../config/items";
+import { MESSAGES } from "../config/constants";
+import { formatMessage } from "../config/loader";
 import { processNewTick } from "./ticks";
 import { processSpawns, cleanupDespawned } from "./spawn";
 import { attemptCatch } from "./catch";
@@ -38,7 +40,7 @@ export class GameEngine {
       const c = this.creatures.get(id);
       notifications.push({
         type: "despawn",
-        message: `${c?.name || id} slipped away...`,
+        message: formatMessage(MESSAGES.notifications.despawn, { name: c?.name || id }),
       });
     }
 
@@ -48,8 +50,8 @@ export class GameEngine {
       notifications.push({
         type: isRare ? "rare_spawn" : "spawn",
         message: isRare
-          ? "Rare signal detected!"
-          : "Something flickering nearby...",
+          ? MESSAGES.notifications.rareSpawn
+          : MESSAGES.notifications.normalSpawn,
       });
     }
 
@@ -65,7 +67,7 @@ export class GameEngine {
       const itemNames = milestoneItems.map((i) => `${i.count}x ${i.item.name}`).join(", ");
       notifications.push({
         type: "milestone",
-        message: `Milestone reward! +${itemNames}`,
+        message: formatMessage(MESSAGES.notifications.milestone, { items: itemNames }),
       });
     }
 
@@ -87,7 +89,7 @@ export class GameEngine {
           this.state.claimedMilestones.push(evoKey);
           notifications.push({
             type: "evolution_ready",
-            message: `${creature.name} has enough fragments to evolve!`,
+            message: formatMessage(MESSAGES.notifications.evolutionReady, { name: creature.name }),
           });
         }
       }
@@ -106,7 +108,7 @@ export class GameEngine {
     cleanupDespawned(this.state, now);
 
     // Calculate total catch items
-    const catchItems = ["bytetrap", "netsnare", "corelock"];
+    const catchItems = ITEMS.filter((i) => i.type === "capture").map((i) => i.id);
     const totalCatchItems = catchItems.reduce((sum, id) => sum + (this.state.inventory[id] || 0), 0);
 
     return {
