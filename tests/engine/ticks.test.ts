@@ -3,14 +3,16 @@ import { GameState, Tick } from "../../src/types";
 
 function makeState(overrides: Partial<GameState> = {}): GameState {
   return {
-    version: 1,
+    version: 2,
     profile: {
-      level: 1, xp: 0, totalCatches: 0, totalTicks: 0,
+      level: 1, xp: 0, totalCatches: 0, totalMerges: 0, totalTicks: 0,
       currentStreak: 0, longestStreak: 0, lastActiveDate: "2026-04-01",
     },
     collection: [],
-    inventory: { bytetrap: 5 },
+    energy: 5,
+    lastEnergyGainAt: Date.now(),
     nearby: [],
+    batch: null,
     recentTicks: [],
     claimedMilestones: [],
     settings: { renderer: "simple", notificationLevel: "moderate" },

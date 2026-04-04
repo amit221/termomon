@@ -4,9 +4,8 @@ import * as os from "os";
 import { StateManager } from "./state/state-manager";
 import { GameEngine } from "./engine/game-engine";
 import { SimpleTextRenderer } from "./renderers/simple-text";
-import { getCreatureMap } from "./config/creatures";
-import { getItemMap } from "./config/items";
 import { logger } from "./logger";
+import { MAX_ENERGY } from "./engine/energy";
 
 const statePath =
   process.env.TERMOMON_STATE_PATH ||
@@ -20,8 +19,6 @@ const stateManager = new StateManager(statePath);
 const state = stateManager.load();
 const engine = new GameEngine(state);
 const renderer = new SimpleTextRenderer();
-const creatures = getCreatureMap();
-const items = getItemMap();
 
 function output(data: unknown, text: string): void {
   if (jsonMode) {
@@ -59,12 +56,11 @@ try {
 
     case "catch": {
       const index = parseInt(args[1], 10) - 1;
-      const itemId = args.find((a) => a.startsWith("--item="))?.split("=")[1] || "bytetrap";
       if (isNaN(index)) {
-        console.error("Usage: termomon catch [number] --item=bytetrap");
+        console.error("Usage: termomon catch [number]");
         process.exit(1);
       }
-      const result = engine.catch(index, itemId);
+      const result = engine.catch(index);
       save();
       output(result, renderer.renderCatch(result));
       break;
@@ -72,25 +68,27 @@ try {
 
     case "collection": {
       const collection = engine.getState().collection;
-      output(collection, renderer.renderCollection(collection, creatures));
+      output(collection, renderer.renderCollection(collection));
       break;
     }
 
-    case "inventory": {
-      const inventory = engine.getState().inventory;
-      output(inventory, renderer.renderInventory(inventory, items));
-      break;
-    }
-
-    case "evolve": {
-      const creatureId = args[1];
-      if (!creatureId) {
-        console.error("Usage: termomon evolve [creature-id]");
+    case "merge": {
+      const parentAId = args[1];
+      const parentBId = args[2];
+      if (!parentAId || !parentBId) {
+        console.error("Usage: termomon merge <id1> <id2>");
         process.exit(1);
       }
-      const result = engine.evolve(creatureId);
+      const result = engine.merge(parentAId, parentBId);
       save();
-      output(result, renderer.renderEvolve(result));
+      output(result, renderer.renderMerge(result));
+      break;
+    }
+
+    case "energy": {
+      const currentState = engine.getState();
+      const energyText = renderer.renderEnergy(currentState.energy, MAX_ENERGY);
+      output({ energy: currentState.energy, maxEnergy: MAX_ENERGY }, energyText);
       break;
     }
 
@@ -124,10 +122,10 @@ try {
       console.log("Commands:");
       console.log("  tick                    Record activity tick");
       console.log("  scan                    Show nearby creatures");
-      console.log("  catch [n] --item=ID     Catch creature #n");
+      console.log("  catch [n]               Catch creature #n");
       console.log("  collection              View your creatures");
-      console.log("  inventory               View your items");
-      console.log("  evolve [creature-id]    Evolve a creature");
+      console.log("  merge <id1> <id2>       Merge two creatures");
+      console.log("  energy                  Show current energy");
       console.log("  status                  Your profile");
       console.log("  settings [key] [value]  View/change settings");
       console.log("\nAdd --json for machine-readable output.");
