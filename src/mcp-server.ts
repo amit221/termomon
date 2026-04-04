@@ -7,8 +7,7 @@ import { z } from "zod";
 import { StateManager } from "./state/state-manager";
 import { GameEngine } from "./engine/game-engine";
 import { SimpleTextRenderer } from "./renderers/simple-text";
-import { getCreatureMap } from "./config/creatures";
-import { getItemMap } from "./config/items";
+import { MAX_ENERGY } from "./engine/energy";
 
 const statePath =
   process.env.TERMOMON_STATE_PATH ||
@@ -41,42 +40,44 @@ server.tool("scan", "Show nearby creatures that can be caught", {}, () => {
 server.tool(
   "catch",
   "Attempt to catch a nearby creature",
-  { index: z.number().describe("1-indexed creature number from scan list"), item: z.string().optional().describe("Item to use (default: bytetrap)") },
-  ({ index, item }) => {
+  { index: z.number().describe("1-indexed creature number from scan list") },
+  ({ index }) => {
     const { stateManager, engine } = loadEngine();
     const renderer = new SimpleTextRenderer();
-    const result = engine.catch(index - 1, item || "bytetrap");
+    const result = engine.catch(index - 1);
     stateManager.save(engine.getState());
     return text(renderer.renderCatch(result));
   }
 );
 
-server.tool("collection", "Browse caught creatures and evolution progress", {}, () => {
+server.tool("collection", "Browse caught creatures", {}, () => {
   const { engine } = loadEngine();
   const renderer = new SimpleTextRenderer();
-  const creatures = getCreatureMap();
-  return text(renderer.renderCollection(engine.getState().collection, creatures));
-});
-
-server.tool("inventory", "View your items", {}, () => {
-  const { engine } = loadEngine();
-  const renderer = new SimpleTextRenderer();
-  const items = getItemMap();
-  return text(renderer.renderInventory(engine.getState().inventory, items));
+  return text(renderer.renderCollection(engine.getState().collection));
 });
 
 server.tool(
-  "evolve",
-  "Evolve a creature that has enough fragments",
-  { creatureId: z.string().describe("Creature ID to evolve (lowercase, e.g. 'mousebyte')") },
-  ({ creatureId }) => {
+  "merge",
+  "Merge two creatures from your collection",
+  {
+    parentAId: z.string().describe("ID of first parent creature"),
+    parentBId: z.string().describe("ID of second parent creature"),
+  },
+  ({ parentAId, parentBId }) => {
     const { stateManager, engine } = loadEngine();
     const renderer = new SimpleTextRenderer();
-    const result = engine.evolve(creatureId);
+    const result = engine.merge(parentAId, parentBId);
     stateManager.save(engine.getState());
-    return text(renderer.renderEvolve(result));
+    return text(renderer.renderMerge(result));
   }
 );
+
+server.tool("energy", "Show current energy level", {}, () => {
+  const { engine } = loadEngine();
+  const renderer = new SimpleTextRenderer();
+  const state = engine.getState();
+  return text(renderer.renderEnergy(state.energy, MAX_ENERGY));
+});
 
 server.tool("status", "View player profile and game stats", {}, () => {
   const { engine } = loadEngine();

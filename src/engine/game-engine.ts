@@ -1,149 +1,70 @@
-import {
-  GameState,
-  Tick,
-  ScanResult,
-  CatchResult,
-  EvolveResult,
-  StatusResult,
-  TickResult,
-  Notification,
-  CreatureDefinition,
-  ItemDefinition,
-} from "../types";
-import { getCreatureMap, getSpawnableCreatures, CREATURES } from "../config/creatures";
-import { getItemMap, ITEMS } from "../config/items";
-import { MESSAGES } from "../config/constants";
-import { formatMessage } from "../config/loader";
+import { GameState, Tick, TickResult, ScanResult, ScanEntry, CatchResult, MergeResult, StatusResult, Notification } from "../types";
 import { processNewTick } from "./ticks";
-import { processSpawns, cleanupDespawned } from "./spawn";
-import { attemptCatch } from "./catch";
-import { evolveCreature } from "./evolution";
-import { processPassiveDrip, processSessionReward, checkMilestones } from "./inventory";
+import { spawnBatch, cleanupBatch } from "./batch";
+import { attemptCatch, calculateCatchRate } from "./catch";
+import { calculateEnergyCost, processEnergyGain } from "./energy";
+import { attemptMerge } from "./merge";
+import { TICKS_PER_SPAWN_CHECK, SPAWN_PROBABILITY } from "../config/constants";
 
 export class GameEngine {
-  private creatures: Map<string, CreatureDefinition>;
-  private items: Map<string, ItemDefinition>;
+  private state: GameState;
 
-  constructor(private state: GameState) {
-    this.creatures = getCreatureMap();
-    this.items = getItemMap();
+  constructor(state: GameState) {
+    this.state = state;
   }
 
   processTick(tick: Tick, rng: () => number = Math.random): TickResult {
-    const now = tick.timestamp;
     const notifications: Notification[] = [];
 
+    // Process tick
     processNewTick(this.state, tick);
 
-    const despawned = cleanupDespawned(this.state, now);
-    for (const id of despawned) {
-      const c = this.creatures.get(id);
-      notifications.push({
-        type: "despawn",
-        message: formatMessage(MESSAGES.notifications.despawn, { name: c?.name || id }),
-      });
-    }
+    // Energy gain
+    const energyGained = processEnergyGain(this.state, tick.timestamp);
 
-    const spawned = processSpawns(this.state, now, rng);
-    for (const c of spawned) {
-      const isRare = c.rarity === "rare" || c.rarity === "epic" || c.rarity === "legendary";
-      notifications.push({
-        type: isRare ? "rare_spawn" : "spawn",
-        message: isRare
-          ? MESSAGES.notifications.rareSpawn
-          : MESSAGES.notifications.normalSpawn,
-      });
-    }
+    // Cleanup old batch
+    const despawned = cleanupBatch(this.state, tick.timestamp);
 
-    const itemsEarned = processPassiveDrip(this.state, rng);
-
-    if (!this.state.claimedMilestones) {
-      this.state.claimedMilestones = [];
-    }
-    const milestoneItems = checkMilestones(this.state, this.state.claimedMilestones);
-    itemsEarned.push(...milestoneItems);
-
-    if (milestoneItems.length > 0) {
-      const itemNames = milestoneItems.map((i) => `${i.count}x ${i.item.name}`).join(", ");
-      notifications.push({
-        type: "milestone",
-        message: formatMessage(MESSAGES.notifications.milestone, { items: itemNames }),
-      });
-    }
-
-    // Session reward when event is a session-end signal
-    if (tick.eventType === "Stop") {
-      const sessionItems = processSessionReward(this.state, rng);
-      itemsEarned.push(...sessionItems);
-    }
-
-    // Notify evolution_ready only for creatures that just became ready this tick
-    for (const entry of this.state.collection) {
-      if (entry.evolved) continue;
-      const creature = this.creatures.get(entry.creatureId);
-      if (!creature?.evolution) continue;
-      if (entry.fragments >= creature.evolution.fragmentCost) {
-        // Only notify if not already notified (tracked in claimedMilestones with evo_ prefix)
-        const evoKey = `evo_ready_${entry.creatureId}`;
-        if (!this.state.claimedMilestones.includes(evoKey)) {
-          this.state.claimedMilestones.push(evoKey);
-          notifications.push({
-            type: "evolution_ready",
-            message: formatMessage(MESSAGES.notifications.evolutionReady, { name: creature.name }),
-          });
+    // Try to spawn new batch
+    let spawned = false;
+    if (!this.state.batch && this.state.profile.totalTicks % TICKS_PER_SPAWN_CHECK === 0) {
+      if (rng() < SPAWN_PROBABILITY) {
+        const creatures = spawnBatch(this.state, tick.timestamp, rng);
+        if (creatures.length > 0) {
+          spawned = true;
+          notifications.push({ message: `${creatures.length} creatures appeared nearby!`, level: "moderate" });
         }
       }
     }
 
-    return {
-      notifications,
-      spawned,
-      itemsEarned,
-      despawned: despawned.map((id) => this.creatures.get(id)?.name || id),
-    };
+    return { notifications, spawned, energyGained, despawned };
   }
 
   scan(): ScanResult {
-    const now = Date.now();
-    cleanupDespawned(this.state, now);
-
-    // Calculate total catch items
-    const catchItems = ITEMS.filter((i) => i.type === "capture").map((i) => i.id);
-    const totalCatchItems = catchItems.reduce((sum, id) => sum + (this.state.inventory[id] || 0), 0);
-
-    return {
-      nearby: this.state.nearby.map((n, i) => {
-        const creature = this.creatures.get(n.creatureId)!;
-        return {
-          index: i,
-          creature,
-          spawnedAt: n.spawnedAt,
-          catchRate: creature.baseCatchRate,
-          attemptsRemaining: n.maxAttempts - n.failedAttempts,  // New
-        };
-      }),
-      totalCatchItems,  // New
-    };
+    const nearby: ScanEntry[] = this.state.nearby.map((creature, index) => ({
+      index,
+      creature,
+      catchRate: calculateCatchRate(creature.traits, this.state.batch?.failPenalty ?? 0),
+      energyCost: calculateEnergyCost(creature.traits),
+    }));
+    return { nearby, energy: this.state.energy, batch: this.state.batch };
   }
 
-  catch(
-    nearbyIndex: number,
-    itemId: string,
-    rng: () => number = Math.random
-  ): CatchResult {
-    return attemptCatch(this.state, nearbyIndex, itemId, this.creatures, this.items, rng);
+  catch(nearbyIndex: number, rng: () => number = Math.random): CatchResult {
+    return attemptCatch(this.state, nearbyIndex, rng);
   }
 
-  evolve(creatureId: string): EvolveResult {
-    return evolveCreature(this.state, creatureId, this.creatures);
+  merge(parentAId: string, parentBId: string, rng: () => number = Math.random): MergeResult {
+    return attemptMerge(this.state, parentAId, parentBId, rng);
   }
 
   status(): StatusResult {
     return {
-      profile: { ...this.state.profile },
+      profile: this.state.profile,
       collectionCount: this.state.collection.length,
-      totalCreatures: CREATURES.length,
+      energy: this.state.energy,
       nearbyCount: this.state.nearby.length,
+      batchAttemptsRemaining: this.state.batch?.attemptsRemaining ?? 0,
     };
   }
 

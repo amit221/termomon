@@ -171,6 +171,69 @@ export interface TickResult {
   despawned: string[];
 }
 
+// --- Config Types ---
+
+export interface MilestoneCondition {
+  type: "totalCatches" | "currentStreak" | "totalTicks";
+  threshold: number;
+}
+
+export interface MilestoneReward {
+  energy?: number;
+}
+
+export interface MilestoneConfig {
+  id: string;
+  description: string;
+  condition: MilestoneCondition;
+  reward: MilestoneReward[];
+  oneTime: boolean;
+}
+
+export interface BalanceConfig {
+  batch: {
+    ticksPerSpawnCheck: number;
+    spawnProbability: number;
+    batchLingerMs: number;
+    sharedAttempts: number;
+    timeOfDay: Record<string, [number, number]>;
+  };
+  catching: {
+    baseCatchRate: number;
+    minCatchRate: number;
+    maxCatchRate: number;
+    failPenaltyPerMiss: number;
+    xpPerRarity: Record<string, number>;
+  };
+  energy: {
+    gainIntervalMs: number;
+    maxEnergy: number;
+    startingEnergy: number;
+    sessionBonus: number;
+  };
+  merge: {
+    baseMergeRate: number;
+    minMergeRate: number;
+    maxMergeRate: number;
+    baseMutation: number;
+    volatileMutationBonus: number;
+    stableMutationPenalty: number;
+    minMutation: number;
+    maxMutation: number;
+    mutationUpWeight: number;
+    doubleMutationChance: number;
+  };
+  progression: {
+    xpPerLevel: number;
+    sessionGapMs: number;
+    tickPruneCount: number;
+  };
+  rewards: {
+    milestones: MilestoneConfig[];
+  };
+  messages: Record<string, Record<string, string>>;
+}
+
 // --- Renderer Interface ---
 
 export interface Renderer {
