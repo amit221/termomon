@@ -512,5 +512,65 @@
       "description": "A prismatic memory core, needed for advanced evolution",
       "type": "catalyst"
     }
-  ]
+  ],
+  "messages": {
+    "scan": {
+      "empty": "No signals detected — nothing nearby right now.",
+      "header": "NEARBY SIGNALS — {count} detected",
+      "catchItems": "Catch items: {count}",
+      "footer": "Use /catch [number] to attempt capture"
+    },
+    "catch": {
+      "successHeader": "*** CAUGHT! ***",
+      "captured": "{name} captured with {item}",
+      "xpGained": "+{xp} XP",
+      "fragmentProgress": "Fragments: [{bar}] {count}/{cost}",
+      "fragmentCount": "Fragment: {count}",
+      "evolutionReady": "[Ready to evolve!]",
+      "bonusItem": "Bonus: +{count}x {name}",
+      "fledHeader": "* FLED! *",
+      "fledMessage": "{name} slipped away for good.",
+      "itemUsed": "The {item} was used.",
+      "escapedHeader": "X ESCAPED",
+      "escapedMessage": "{name} broke free!",
+      "escapedHint": "Try again with another {item}"
+    },
+    "collection": {
+      "empty": "Your collection is empty. Use /scan to find creatures nearby.",
+      "header": "COLLECTION — {count} creatures",
+      "evolved": "[EVOLVED]",
+      "caught": "Caught: {count}x",
+      "fragProgress": "Frags: [{bar}] {count}/{cost}",
+      "evolutionReady": "[Ready to evolve!]"
+    },
+    "inventory": {
+      "empty": "Inventory is empty. Complete tasks and catches to earn items.",
+      "header": "INVENTORY",
+      "captureSection": "CAPTURE DEVICES",
+      "catalystSection": "EVOLUTION CATALYSTS"
+    },
+    "evolve": {
+      "failed": "Evolution failed.",
+      "successHeader": "[* EVOLUTION COMPLETE! *]",
+      "transform": "{from} -> {to}",
+      "catalystUsed": "(Used: {catalyst})"
+    },
+    "status": {
+      "header": "STATUS",
+      "level": "Level {level}",
+      "xp": "XP: {bar} {xp}/{nextXp}",
+      "catches": "Total catches: {count}",
+      "collection": "Collection: {bar} {count}/{total}",
+      "streak": "Streak: {streak} days (best: {best})",
+      "nearby": "Nearby: {count} creatures",
+      "ticks": "Total ticks: {count}"
+    },
+    "notifications": {
+      "despawn": "{name} slipped away...",
+      "rareSpawn": "Rare signal detected!",
+      "normalSpawn": "Something flickering nearby...",
+      "milestone": "Milestone reward! +{items}",
+      "evolutionReady": "{name} has enough fragments to evolve!"
+    }
+  }
 }
