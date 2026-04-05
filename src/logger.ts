@@ -7,10 +7,10 @@ const MAX_LOG_SIZE = 5 * 1024 * 1024; // 5 MB
 type LogLevel = "debug" | "info" | "warn" | "error";
 
 const LOG_DIR =
-  process.env.TERMOMON_LOG_PATH ||
-  path.join(os.homedir(), ".termomon");
+  process.env.COMPI_LOG_PATH ||
+  path.join(os.homedir(), ".compi");
 
-const LOG_FILE = path.join(LOG_DIR, "termomon.log");
+const LOG_FILE = path.join(LOG_DIR, "compi.log");
 
 function rotateIfNeeded(): void {
   try {

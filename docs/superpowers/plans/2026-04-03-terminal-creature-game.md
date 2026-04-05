@@ -25,7 +25,7 @@ src/
     creatures.ts                    — Creature roster data (~20 creatures for POC)
     items.ts                        — Item definitions (capture items + catalysts)
   state/
-    state-manager.ts                — Read/write ~/.termomon/state.json atomically
+    state-manager.ts                — Read/write ~/.compi/state.json atomically
   engine/
     ticks.ts                        — Process ticks, derive sessions/streaks/steps
     spawn.ts                        — Spawn algorithm (rarity weights, time-of-day, RNG)
@@ -87,12 +87,12 @@ git init
 
 ```json
 {
-  "name": "termomon",
+  "name": "compi",
   "version": "0.1.0",
   "description": "A terminal creature collection game — catch digital beings as you work",
   "main": "dist/index.js",
   "bin": {
-    "termomon": "dist/cli.js"
+    "compi": "dist/cli.js"
   },
   "scripts": {
     "build": "tsc",
@@ -159,7 +159,7 @@ node_modules/
 dist/
 coverage/
 *.tgz
-.termomon/
+.compi/
 ```
 
 - [ ] **Step 6: Install dependencies and verify**
@@ -891,7 +891,7 @@ describe("StateManager", () => {
   let stateManager: StateManager;
 
   beforeEach(() => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "termomon-test-"));
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "compi-test-"));
     stateManager = new StateManager(path.join(tmpDir, "state.json"));
   });
 
@@ -2741,7 +2741,7 @@ describe("CLI", () => {
   let statePath: string;
 
   beforeEach(() => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "termomon-cli-test-"));
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "compi-cli-test-"));
     statePath = path.join(tmpDir, "state.json");
   });
 
@@ -2751,7 +2751,7 @@ describe("CLI", () => {
 
   function run(cmd: string): string {
     return execSync(`npx ts-node src/cli.ts ${cmd}`, {
-      env: { ...process.env, TERMOMON_STATE_PATH: statePath },
+      env: { ...process.env, COMPI_STATE_PATH: statePath },
       cwd: path.resolve(__dirname, ".."),
       encoding: "utf-8",
     });
@@ -2825,8 +2825,8 @@ import { getCreatureMap } from "./config/creatures";
 import { getItemMap } from "./config/items";
 
 const statePath =
-  process.env.TERMOMON_STATE_PATH ||
-  path.join(os.homedir(), ".termomon", "state.json");
+  process.env.COMPI_STATE_PATH ||
+  path.join(os.homedir(), ".compi", "state.json");
 
 const args = process.argv.slice(2);
 const command = args[0];
@@ -2877,7 +2877,7 @@ try {
       const index = parseInt(args[1], 10) - 1; // User-facing is 1-indexed
       const itemId = args.find((a) => a.startsWith("--item="))?.split("=")[1] || "bytetrap";
       if (isNaN(index)) {
-        console.error("Usage: termomon catch [number] --item=bytetrap");
+        console.error("Usage: compi catch [number] --item=bytetrap");
         process.exit(1);
       }
       const result = engine.catch(index, itemId);
@@ -2901,7 +2901,7 @@ try {
     case "evolve": {
       const creatureId = args[1];
       if (!creatureId) {
-        console.error("Usage: termomon evolve [creature-id]");
+        console.error("Usage: compi evolve [creature-id]");
         process.exit(1);
       }
       const result = engine.evolve(creatureId);
@@ -2936,7 +2936,7 @@ try {
     }
 
     default:
-      console.log("Termomon — Terminal Creature Collection Game\n");
+      console.log("Compi — Terminal Creature Collection Game\n");
       console.log("Commands:");
       console.log("  tick                    Record activity tick");
       console.log("  scan                    Show nearby creatures");
@@ -3044,7 +3044,7 @@ process.stdin.on("end", () => {
       const scan = JSON.parse(result);
       if (scan.nearby && scan.nearby.length > 0) {
         const notification = {
-          additionalContext: `[Termomon] ${scan.nearby.length} creature(s) nearby. The user can run /scan to see them.`,
+          additionalContext: `[Compi] ${scan.nearby.length} creature(s) nearby. The user can run /scan to see them.`,
         };
         process.stdout.write(JSON.stringify(notification));
       }
@@ -3095,7 +3095,7 @@ git commit -m "feat: add Claude Code hook script for passive tick recording"
 
 ```json
 {
-  "name": "termomon",
+  "name": "compi",
   "version": "0.1.0",
   "description": "Terminal creature collection game — catch digital beings as you work",
   "skills": [
@@ -3151,7 +3151,7 @@ name: scan
 description: Show nearby creatures that can be caught
 ---
 
-Run the termomon scan command and display the results to the user.
+Run the compi scan command and display the results to the user.
 
 Run this Bash command:
 ```bash
@@ -3191,7 +3191,7 @@ name: collection
 description: Browse your caught creatures and evolution progress
 ---
 
-Run the termomon collection command and display the results.
+Run the compi collection command and display the results.
 
 ```bash
 node "$CLAUDE_PLUGIN_ROOT/dist/cli.js" collection
@@ -3208,7 +3208,7 @@ name: inventory
 description: View your items
 ---
 
-Run the termomon inventory command and display the results.
+Run the compi inventory command and display the results.
 
 ```bash
 node "$CLAUDE_PLUGIN_ROOT/dist/cli.js" inventory
@@ -3246,7 +3246,7 @@ name: status
 description: View your player profile and game stats
 ---
 
-Run the termomon status command and display the results.
+Run the compi status command and display the results.
 
 ```bash
 node "$CLAUDE_PLUGIN_ROOT/dist/cli.js" status
@@ -3263,7 +3263,7 @@ name: settings
 description: View or change game settings (renderer, notifications)
 ---
 
-View or change termomon settings.
+View or change compi settings.
 
 Usage:
 - `/settings` — view current settings
@@ -3310,7 +3310,7 @@ Expected: All tests PASS.
 - [ ] **Step 3: Smoke test the compiled CLI**
 
 ```bash
-export TERMOMON_STATE_PATH=/tmp/termomon-smoke-test/state.json
+export COMPI_STATE_PATH=/tmp/compi-smoke-test/state.json
 node dist/cli.js status
 node dist/cli.js tick
 node dist/cli.js tick
@@ -3332,7 +3332,7 @@ Expected: No errors, state file updated.
 - [ ] **Step 5: Clean up smoke test state**
 
 ```bash
-rm -rf /tmp/termomon-smoke-test
+rm -rf /tmp/compi-smoke-test
 ```
 
 - [ ] **Step 6: Commit any fixes**

@@ -10,8 +10,8 @@ const path = require("path");
 const fs = require("fs");
 const os = require("os");
 
-const LOG_DIR = process.env.TERMOMON_LOG_PATH || path.join(os.homedir(), ".termomon");
-const LOG_FILE = path.join(LOG_DIR, "termomon.log");
+const LOG_DIR = process.env.COMPI_LOG_PATH || path.join(os.homedir(), ".compi");
+const LOG_FILE = path.join(LOG_DIR, "compi.log");
 const MAX_LOG_SIZE = 5 * 1024 * 1024;
 
 function log(level, message, extra) {
@@ -65,7 +65,7 @@ process.stdin.on("end", () => {
       });
       const scan = JSON.parse(result);
       if (scan.nearby && scan.nearby.length > 0) {
-        console.log(`[Termomon] ${scan.nearby.length} creature(s) nearby — briefly mention this to the user at the end of your response and suggest they run /scan.`);
+        console.log(`[Compi] ${scan.nearby.length} creature(s) nearby — briefly mention this to the user at the end of your response and suggest they run /scan.`);
       }
     }
   } catch (err) {

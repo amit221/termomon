@@ -1,4 +1,4 @@
-# Termomon MCP Server Design
+# Compi MCP Server Design
 
 ## Problem
 
@@ -11,11 +11,11 @@ Expose game engine methods as MCP tools via a stdio-based MCP server. Skills bec
 ## Architecture
 
 ```
-User invokes /tm:scan
-  → SKILL.md tells Claude: "call mcp__termomon__scan tool"
+User invokes /compi:scan
+  → SKILL.md tells Claude: "call mcp__compi__scan tool"
   → Claude calls MCP tool (native tool call, no Bash)
   → mcp-server.ts receives request
-  → Loads state from ~/.termomon/state.json
+  → Loads state from ~/.compi/state.json
   → Creates GameEngine, calls scan()
   → Renders result with SimpleTextRenderer
   → Saves state back to disk
@@ -59,7 +59,7 @@ Plugin MCP server registration at project root:
 ```json
 {
   "mcpServers": {
-    "termomon": {
+    "compi": {
       "command": "node",
       "args": ["${CLAUDE_PLUGIN_ROOT}/dist/mcp-server.js"]
     }
@@ -81,7 +81,7 @@ model: claude-haiku-4-5-20251001
 description: Show nearby creatures that can be caught
 ---
 
-Use the `mcp__termomon__scan` tool to scan for nearby creatures.
+Use the `mcp__compi__scan` tool to scan for nearby creatures.
 
 Display the output exactly as returned — it contains ASCII art and creature information. Do not summarize or reformat.
 ```
@@ -100,7 +100,7 @@ Parse the arguments to determine:
 
 Usage: `/catch [number]` or `/catch [number] --item=netsnare`
 
-Use the `mcp__termomon__catch` tool with the parsed arguments.
+Use the `mcp__compi__catch` tool with the parsed arguments.
 
 Display the output exactly as returned. If the catch succeeds, congratulate briefly. If it fails, let the user know they can try again.
 ```

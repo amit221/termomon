@@ -1,9 +1,9 @@
 ---
-name: inventory
+name: energy
 model: claude-haiku-4-5-20251001
-description: View your items
+description: Show current energy level
 ---
 
-Use the `mcp__termomon__inventory` tool to view your items.
+Use the `mcp__compi__energy` tool to check energy.
 
 CRITICAL: Output the tool's text response AS-IS in a code block. Do NOT summarize, paraphrase, or reformat.

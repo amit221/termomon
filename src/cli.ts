@@ -8,8 +8,8 @@ import { logger } from "./logger";
 import { MAX_ENERGY } from "./engine/energy";
 
 const statePath =
-  process.env.TERMOMON_STATE_PATH ||
-  path.join(os.homedir(), ".termomon", "state.json");
+  process.env.COMPI_STATE_PATH ||
+  path.join(os.homedir(), ".compi", "state.json");
 
 const args = process.argv.slice(2);
 const command = args[0];
@@ -57,7 +57,7 @@ try {
     case "catch": {
       const index = parseInt(args[1], 10) - 1;
       if (isNaN(index)) {
-        console.error("Usage: termomon catch [number]");
+        console.error("Usage: compi catch [number]");
         process.exit(1);
       }
       const result = engine.catch(index);
@@ -76,7 +76,7 @@ try {
       const parentAId = args[1];
       const parentBId = args[2];
       if (!parentAId || !parentBId) {
-        console.error("Usage: termomon merge <id1> <id2>");
+        console.error("Usage: compi merge <id1> <id2>");
         process.exit(1);
       }
       const result = engine.merge(parentAId, parentBId);
@@ -118,7 +118,7 @@ try {
     }
 
     default:
-      console.log("Termomon — Terminal Creature Collection Game\n");
+      console.log("Compi — Terminal Creature Collection Game\n");
       console.log("Commands:");
       console.log("  tick                    Record activity tick");
       console.log("  scan                    Show nearby creatures");

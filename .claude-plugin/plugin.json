@@ -1,11 +1,11 @@
 {
-  "name": "tm",
+  "name": "compi",
   "version": "0.1.0",
   "description": "Terminal creature collection game — catch digital beings as you work",
   "author": {
-    "name": "termomon"
+    "name": "compi"
   },
-  "repository": "https://github.com/amit221/termomon",
+  "repository": "https://github.com/amit221/compi",
   "license": "MIT",
   "keywords": ["game", "terminal", "creatures", "collection", "pokemon"]
 }

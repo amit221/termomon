@@ -9,7 +9,7 @@ describe("StateManager", () => {
   let stateManager: StateManager;
 
   beforeEach(() => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "termomon-test-"));
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "compi-test-"));
     stateManager = new StateManager(path.join(tmpDir, "state.json"));
   });
 

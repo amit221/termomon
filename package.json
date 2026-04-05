@@ -1,10 +1,10 @@
 {
-  "name": "termomon",
+  "name": "compi",
   "version": "0.1.0",
   "description": "A terminal creature collection game — catch digital beings as you work",
   "main": "dist/index.js",
   "bin": {
-    "termomon": "dist/cli.js"
+    "compi": "dist/cli.js"
   },
   "scripts": {
     "build": "tsc",

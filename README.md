@@ -1,4 +1,4 @@
-# Termomon
+# Compi
 
 A terminal creature collection game inspired by CryptoKitties and Pokemon Go. Every creature is an axolotl with a unique combination of randomized traits — 300 traits across 6 slots creating over 15 billion possible combinations. Catch creatures, manage limited resources, and merge them for a chance at rarer traits.
 
@@ -63,13 +63,13 @@ A boring all-common creature is great merge fuel (+30% success). An all-rare tro
 
 | Slash Command | CLI | Description |
 |---------------|-----|-------------|
-| `/scan` | `termomon scan` | Show nearby batch with traits, catch rates, energy costs |
-| `/catch [n]` | `termomon catch [n]` | Catch creature #N (costs energy + shared attempt) |
-| `/merge [id1] [id2]` | `termomon merge [id1] [id2]` | Merge two creatures from collection |
-| `/collection` | `termomon collection` | Your caught creatures with traits |
-| `/energy` | `termomon energy` | Current energy level |
-| `/status` | `termomon status` | Profile, stats, and progress |
-| `/settings` | `termomon settings` | Configure game settings |
+| `/scan` | `compi scan` | Show nearby batch with traits, catch rates, energy costs |
+| `/catch [n]` | `compi catch [n]` | Catch creature #N (costs energy + shared attempt) |
+| `/merge [id1] [id2]` | `compi merge [id1] [id2]` | Merge two creatures from collection |
+| `/collection` | `compi collection` | Your caught creatures with traits |
+| `/energy` | `compi energy` | Current energy level |
+| `/status` | `compi status` | Profile, stats, and progress |
+| `/settings` | `compi settings` | Configure game settings |
 
 ## Installation
 
@@ -78,8 +78,8 @@ A boring all-common creature is great merge fuel (+30% success). An all-rare tro
 **From source (development):**
 
 ```bash
-git clone https://github.com/amit221/termomon.git termomon
-cd termomon
+git clone https://github.com/amit221/compi.git compi
+cd compi
 npm install
 npm run build
 claude --plugin-dir .
@@ -91,28 +91,28 @@ claude --plugin-dir .
 {
   "hooks": {
     "PostToolUse": [
-      { "hooks": [{ "type": "command", "command": "node \"/path/to/termomon/scripts/tick-hook.js\"" }] }
+      { "hooks": [{ "type": "command", "command": "node \"/path/to/compi/scripts/tick-hook.js\"" }] }
     ],
     "UserPromptSubmit": [
-      { "hooks": [{ "type": "command", "command": "node \"/path/to/termomon/scripts/tick-hook.js\"" }] }
+      { "hooks": [{ "type": "command", "command": "node \"/path/to/compi/scripts/tick-hook.js\"" }] }
     ],
     "Stop": [
-      { "hooks": [{ "type": "command", "command": "node \"/path/to/termomon/scripts/tick-hook.js\"" }] }
+      { "hooks": [{ "type": "command", "command": "node \"/path/to/compi/scripts/tick-hook.js\"" }] }
     ],
     "SessionStart": [
-      { "hooks": [{ "type": "command", "command": "node \"/path/to/termomon/scripts/tick-hook.js\"" }] }
+      { "hooks": [{ "type": "command", "command": "node \"/path/to/compi/scripts/tick-hook.js\"" }] }
     ]
   }
 }
 ```
 
-Replace `/path/to/termomon` with the absolute path to your clone. When installed via a marketplace, hooks load automatically.
+Replace `/path/to/compi` with the absolute path to your clone. When installed via a marketplace, hooks load automatically.
 
 ### Standalone CLI
 
 ```bash
-git clone https://github.com/amit221/termomon.git termomon
-cd termomon
+git clone https://github.com/amit221/compi.git compi
+cd compi
 npm install
 npm run build
 node dist/cli.js status
@@ -121,13 +121,13 @@ node dist/cli.js status
 ### npm (global)
 
 ```bash
-npm install -g termomon
-termomon status
+npm install -g compi
+compi status
 ```
 
 ## Data
 
-Game state is saved to `~/.termomon/state.json`. Override with `TERMOMON_STATE_PATH` env var.
+Game state is saved to `~/.compi/state.json`. Override with `COMPI_STATE_PATH` env var.
 
 Existing v1 saves are automatically migrated to v2 (trait-based system). Old species collections are reset — you start fresh with the new system.
 
@@ -151,7 +151,7 @@ Platform Adapters  (Claude Code hooks + skills)
        |
   Trait Config     (300 traits from traits.json)
        |
-   Local State     (~/.termomon/state.json)
+   Local State     (~/.compi/state.json)
 ```
 
 Engine modules are pure functions with injected RNG — fully testable and deterministic.

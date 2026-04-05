@@ -10,8 +10,8 @@ import { SimpleTextRenderer } from "./renderers/simple-text";
 import { MAX_ENERGY } from "./engine/energy";
 
 const statePath =
-  process.env.TERMOMON_STATE_PATH ||
-  path.join(os.homedir(), ".termomon", "state.json");
+  process.env.COMPI_STATE_PATH ||
+  path.join(os.homedir(), ".compi", "state.json");
 
 function loadEngine() {
   const stateManager = new StateManager(statePath);
@@ -25,7 +25,7 @@ function text(content: string) {
 }
 
 const server = new McpServer({
-  name: "termomon",
+  name: "compi",
   version: "0.1.0",
 });
 

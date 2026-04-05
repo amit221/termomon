@@ -4,9 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Termomon is a terminal creature collection game (Pokemon Go-inspired) that runs as a Claude Code plugin or standalone CLI. Hooks track user activity as "ticks", creatures spawn passively, and players interact via slash commands (`/scan`, `/catch`, `/collection`, `/evolve`, `/status`, `/inventory`, `/settings`).
+Compi is a terminal creature collection game (Pokemon Go-inspired) that runs as a Claude Code plugin or standalone CLI. Hooks track user activity as "ticks", creatures spawn passively, and players interact via slash commands (`/scan`, `/catch`, `/collection`, `/evolve`, `/status`, `/inventory`, `/settings`).
 
-Game state persists to `~/.termomon/state.json` (override with `TERMOMON_STATE_PATH` env var).
+Game state persists to `~/.compi/state.json` (override with `COMPI_STATE_PATH` env var).
 
 ## Commands
 

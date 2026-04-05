@@ -296,7 +296,7 @@ Each renderer implements:
 
 ## Data Persistence
 
-All game state stored in a single local JSON file at `~/.termomon/state.json` (name TBD).
+All game state stored in a single local JSON file at `~/.compi/state.json` (name TBD).
 
 State includes:
 - Player profile (level, XP, streaks, stats)
