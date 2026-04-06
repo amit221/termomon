@@ -73,15 +73,21 @@ try {
     }
 
     case "merge": {
-      const parentAId = args[1];
-      const parentBId = args[2];
-      if (!parentAId || !parentBId) {
-        console.error("Usage: compi merge <id1> <id2>");
+      const targetId = args[1];
+      const foodId = args[2];
+      const confirm = args.includes("--confirm");
+      if (!targetId || !foodId) {
+        console.error("Usage: compi merge <targetId> <foodId> [--confirm]");
         process.exit(1);
       }
-      const result = engine.merge(parentAId, parentBId);
-      save();
-      output(result, renderer.renderMerge(result));
+      if (confirm) {
+        const result = engine.mergeExecute(targetId, foodId);
+        save();
+        output(result, renderer.renderMergeResult(result));
+      } else {
+        const preview = engine.mergePreview(targetId, foodId);
+        output(preview, renderer.renderMergePreview(preview));
+      }
       break;
     }
 
@@ -103,16 +109,14 @@ try {
       const value = args[2];
       if (setting && value) {
         const gameState = engine.getState();
-        if (setting === "renderer") {
-          gameState.settings.renderer = value as "rich" | "simple" | "browser" | "terminal";
-        } else if (setting === "notifications") {
+        if (setting === "notifications") {
           gameState.settings.notificationLevel = value as "minimal" | "moderate" | "off";
         }
         save();
         output(gameState.settings, `Settings updated: ${setting} = ${value}`);
       } else {
         const settings = engine.getState().settings;
-        output(settings, `SETTINGS\n\nRenderer: ${settings.renderer}\nNotifications: ${settings.notificationLevel}`);
+        output(settings, `SETTINGS\n\nNotifications: ${settings.notificationLevel}`);
       }
       break;
     }
@@ -124,7 +128,7 @@ try {
       console.log("  scan                    Show nearby creatures");
       console.log("  catch [n]               Catch creature #n");
       console.log("  collection              View your creatures");
-      console.log("  merge <id1> <id2>       Merge two creatures");
+      console.log("  merge <targetId> <foodId> [--confirm]  Preview or execute merge");
       console.log("  energy                  Show current energy");
       console.log("  status                  Your profile");
       console.log("  settings [key] [value]  View/change settings");

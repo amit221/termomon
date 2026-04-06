@@ -26,7 +26,7 @@ function text(content: string) {
 
 const server = new McpServer({
   name: "compi",
-  version: "0.1.0",
+  version: "0.2.0",
 });
 
 server.tool("scan", "Show nearby creatures that can be caught", {}, () => {
@@ -60,15 +60,21 @@ server.tool(
   "merge",
   "Merge two creatures from your collection",
   {
-    parentAId: z.string().describe("ID of first parent creature"),
-    parentBId: z.string().describe("ID of second parent creature"),
+    targetId: z.string().describe("ID of the creature to keep (gains traits)"),
+    foodId: z.string().describe("ID of the creature to sacrifice"),
+    confirm: z.boolean().optional().describe("Set to true to execute the merge after previewing"),
   },
-  ({ parentAId, parentBId }) => {
+  ({ targetId, foodId, confirm }) => {
     const { stateManager, engine } = loadEngine();
     const renderer = new SimpleTextRenderer();
-    const result = engine.merge(parentAId, parentBId);
-    stateManager.save(engine.getState());
-    return text(renderer.renderMerge(result));
+    if (confirm) {
+      const result = engine.mergeExecute(targetId, foodId);
+      stateManager.save(engine.getState());
+      return text(renderer.renderMergeResult(result));
+    } else {
+      const preview = engine.mergePreview(targetId, foodId);
+      return text(renderer.renderMergePreview(preview));
+    }
   }
 );
 
@@ -89,21 +95,19 @@ server.tool("status", "View player profile and game stats", {}, () => {
 server.tool(
   "settings",
   "View or change game settings",
-  { key: z.string().optional().describe("Setting key: 'renderer' or 'notifications'"), value: z.string().optional().describe("New value for the setting") },
+  { key: z.string().optional().describe("Setting key: 'notifications'"), value: z.string().optional().describe("New value for the setting") },
   ({ key, value }) => {
     const { stateManager, engine } = loadEngine();
     const gameState = engine.getState();
     if (key && value) {
-      if (key === "renderer") {
-        gameState.settings.renderer = value as "rich" | "simple" | "browser" | "terminal";
-      } else if (key === "notifications") {
+      if (key === "notifications") {
         gameState.settings.notificationLevel = value as "minimal" | "moderate" | "off";
       }
       stateManager.save(gameState);
       return text(`Settings updated: ${key} = ${value}`);
     }
     const settings = gameState.settings;
-    return text(`SETTINGS\n\nRenderer: ${settings.renderer}\nNotifications: ${settings.notificationLevel}`);
+    return text(`SETTINGS\n\nNotifications: ${settings.notificationLevel}`);
   }
 );
 
