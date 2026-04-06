@@ -15,7 +15,7 @@ function makeState(overrides: Partial<GameState> = {}): GameState {
     batch: null,
     recentTicks: [],
     claimedMilestones: [],
-    settings: { renderer: "simple", notificationLevel: "moderate" },
+    settings: { notificationLevel: "moderate" },
     ...overrides,
   };
 }

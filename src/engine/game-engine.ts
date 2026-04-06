@@ -1,9 +1,9 @@
-import { GameState, Tick, TickResult, ScanResult, ScanEntry, CatchResult, MergeResult, StatusResult, Notification } from "../types";
+import { GameState, Tick, TickResult, ScanResult, ScanEntry, CatchResult, MergePreview, MergeResult, StatusResult, Notification } from "../types";
 import { processNewTick } from "./ticks";
 import { spawnBatch, cleanupBatch } from "./batch";
 import { attemptCatch, calculateCatchRate } from "./catch";
 import { calculateEnergyCost, processEnergyGain } from "./energy";
-import { attemptMerge } from "./merge";
+import { previewMerge, executeMerge } from "./merge";
 import { TICKS_PER_SPAWN_CHECK, SPAWN_PROBABILITY } from "../config/constants";
 
 export class GameEngine {
@@ -16,16 +16,12 @@ export class GameEngine {
   processTick(tick: Tick, rng: () => number = Math.random): TickResult {
     const notifications: Notification[] = [];
 
-    // Process tick
     processNewTick(this.state, tick);
 
-    // Energy gain
     const energyGained = processEnergyGain(this.state, tick.timestamp);
 
-    // Cleanup old batch
     const despawned = cleanupBatch(this.state, tick.timestamp);
 
-    // Try to spawn new batch
     let spawned = false;
     if (!this.state.batch && this.state.profile.totalTicks % TICKS_PER_SPAWN_CHECK === 0) {
       if (rng() < SPAWN_PROBABILITY) {
@@ -44,8 +40,8 @@ export class GameEngine {
     const nearby: ScanEntry[] = this.state.nearby.map((creature, index) => ({
       index,
       creature,
-      catchRate: calculateCatchRate(creature.traits, this.state.batch?.failPenalty ?? 0),
-      energyCost: calculateEnergyCost(creature.traits),
+      catchRate: calculateCatchRate(creature.slots, this.state.batch?.failPenalty ?? 0),
+      energyCost: calculateEnergyCost(creature.slots),
     }));
     return { nearby, energy: this.state.energy, batch: this.state.batch };
   }
@@ -54,8 +50,12 @@ export class GameEngine {
     return attemptCatch(this.state, nearbyIndex, rng);
   }
 
-  merge(parentAId: string, parentBId: string, rng: () => number = Math.random): MergeResult {
-    return attemptMerge(this.state, parentAId, parentBId, rng);
+  mergePreview(targetId: string, foodId: string): MergePreview {
+    return previewMerge(this.state, targetId, foodId);
+  }
+
+  mergeExecute(targetId: string, foodId: string, rng: () => number = Math.random): MergeResult {
+    return executeMerge(this.state, targetId, foodId, rng);
   }
 
   status(): StatusResult {
