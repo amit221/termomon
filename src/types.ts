@@ -1,10 +1,10 @@
-// src/types.ts
+// src/types.ts — Compi v2
 
-// --- Rarity (8 tiers, pyramid distribution) ---
+// --- Rarity (6 tiers) ---
 
-export type Rarity = "common" | "uncommon" | "rare" | "epic" | "legendary" | "mythic" | "ancient" | "void";
+export type Rarity = "common" | "uncommon" | "rare" | "epic" | "legendary" | "mythic";
 
-export const RARITY_ORDER: Rarity[] = ["common", "uncommon", "rare", "epic", "legendary", "mythic", "ancient", "void"];
+export const RARITY_ORDER: Rarity[] = ["common", "uncommon", "rare", "epic", "legendary", "mythic"];
 
 export const RARITY_STARS: Record<Rarity, number> = {
   common: 1,
@@ -13,47 +13,26 @@ export const RARITY_STARS: Record<Rarity, number> = {
   epic: 4,
   legendary: 5,
   mythic: 6,
-  ancient: 7,
-  void: 8,
 };
+
+// --- Slots (4) ---
+
+export type SlotId = "eyes" | "mouth" | "body" | "tail";
+
+export const SLOT_IDS: SlotId[] = ["eyes", "mouth", "body", "tail"];
 
 // --- Traits ---
 
-export type TraitSlotId = "eyes" | "mouth" | "tail" | "gills" | "pattern" | "aura";
-
-export const TRAIT_SLOTS: TraitSlotId[] = ["eyes", "mouth", "tail", "gills", "pattern", "aura"];
-
-export type MergeModifierType = "stable" | "volatile" | "catalyst";
-
-export interface MergeModifier {
-  type: MergeModifierType;
-  value: number;
-}
-
-export interface TraitDefinition {
+export interface TraitVariant {
   id: string;
   name: string;
-  rarity: Rarity;
   art: string;
-  mergeModifier: MergeModifier;
 }
 
-export interface TraitSlotConfig {
-  slotId: TraitSlotId;
-  variants: TraitDefinition[];
-}
-
-export interface CatalystSynergy {
-  traitA: string;
-  traitB: string;
-  bonus: number;
-}
-
-export interface CreatureTrait {
-  slotId: TraitSlotId;
-  traitId: string;
+export interface CreatureSlot {
+  slotId: SlotId;
+  variantId: string;
   rarity: Rarity;
-  mergeModifier: MergeModifier;
 }
 
 // --- Time ---
@@ -70,13 +49,15 @@ export interface Tick {
 
 export interface NearbyCreature {
   id: string;
-  traits: CreatureTrait[];
+  name: string;
+  slots: CreatureSlot[];
   spawnedAt: number;
 }
 
 export interface CollectionCreature {
   id: string;
-  traits: CreatureTrait[];
+  name: string;
+  slots: CreatureSlot[];
   caughtAt: number;
   generation: number;
   mergedFrom?: [string, string];
@@ -100,7 +81,6 @@ export interface PlayerProfile {
 }
 
 export interface GameSettings {
-  renderer: "simple" | "rich" | "browser" | "terminal";
   notificationLevel: "minimal" | "moderate" | "off";
 }
 
@@ -147,13 +127,27 @@ export interface CatchResult {
   failPenalty: number;
 }
 
+export interface SlotUpgradeChance {
+  slotId: SlotId;
+  currentRarity: Rarity;
+  nextRarity: Rarity;
+  chance: number;
+}
+
+export interface MergePreview {
+  target: CollectionCreature;
+  food: CollectionCreature;
+  slotChances: SlotUpgradeChance[];
+}
+
 export interface MergeResult {
-  success: boolean;
-  parentA: CollectionCreature;
-  parentB: CollectionCreature;
-  child: CollectionCreature | null;
-  mergeRate: number;
-  synergyBonuses: CatalystSynergy[];
+  success: true;
+  target: CollectionCreature;
+  food: CollectionCreature;
+  upgradedSlot: SlotId;
+  previousRarity: Rarity;
+  newRarity: Rarity;
+  graftedVariantName: string;
 }
 
 export interface StatusResult {
@@ -203,6 +197,7 @@ export interface BalanceConfig {
     minCatchRate: number;
     maxCatchRate: number;
     failPenaltyPerMiss: number;
+    rarityPenalty: Record<string, number>;
     xpPerRarity: Record<string, number>;
   };
   energy: {
@@ -210,18 +205,11 @@ export interface BalanceConfig {
     maxEnergy: number;
     startingEnergy: number;
     sessionBonus: number;
+    costPerRarity: Record<string, number>;
   };
   merge: {
-    baseMergeRate: number;
-    minMergeRate: number;
-    maxMergeRate: number;
-    baseMutation: number;
-    volatileMutationBonus: number;
-    stableMutationPenalty: number;
-    minMutation: number;
-    maxMutation: number;
-    mutationUpWeight: number;
-    doubleMutationChance: number;
+    slotWeightBase: number;
+    slotWeightPerTier: number;
   };
   progression: {
     xpPerLevel: number;
@@ -239,7 +227,8 @@ export interface BalanceConfig {
 export interface Renderer {
   renderScan(result: ScanResult): string;
   renderCatch(result: CatchResult): string;
-  renderMerge(result: MergeResult): string;
+  renderMergePreview(preview: MergePreview): string;
+  renderMergeResult(result: MergeResult): string;
   renderCollection(collection: CollectionCreature[]): string;
   renderEnergy(energy: number, maxEnergy: number): string;
   renderStatus(result: StatusResult): string;
