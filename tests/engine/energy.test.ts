@@ -1,4 +1,4 @@
-import { calculateEnergyCost, processEnergyGain, spendEnergy, canAfford } from "../../src/engine/energy";
+import { calculateEnergyCost, processEnergyGain, spendEnergy } from "../../src/engine/energy";
 import { GameState, CreatureSlot } from "../../src/types";
 
 function makeSlots(rarities: string[]): CreatureSlot[] {
@@ -109,12 +109,3 @@ describe("spendEnergy", () => {
   });
 });
 
-describe("canAfford", () => {
-  test("returns true when enough energy", () => {
-    expect(canAfford(10, 5)).toBe(true);
-  });
-
-  test("returns false when not enough", () => {
-    expect(canAfford(2, 5)).toBe(false);
-  });
-});

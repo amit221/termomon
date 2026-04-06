@@ -118,11 +118,21 @@ export function executeMerge(
   const newIndex = Math.min(currentIndex + 1, RARITY_ORDER.length - 1);
   const newRarity: Rarity = RARITY_ORDER[newIndex];
 
-  // Pick a random variant at the new tier for grafting
-  const variants = getVariantsBySlotAndRarity(pickedSlotId, newRarity);
-  const pickedVariant = variants.length > 0
-    ? variants[Math.floor(rng() * variants.length)]
+  // Graft: try to use the food creature's variant for this slot at the new tier.
+  // If food's variant doesn't exist at the new tier, pick a random one.
+  const foodSlot = food.slots.find((s) => s.slotId === pickedSlotId);
+  const foodVariant = foodSlot ? getVariantById(foodSlot.variantId) : null;
+  const newTierVariants = getVariantsBySlotAndRarity(pickedSlotId, newRarity);
+
+  // Check if the food's exact variant exists at the new tier (same name)
+  let pickedVariant = foodVariant
+    ? newTierVariants.find((v) => v.name === foodVariant.name) ?? null
     : null;
+
+  // Fallback: pick random variant at new tier
+  if (!pickedVariant && newTierVariants.length > 0) {
+    pickedVariant = newTierVariants[Math.floor(rng() * newTierVariants.length)];
+  }
 
   // Update target slot in-place
   target.slots[slotIndex] = {

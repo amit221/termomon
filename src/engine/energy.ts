@@ -37,8 +37,4 @@ export function spendEnergy(state: GameState, amount: number): void {
   state.energy -= amount;
 }
 
-export function canAfford(currentEnergy: number, cost: number): boolean {
-  return currentEnergy >= cost;
-}
-
 export { MAX_ENERGY, ENERGY_GAIN_INTERVAL_MS };

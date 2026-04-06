@@ -142,7 +142,7 @@ export class SimpleTextRenderer implements Renderer {
     for (const entry of result.nearby) {
       const c = entry.creature;
       const rate = Math.round(entry.catchRate * 100);
-      lines.push(`  ${DIM}[${entry.index}]${RESET} ${BOLD}${c.name}${RESET}         Rate: ${rate}%  Cost: ${entry.energyCost}E`);
+      lines.push(`  ${DIM}[${entry.index + 1}]${RESET} ${BOLD}${c.name}${RESET}         Rate: ${rate}%  Cost: ${entry.energyCost}E`);
       for (const line of renderCreatureLines(c.slots)) {
         lines.push(line);
       }

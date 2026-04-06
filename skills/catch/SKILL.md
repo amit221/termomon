@@ -8,7 +8,7 @@ Parse the argument for which creature number (1-indexed) from the scan list.
 
 Usage: `/catch [number]`
 
-Use the `mcp__compi__catch` tool with the parsed `index` (number).
+Use the `mcp__plugin_compi_compi__catch` tool with the parsed `index` (number).
 
 CRITICAL: Output the tool's text response AS-IS in a code block. Do NOT summarize, paraphrase, or reformat. The output contains ASCII art that must be preserved exactly.
 

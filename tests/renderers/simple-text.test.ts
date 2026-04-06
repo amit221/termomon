@@ -14,7 +14,7 @@ import {
 function makeSlots(rarities: string[]): CreatureSlot[] {
   const slotIds = ["eyes", "mouth", "body", "tail"] as const;
   // Use real variant IDs from traits.json
-  const variantIds = ["eye_c01", "mth_c01", "bod_c01", "tl_c01"];
+  const variantIds = ["eye_c01", "mth_c01", "bod_c01", "tal_c01"];
   return rarities.map((r, i) => ({
     slotId: slotIds[i % slotIds.length],
     variantId: variantIds[i % variantIds.length],
