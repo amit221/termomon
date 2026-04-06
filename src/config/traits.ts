@@ -1,80 +1,69 @@
 import * as fs from "fs";
 import * as path from "path";
-import { TraitDefinition, TraitSlotId, Rarity, CatalystSynergy } from "../types";
+import { TraitVariant, SlotId, Rarity } from "../types";
 
-interface TraitJsonEntry {
-  slot: TraitSlotId;
-  id: string;
-  name: string;
-  rarity: Rarity;
-  art: string;
-  mergeModifier: { type: "stable" | "volatile" | "catalyst"; value: number };
+interface SlotConfig {
+  id: SlotId;
+  variants: Record<Rarity, TraitVariant[]>;
 }
 
 interface TraitsConfig {
   raritySpawnWeights: Record<Rarity, number>;
-  rarityCatchPenalty: Record<Rarity, number>;
-  rarityEnergyValue: Record<Rarity, number>;
-  traits: TraitJsonEntry[];
-  synergies: CatalystSynergy[];
+  slots: Array<{
+    id: SlotId;
+    variants: Record<string, Array<{ id: string; name: string; art: string }>>;
+  }>;
 }
 
 let _config: TraitsConfig | null = null;
-let _allTraits: TraitDefinition[] = [];
-let _bySlot: Map<TraitSlotId, TraitDefinition[]> = new Map();
-let _byId: Map<string, TraitDefinition> = new Map();
-let _slotById: Map<string, TraitSlotId> = new Map();
+let _slots: SlotConfig[] = [];
+let _byId: Map<string, TraitVariant> = new Map();
+let _slotForVariant: Map<string, SlotId> = new Map();
 
 function ensureLoaded(): void {
   if (_config) return;
   const configPath = path.resolve(__dirname, "../../config/traits.json");
   _config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
-  _allTraits = _config!.traits.map((t) => ({
-    id: t.id,
-    name: t.name,
-    rarity: t.rarity,
-    art: t.art,
-    mergeModifier: t.mergeModifier,
-  }));
-  _bySlot = new Map();
+  _slots = [];
   _byId = new Map();
-  _slotById = new Map();
-  for (const entry of _config!.traits) {
-    const def = _allTraits.find((d) => d.id === entry.id)!;
-    if (!_bySlot.has(entry.slot)) _bySlot.set(entry.slot, []);
-    _bySlot.get(entry.slot)!.push(def);
-    _byId.set(def.id, def);
-    _slotById.set(def.id, entry.slot);
+  _slotForVariant = new Map();
+
+  for (const slotRaw of _config!.slots) {
+    const variants: Record<string, TraitVariant[]> = {};
+    for (const [rarity, variantList] of Object.entries(slotRaw.variants)) {
+      variants[rarity] = variantList.map((v) => ({
+        id: v.id,
+        name: v.name,
+        art: v.art,
+      }));
+      for (const v of variantList) {
+        _byId.set(v.id, { id: v.id, name: v.name, art: v.art });
+        _slotForVariant.set(v.id, slotRaw.id);
+      }
+    }
+    _slots.push({ id: slotRaw.id, variants: variants as Record<Rarity, TraitVariant[]> });
   }
 }
 
-export function loadTraits(): TraitDefinition[] {
+export function loadSlots(): SlotConfig[] {
   ensureLoaded();
-  return _allTraits;
+  return _slots;
 }
 
-export function getTraitsBySlot(slot: TraitSlotId): TraitDefinition[] {
+export function getVariantsBySlotAndRarity(slot: SlotId, rarity: Rarity): TraitVariant[] {
   ensureLoaded();
-  return _bySlot.get(slot) || [];
+  const slotConfig = _slots.find((s) => s.id === slot);
+  return slotConfig?.variants[rarity] ?? [];
 }
 
-export function getTraitById(id: string): TraitDefinition | undefined {
+export function getVariantById(id: string): TraitVariant | undefined {
   ensureLoaded();
   return _byId.get(id);
 }
 
-export function getTraitsByRarity(slot: TraitSlotId, rarity: Rarity): TraitDefinition[] {
-  return getTraitsBySlot(slot).filter((t) => t.rarity === rarity);
-}
-
-export function getTraitSlot(id: string): TraitSlotId | undefined {
+export function getSlotForVariant(id: string): SlotId | undefined {
   ensureLoaded();
-  return _slotById.get(id);
-}
-
-export function getSynergies(): CatalystSynergy[] {
-  ensureLoaded();
-  return _config!.synergies;
+  return _slotForVariant.get(id);
 }
 
 export function getRaritySpawnWeight(rarity: Rarity): number {
@@ -82,20 +71,16 @@ export function getRaritySpawnWeight(rarity: Rarity): number {
   return _config!.raritySpawnWeights[rarity];
 }
 
-export const RARITY_CATCH_PENALTY: Record<Rarity, number> = {
-  common: 0.00, uncommon: 0.02, rare: 0.04, epic: 0.06,
-  legendary: 0.08, mythic: 0.10, ancient: 0.12, void: 0.14,
-};
-
-export const RARITY_ENERGY_VALUE: Record<Rarity, number> = {
-  common: 0, uncommon: 1, rare: 2, epic: 3,
-  legendary: 4, mythic: 5, ancient: 6, void: 7,
-};
+export function loadCreatureName(rng: () => number): string {
+  const namesPath = path.resolve(__dirname, "../../config/names.json");
+  const data = JSON.parse(fs.readFileSync(namesPath, "utf-8"));
+  const names: string[] = data.names;
+  return names[Math.floor(rng() * names.length)];
+}
 
 export function _resetTraitsCache(): void {
   _config = null;
-  _allTraits = [];
-  _bySlot = new Map();
+  _slots = [];
   _byId = new Map();
-  _slotById = new Map();
+  _slotForVariant = new Map();
 }
