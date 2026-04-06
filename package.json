@@ -39,7 +39,6 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
-    "drawille": "^2.0.2",
-    "jimp": "^0.22.12"
+    "string-width": "^4.2.3"
   }
 }
