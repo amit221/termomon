@@ -1,12 +1,22 @@
-import { GameState, CreatureTrait } from "../types";
-import { RARITY_ENERGY_VALUE } from "../config/traits";
+import { GameState, CreatureSlot, Rarity, RARITY_ORDER } from "../types";
+import {
+  ENERGY_GAIN_INTERVAL_MS,
+  MAX_ENERGY,
+  ENERGY_COST_PER_RARITY,
+} from "../config/constants";
 
-const ENERGY_GAIN_INTERVAL_MS = 30 * 60 * 1000;
-const MAX_ENERGY = 30;
+/**
+ * Calculate energy cost from a creature's 4 slots.
+ * Uses the average rarity index to look up cost from ENERGY_COST_PER_RARITY.
+ */
+export function calculateEnergyCost(slots: CreatureSlot[]): number {
+  if (slots.length === 0) return 1;
 
-export function calculateEnergyCost(traits: CreatureTrait[]): number {
-  const sum = traits.reduce((s, t) => s + RARITY_ENERGY_VALUE[t.rarity], 0);
-  return 1 + sum;
+  const totalIndex = slots.reduce((sum, s) => sum + RARITY_ORDER.indexOf(s.rarity), 0);
+  const avgIndex = Math.round(totalIndex / slots.length);
+  const avgRarity: Rarity = RARITY_ORDER[Math.min(avgIndex, RARITY_ORDER.length - 1)];
+
+  return ENERGY_COST_PER_RARITY[avgRarity] ?? 1;
 }
 
 export function processEnergyGain(state: GameState, now: number): number {

@@ -1,18 +1,18 @@
 import { calculateEnergyCost, processEnergyGain, spendEnergy, canAfford } from "../../src/engine/energy";
-import { GameState, CreatureTrait } from "../../src/types";
+import { GameState, CreatureSlot } from "../../src/types";
 
-function makeTraits(rarities: string[]): CreatureTrait[] {
+function makeSlots(rarities: string[]): CreatureSlot[] {
+  const slotIds = ["eyes", "mouth", "body", "tail"] as const;
   return rarities.map((r, i) => ({
-    slotId: ["eyes", "mouth", "tail", "gills", "pattern", "aura"][i] as any,
-    traitId: `test_${r}_${i}`,
+    slotId: slotIds[i % slotIds.length],
+    variantId: `test_${r}_${i}`,
     rarity: r as any,
-    mergeModifier: { type: "stable" as const, value: 0.05 },
   }));
 }
 
 function makeState(overrides: Partial<GameState> = {}): GameState {
   return {
-    version: 2,
+    version: 3,
     profile: { level: 1, xp: 0, totalCatches: 0, totalMerges: 0, totalTicks: 0, currentStreak: 0, longestStreak: 0, lastActiveDate: "" },
     collection: [],
     energy: 10,
@@ -21,30 +21,44 @@ function makeState(overrides: Partial<GameState> = {}): GameState {
     batch: null,
     recentTicks: [],
     claimedMilestones: [],
-    settings: { renderer: "simple", notificationLevel: "moderate" },
+    settings: { notificationLevel: "moderate" },
     ...overrides,
   };
 }
 
 describe("calculateEnergyCost", () => {
   test("all common = 1 energy", () => {
-    const traits = makeTraits(["common", "common", "common", "common", "common", "common"]);
-    expect(calculateEnergyCost(traits)).toBe(1);
+    const slots = makeSlots(["common", "common", "common", "common"]);
+    expect(calculateEnergyCost(slots)).toBe(1);
   });
 
-  test("4 common + 2 uncommon = 3 energy", () => {
-    const traits = makeTraits(["common", "common", "common", "common", "uncommon", "uncommon"]);
-    expect(calculateEnergyCost(traits)).toBe(3);
+  test("all epic = 3 energy", () => {
+    const slots = makeSlots(["epic", "epic", "epic", "epic"]);
+    expect(calculateEnergyCost(slots)).toBe(3);
   });
 
-  test("6 void = 43 energy", () => {
-    const traits = makeTraits(["void", "void", "void", "void", "void", "void"]);
-    expect(calculateEnergyCost(traits)).toBe(43);
+  test("all mythic = 5 energy", () => {
+    const slots = makeSlots(["mythic", "mythic", "mythic", "mythic"]);
+    expect(calculateEnergyCost(slots)).toBe(5);
   });
 
-  test("mixed traits", () => {
-    const traits = makeTraits(["common", "common", "uncommon", "uncommon", "rare", "epic"]);
-    expect(calculateEnergyCost(traits)).toBe(8); // 0+0+1+1+2+3=7, +1=8
+  test("all uncommon = 1 energy", () => {
+    const slots = makeSlots(["uncommon", "uncommon", "uncommon", "uncommon"]);
+    expect(calculateEnergyCost(slots)).toBe(1);
+  });
+
+  test("all rare = 2 energy", () => {
+    const slots = makeSlots(["rare", "rare", "rare", "rare"]);
+    expect(calculateEnergyCost(slots)).toBe(2);
+  });
+
+  test("all legendary = 4 energy", () => {
+    const slots = makeSlots(["legendary", "legendary", "legendary", "legendary"]);
+    expect(calculateEnergyCost(slots)).toBe(4);
+  });
+
+  test("empty slots returns 1 energy", () => {
+    expect(calculateEnergyCost([])).toBe(1);
   });
 });
 
