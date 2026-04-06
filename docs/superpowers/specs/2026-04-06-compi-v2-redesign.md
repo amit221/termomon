@@ -152,6 +152,21 @@ Run any preview with `node <filename>` to see colored output.
 9. **`/energy`** — energy bar + time to next energy
 10. **Notification** — passive one-liner when creatures spawn
 
+## Cosmetic Variant Pool
+
+The variant pool should be extensive — this is what makes each creature feel unique. Target: **~80-100 total visual parts** across all slots and tiers, with progressively fancier Unicode at higher rarities. The full pool will be defined in `config/traits.json` during implementation. See `_preview_unicode.js` for the symbol palette reference.
+
+## Clean Break — No Backward Compatibility
+
+This is a v2 rewrite. No migration of old state, no compatibility shims, no renaming of old code. Specifically:
+
+- Old `GameState` shape is replaced entirely — existing `~/.compi/state.json` files are not migrated
+- Old engine modules (`merge.ts` with stable/volatile/catalyst, old `spawn.ts` with 6-slot creatures) are rewritten, not patched
+- Old config (`config/traits.json` with 6 slots, 8 tiers, merge modifiers) is replaced
+- Old renderer code is replaced
+- Any types, interfaces, or functions that only existed to support the old system are deleted, not deprecated
+- Remove any commands, code paths, or config options that don't serve the v2 design
+
 ## What Gets Removed
 
 - Trait slots: gills, pattern, aura (6 → 4 slots)
@@ -160,6 +175,7 @@ Run any preview with `node <filename>` to see colored output.
 - Rarity tiers: ancient, void (8 → 6 tiers)
 - Merge modifier display ("+0.14 (stable)")
 - Old box-drawing renderer (the `+---+` / `| |` format)
+- Any dead code or types left over from the old system
 
 ## What Stays
 
