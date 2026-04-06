@@ -3,187 +3,308 @@ import {
   ScanResult,
   CatchResult,
   MergeResult,
+  MergePreview,
   StatusResult,
   Notification,
   CollectionCreature,
-  RARITY_STARS,
-  CreatureTrait,
+  CreatureSlot,
+  Rarity,
+  SlotId,
+  SlotUpgradeChance,
 } from "../types";
 import { MAX_ENERGY } from "../engine/energy";
-import { MESSAGES } from "../config/constants";
-import { formatMessage } from "../config/loader";
+import { getVariantById } from "../config/traits";
 
-const BOX_WIDTH = 36;
-const INNER_WIDTH = BOX_WIDTH - 2;
+const stringWidth = require("string-width") as (str: string) => number;
 
-function pad(content: string): string {
-  const padding = Math.max(0, INNER_WIDTH - content.length);
-  return `| ${content}${" ".repeat(padding)}|`;
+// --- ANSI codes ---
+const RESET = "\x1b[0m";
+const BOLD = "\x1b[1m";
+const DIM = "\x1b[2m";
+const GREEN = "\x1b[32m";
+
+const RARITY_COLOR: Record<Rarity, string> = {
+  common: "\x1b[90m",
+  uncommon: "\x1b[97m",
+  rare: "\x1b[36m",
+  epic: "\x1b[35m",
+  legendary: "\x1b[33m",
+  mythic: "\x1b[31m",
+};
+
+function col(text: string, rarity: Rarity): string {
+  return `${RARITY_COLOR[rarity]}${text}${RESET}`;
 }
 
-function padDouble(content: string): string {
-  const padding = Math.max(0, INNER_WIDTH - content.length);
-  return `| ${content}${" ".repeat(padding)}|`;
+// --- Creature art ---
+
+const ART_WIDTH = 13;
+
+function centerLine(rawText: string, coloredText: string): string {
+  const w = stringWidth(rawText);
+  const left = Math.floor((ART_WIDTH - w) / 2);
+  return " ".repeat(Math.max(0, left)) + coloredText;
 }
 
-function hline(char = "-"): string {
-  return `+${char.repeat(BOX_WIDTH - 2)}+`;
+function renderCreatureLines(slots: CreatureSlot[]): string[] {
+  const bySlot: Partial<Record<SlotId, CreatureSlot>> = {};
+  for (const s of slots) {
+    bySlot[s.slotId] = s;
+  }
+
+  const eyesSlot = bySlot["eyes"];
+  const mouthSlot = bySlot["mouth"];
+  const bodySlot = bySlot["body"];
+  const tailSlot = bySlot["tail"];
+
+  const eyesArt = eyesSlot ? (getVariantById(eyesSlot.variantId)?.art ?? "o.o") : "o.o";
+  const mouthArt = mouthSlot ? (getVariantById(mouthSlot.variantId)?.art ?? " - ") : " - ";
+  const bodyArt = bodySlot ? (getVariantById(bodySlot.variantId)?.art ?? " ░░ ") : " ░░ ";
+  const tailArt = tailSlot ? (getVariantById(tailSlot.variantId)?.art ?? "~") : "~";
+
+  const eyesRarity = eyesSlot?.rarity ?? "common";
+  const mouthRarity = mouthSlot?.rarity ?? "common";
+  const bodyRarity = bodySlot?.rarity ?? "common";
+  const tailRarity = tailSlot?.rarity ?? "common";
+
+  // Line 1: eyes centered in W=13
+  const eyesRaw = eyesArt;
+  const eyesColored = col(eyesArt, eyesRarity);
+  const eyesLine = "      " + centerLine(eyesRaw, eyesColored);
+
+  // Line 2: (mouth) centered in W=13
+  const mouthRaw = `(${mouthArt})`;
+  const mouthColored = col("(", mouthRarity) + col(mouthArt, mouthRarity) + col(")", mouthRarity);
+  const mouthLine = "      " + centerLine(mouthRaw, mouthColored);
+
+  // Line 3: ╱body╲ centered in W=13
+  const bodyRaw = `╱${bodyArt}╲`;
+  const bodyColored = col("╱", bodyRarity) + col(bodyArt, bodyRarity) + col("╲", bodyRarity);
+  const bodyLine = "      " + centerLine(bodyRaw, bodyColored);
+
+  // Line 4: tail centered in W=13
+  const tailRaw = tailArt;
+  const tailColored = col(tailArt, tailRarity);
+  const tailLine = "      " + centerLine(tailRaw, tailColored);
+
+  return [eyesLine, mouthLine, bodyLine, tailLine];
 }
 
-function rarityStars(rarity: string): string {
-  const count = RARITY_STARS[rarity as keyof typeof RARITY_STARS] ?? 1;
-  return "★".repeat(count) + "·".repeat(8 - count);
+// --- Progress bars ---
+
+function energyBar(energy: number, maxEnergy: number): string {
+  const filled = Math.min(10, Math.round((energy / maxEnergy) * 10));
+  const bar = "█".repeat(filled) + "░".repeat(10 - filled);
+  return `  Energy: ${GREEN}${bar}${RESET} ${energy}/${maxEnergy}`;
 }
 
-function traitArtLine(traits: CreatureTrait[]): string {
-  return traits.map((t) => t.mergeModifier.type === "volatile" ? "⚡" : t.mergeModifier.type === "catalyst" ? "◈" : "·").join("");
+function xpBar(xp: number, nextXp: number): string {
+  const filled = Math.min(10, Math.round((xp / nextXp) * 10));
+  const bar = "█".repeat(filled) + "░".repeat(10 - filled);
+  return `${GREEN}${bar}${RESET} ${xp}/${nextXp}`;
 }
 
-function mergeModifierSummary(traits: CreatureTrait[]): string {
-  const total = traits.reduce((sum, t) => sum + t.mergeModifier.value, 0);
-  const sign = total >= 0 ? "+" : "";
-  const volatileCount = traits.filter((t) => t.mergeModifier.type === "volatile").length;
-  const stableCount = traits.filter((t) => t.mergeModifier.type === "stable").length;
-  const label = volatileCount > stableCount ? "volatile" : stableCount > volatileCount ? "stable" : "mixed";
-  return `${sign}${total.toFixed(2)} (${label})`;
+function upgradeBar(chance: number, rarity: Rarity): string {
+  const filled = Math.round(chance * 10);
+  const bar = "▸".repeat(filled) + "░".repeat(10 - filled);
+  return `${RARITY_COLOR[rarity]}${bar}${RESET}`;
+}
+
+// --- Divider ---
+
+function divider(): string {
+  return `  ${DIM}${"─".repeat(46)}${RESET}`;
+}
+
+// --- Variant names line ---
+
+function variantNamesLine(slots: CreatureSlot[]): string {
+  const names: string[] = [];
+  const order: SlotId[] = ["eyes", "mouth", "body", "tail"];
+  for (const slotId of order) {
+    const s = slots.find((sl) => sl.slotId === slotId);
+    if (s) {
+      const variant = getVariantById(s.variantId);
+      names.push(variant?.name ?? s.variantId);
+    }
+  }
+  return `      ${DIM}${names.join("  ")}${RESET}`;
 }
 
 export class SimpleTextRenderer implements Renderer {
   renderScan(result: ScanResult): string {
-    if (result.nearby.length === 0) {
-      return MESSAGES.scan.empty;
-    }
+    const lines: string[] = [];
 
-    let out = hline() + "\n";
-    out += pad(formatMessage(MESSAGES.scan.header, { count: result.nearby.length })) + "\n";
-    out += pad(formatMessage(MESSAGES.scan.energy, { energy: result.energy, maxEnergy: MAX_ENERGY })) + "\n";
-    if (result.batch) {
-      out += pad(`Attempts left: ${result.batch.attemptsRemaining}`) + "\n";
-    }
-    out += hline() + "\n";
+    lines.push(energyBar(result.energy, MAX_ENERGY));
+    lines.push(`  ${DIM}${result.nearby.length} creature${result.nearby.length !== 1 ? "s" : ""} nearby${RESET}`);
+    lines.push("");
 
     for (const entry of result.nearby) {
       const c = entry.creature;
-      const traits = c.traits;
       const rate = Math.round(entry.catchRate * 100);
-      const mergeSummary = mergeModifierSummary(traits);
-
-      out += pad(`[${entry.index + 1}] ${rarityStars(traits[0]?.rarity ?? "common")}`) + "\n";
-      out += pad(`    ${traitArtLine(traits)}`) + "\n";
-      out += pad(`    Rate: ${rate}%  Cost: ${entry.energyCost}E`) + "\n";
-      out += pad(`    Merge: ${mergeSummary}`) + "\n";
-      out += hline("-") + "\n";
+      lines.push(`  ${DIM}[${entry.index}]${RESET} ${BOLD}${c.name}${RESET}         Rate: ${rate}%  Cost: ${entry.energyCost}E`);
+      for (const line of renderCreatureLines(c.slots)) {
+        lines.push(line);
+      }
+      lines.push("");
     }
 
-    out += pad(MESSAGES.scan.footer);
-    return out;
+    lines.push(divider());
+    lines.push(`  ${DIM}/catch <number> to attempt a catch${RESET}`);
+
+    return lines.join("\n");
   }
 
   renderCatch(result: CatchResult): string {
     const c = result.creature;
-    const traitLine = traitArtLine(c.traits);
+    const lines: string[] = [];
 
     if (result.success) {
-      let out = hline("=") + "\n";
-      out += padDouble(MESSAGES.catch.successHeader) + "\n";
-      out += hline("=") + "\n";
-      out += padDouble(formatMessage(MESSAGES.catch.captured, { name: c.id })) + "\n";
-      out += padDouble(formatMessage(MESSAGES.catch.xpGained, { xp: result.xpEarned })) + "\n";
-      out += padDouble(formatMessage(MESSAGES.catch.energySpent, { energy: result.energySpent })) + "\n";
-      out += padDouble(`Traits: ${traitLine}`) + "\n";
-      out += hline("=");
-      return out;
+      lines.push(`  ${GREEN}${BOLD}✦ CAUGHT! ✦${RESET}`);
+      lines.push("");
+      lines.push(`  ${BOLD}${c.name}${RESET} joined your collection!`);
+      for (const line of renderCreatureLines(c.slots)) {
+        lines.push(line);
+      }
+      lines.push("");
+      lines.push(`  ${DIM}+${result.xpEarned} XP   -${result.energySpent} Energy${RESET}`);
+      lines.push("");
+      lines.push(divider());
+    } else if (result.fled) {
+      lines.push(`  ${RARITY_COLOR["mythic"]}${BOLD}✦ FLED ✦${RESET}`);
+      lines.push("");
+      lines.push(`  ${BOLD}${c.name}${RESET} fled into the void!`);
+      lines.push(`  ${DIM}The creature is gone.${RESET}`);
+      lines.push("");
+      lines.push(`  ${DIM}-${result.energySpent} Energy${RESET}`);
+      lines.push("");
+      lines.push(divider());
+    } else {
+      lines.push(`  ${RARITY_COLOR["legendary"]}${BOLD}✦ ESCAPED ✦${RESET}`);
+      lines.push("");
+      lines.push(`  ${BOLD}${c.name}${RESET} slipped away!`);
+      for (const line of renderCreatureLines(c.slots)) {
+        lines.push(line);
+      }
+      lines.push("");
+      lines.push(`  ${DIM}-${result.energySpent} Energy   ${result.attemptsRemaining} attempts remaining${RESET}`);
+      lines.push("");
+      lines.push(divider());
     }
 
-    if (result.fled) {
-      let out = hline("=") + "\n";
-      out += padDouble(MESSAGES.catch.fledHeader) + "\n";
-      out += hline("=") + "\n";
-      out += padDouble(formatMessage(MESSAGES.catch.fledMessage, { name: c.id })) + "\n";
-      out += padDouble(formatMessage(MESSAGES.catch.energySpent, { energy: result.energySpent })) + "\n";
-      out += hline("=");
-      return out;
-    }
-
-    let out = hline("=") + "\n";
-    out += padDouble(MESSAGES.catch.escapedHeader) + "\n";
-    out += hline("=") + "\n";
-    out += padDouble(formatMessage(MESSAGES.catch.escapedMessage, { name: c.id })) + "\n";
-    out += padDouble(formatMessage(MESSAGES.catch.energySpent, { energy: result.energySpent })) + "\n";
-    out += padDouble(formatMessage(MESSAGES.catch.escapedHint, { attempts: result.attemptsRemaining })) + "\n";
-    out += hline("=");
-    return out;
+    return lines.join("\n");
   }
 
-  renderMerge(result: MergeResult): string {
-    if (!result.success) {
-      let out = hline("=") + "\n";
-      out += padDouble(MESSAGES.merge.failed) + "\n";
-      out += padDouble(formatMessage(MESSAGES.merge.mergeRate, { rate: Math.round(result.mergeRate * 100) })) + "\n";
-      out += hline("=");
-      return out;
-    }
+  renderMergePreview(preview: MergePreview): string {
+    const { target, food, slotChances } = preview;
+    const lines: string[] = [];
 
-    const child = result.child!;
-    let out = hline("=") + "\n";
-    out += padDouble(MESSAGES.merge.successHeader) + "\n";
-    out += hline("=") + "\n";
-    out += padDouble(formatMessage(MESSAGES.merge.childBorn, { gen: child.generation })) + "\n";
-    out += padDouble(formatMessage(MESSAGES.merge.mergeRate, { rate: Math.round(result.mergeRate * 100) })) + "\n";
-    out += padDouble(`Traits: ${traitArtLine(child.traits)}`) + "\n";
-    if (result.synergyBonuses.length > 0) {
-      out += padDouble(`Synergies: +${result.synergyBonuses.reduce((s, b) => s + b.bonus, 0).toFixed(2)}`) + "\n";
+    lines.push(`  Feed ${BOLD}${food.name}${RESET} ${DIM}(Lv ${food.generation})${RESET} into ${BOLD}${target.name}${RESET} ${DIM}(Lv ${target.generation})${RESET}?`);
+    lines.push(`  ${DIM}${food.name} will be consumed.${RESET}`);
+    lines.push("");
+
+    lines.push(`  ${BOLD}Target: ${target.name}${RESET}`);
+    for (const line of renderCreatureLines(target.slots)) {
+      lines.push(line);
     }
-    out += hline("=");
-    return out;
+    lines.push("");
+
+    lines.push(`  ${BOLD}Food: ${food.name}${RESET}`);
+    for (const line of renderCreatureLines(food.slots)) {
+      lines.push(line);
+    }
+    lines.push("");
+
+    lines.push(`  ${BOLD}Upgrade chances:${RESET}`);
+    // Sort by chance descending
+    const sorted = [...slotChances].sort((a, b) => b.chance - a.chance);
+    for (const sc of sorted) {
+      const slotLabel = sc.slotId.padEnd(5);
+      const bar = upgradeBar(sc.chance, sc.currentRarity);
+      const pct = `${Math.round(sc.chance * 100)}%`.padStart(3);
+      const arrow = `${col(sc.currentRarity, sc.currentRarity)} → ${col(sc.nextRarity, sc.nextRarity)}`;
+      lines.push(`    ${col(slotLabel, sc.currentRarity)}  ${bar} ${pct}  ${DIM}${sc.currentRarity} → ${sc.nextRarity}${RESET}`);
+    }
+    lines.push("");
+    lines.push(divider());
+    lines.push(`  ${DIM}/merge confirm to proceed${RESET}`);
+
+    return lines.join("\n");
+  }
+
+  renderMergeResult(result: MergeResult): string {
+    const { target, food, upgradedSlot, previousRarity, newRarity, graftedVariantName } = result;
+    const lines: string[] = [];
+
+    lines.push(`  ${GREEN}${BOLD}✦ MERGE SUCCESS ✦${RESET}`);
+    lines.push("");
+
+    lines.push(`  ${BOLD}${target.name}${RESET} — ${upgradedSlot} upgraded!`);
+    lines.push(`    ${col(previousRarity, previousRarity)} → ${col(newRarity, newRarity)}`);
+    lines.push(`    ${DIM}→ ${graftedVariantName} (grafted)${RESET}`);
+    lines.push("");
+
+    for (const line of renderCreatureLines(target.slots)) {
+      lines.push(line);
+    }
+    lines.push(variantNamesLine(target.slots));
+    lines.push("");
+
+    lines.push(`  ${DIM}${food.name} was consumed.${RESET}`);
+    lines.push("");
+    lines.push(divider());
+
+    return lines.join("\n");
   }
 
   renderCollection(collection: CollectionCreature[]): string {
+    const lines: string[] = [];
+
     if (collection.length === 0) {
-      return MESSAGES.collection.empty;
+      return "  No creatures in your collection yet. Use /scan to find some!";
     }
 
-    let out = hline() + "\n";
-    out += pad(formatMessage(MESSAGES.collection.header, { count: collection.length })) + "\n";
-    out += hline() + "\n";
+    lines.push(`  ${DIM}Your creatures (${collection.length})${RESET}`);
+    lines.push("");
 
     for (const creature of collection) {
-      const gen = formatMessage(MESSAGES.collection.generation, { gen: creature.generation });
-      out += pad(`ID: ${creature.id.slice(0, 12)}  ${gen}`) + "\n";
-      out += pad(`Traits: ${traitArtLine(creature.traits)}`) + "\n";
-      out += pad(`Merge: ${mergeModifierSummary(creature.traits)}`) + "\n";
-      out += hline("-") + "\n";
+      lines.push(`  ${BOLD}${creature.name}${RESET}  Lv ${creature.generation}`);
+      for (const line of renderCreatureLines(creature.slots)) {
+        lines.push(line);
+      }
+      lines.push(variantNamesLine(creature.slots));
+      lines.push("");
     }
 
-    return out.trimEnd();
+    lines.push(divider());
+
+    return lines.join("\n");
   }
 
   renderEnergy(energy: number, maxEnergy: number): string {
-    const filled = Math.round((energy / maxEnergy) * 10);
-    const bar = "#".repeat(filled) + "-".repeat(10 - filled);
-    return `Energy: [${bar}] ${energy}/${maxEnergy}`;
+    return energyBar(energy, maxEnergy);
   }
 
   renderStatus(result: StatusResult): string {
     const p = result.profile;
-    const nextLevelXP = p.level * 100;
-    const xpBar = Math.round((p.xp / nextLevelXP) * 10);
-    const xpBarStr = "#".repeat(xpBar) + "-".repeat(10 - xpBar);
+    const nextXp = p.level * 100;
+    const lines: string[] = [];
 
-    let out = hline() + "\n";
-    out += pad(MESSAGES.status.header) + "\n";
-    out += hline() + "\n";
-    out += pad(formatMessage(MESSAGES.status.level, { level: p.level })) + "\n";
-    out += pad(formatMessage(MESSAGES.status.xp, { bar: xpBarStr, xp: p.xp, nextXp: nextLevelXP })) + "\n";
-    out += pad(formatMessage(MESSAGES.status.energy, { energy: result.energy, maxEnergy: MAX_ENERGY })) + "\n";
-    out += pad(formatMessage(MESSAGES.status.catches, { count: p.totalCatches })) + "\n";
-    out += pad(formatMessage(MESSAGES.status.merges, { count: p.totalMerges })) + "\n";
-    out += pad(formatMessage(MESSAGES.status.collection, { count: result.collectionCount })) + "\n";
-    out += pad(formatMessage(MESSAGES.status.streak, { streak: p.currentStreak, best: p.longestStreak })) + "\n";
-    out += pad(formatMessage(MESSAGES.status.nearby, { count: result.nearbyCount })) + "\n";
-    out += pad(formatMessage(MESSAGES.status.ticks, { count: p.totalTicks })) + "\n";
-    out += hline();
-    return out;
+    lines.push(`  ${BOLD}Player Status${RESET}`);
+    lines.push("");
+    lines.push(`  Level: ${p.level}`);
+    lines.push(`  XP:    ${xpBar(p.xp, nextXp)}`);
+    lines.push(`  Energy:${GREEN}${"█".repeat(Math.min(10, Math.round((result.energy / MAX_ENERGY) * 10)))}${"░".repeat(10 - Math.min(10, Math.round((result.energy / MAX_ENERGY) * 10)))}${RESET} ${result.energy}/${MAX_ENERGY}`);
+    lines.push("");
+    lines.push(`  Catches:    ${p.totalCatches}`);
+    lines.push(`  Merges:     ${p.totalMerges}`);
+    lines.push(`  Collection: ${result.collectionCount} creatures`);
+    lines.push(`  Streak:     ${p.currentStreak} days ${DIM}(best: ${p.longestStreak})${RESET}`);
+    lines.push(`  Nearby:     ${result.nearbyCount} creatures`);
+    lines.push(`  Ticks:      ${p.totalTicks.toLocaleString()}`);
+    lines.push(divider());
+
+    return lines.join("\n");
   }
 
   renderNotification(notification: Notification): string {
