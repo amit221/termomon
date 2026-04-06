@@ -1,285 +1,153 @@
-// src/engine/merge.ts
+// src/engine/merge.ts — sacrifice merge system
 
 import {
   GameState,
   CollectionCreature,
-  CreatureTrait,
-  MergeResult,
-  CatalystSynergy,
+  CreatureSlot,
+  SlotId,
   Rarity,
   RARITY_ORDER,
-  TRAIT_SLOTS,
-  TraitSlotId,
+  SLOT_IDS,
+  MergePreview,
+  MergeResult,
+  SlotUpgradeChance,
 } from "../types";
-import { getSynergies, getTraitsByRarity } from "../config/traits";
-
-// --- Constants ---
-
-export const BASE_MERGE_RATE = 0.50;
-export const MIN_MERGE_RATE = 0.05;
-export const MAX_MERGE_RATE = 0.90;
-export const BASE_MUTATION = 0.08;
-export const VOLATILE_MUTATION_BONUS = 0.07;
-export const STABLE_MUTATION_PENALTY = 0.04;
-export const MIN_MUTATION = 0.01;
-export const MAX_MUTATION = 0.30;
-export const MUTATION_UP_WEIGHT = 0.75;
-export const DOUBLE_MUTATION_CHANCE = 0.25;
-
-// --- Helpers ---
-
-function generateId(): string {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value));
-}
-
-function rarityIndex(rarity: Rarity): number {
-  return RARITY_ORDER.indexOf(rarity);
-}
-
-function rarityAt(index: number): Rarity {
-  return RARITY_ORDER[clamp(index, 0, RARITY_ORDER.length - 1)];
-}
-
-function pickRandom<T>(items: T[], rng: () => number): T {
-  return items[Math.floor(rng() * items.length)];
-}
-
-// --- Public API ---
+import { getVariantsBySlotAndRarity, getVariantById } from "../config/traits";
+import { SLOT_WEIGHT_BASE, SLOT_WEIGHT_PER_TIER } from "../config/constants";
 
 /**
- * Find all active synergies given the combined trait IDs of both parents.
+ * Calculate weighted upgrade chances for each slot of the target creature.
+ * Rarer slots have higher weight (they are more valuable to upgrade).
+ * Weights are normalized to percentages. Result is sorted by chance descending.
  */
-export function findSynergies(
-  parentA: CollectionCreature,
-  parentB: CollectionCreature,
-  synergies: CatalystSynergy[]
-): CatalystSynergy[] {
-  const allTraitIds = new Set([
-    ...parentA.traits.map((t) => t.traitId),
-    ...parentB.traits.map((t) => t.traitId),
-  ]);
+export function calculateSlotChances(target: CollectionCreature): SlotUpgradeChance[] {
+  const results: SlotUpgradeChance[] = [];
 
-  return synergies.filter(
-    (s) => allTraitIds.has(s.traitA) && allTraitIds.has(s.traitB)
-  );
-}
+  for (const slot of target.slots) {
+    const currentIndex = RARITY_ORDER.indexOf(slot.rarity);
+    // If already at max rarity, still include but next = max
+    const nextIndex = Math.min(currentIndex + 1, RARITY_ORDER.length - 1);
+    const nextRarity = RARITY_ORDER[nextIndex];
 
-/**
- * Calculate merge success rate from both parents' modifiers and active synergies.
- * Clamps to [MIN_MERGE_RATE, MAX_MERGE_RATE].
- */
-export function calculateMergeRate(
-  parentA: CollectionCreature,
-  parentB: CollectionCreature,
-  activeSynergies: CatalystSynergy[]
-): number {
-  const allTraits = [...parentA.traits, ...parentB.traits];
-  const modifierSum = allTraits.reduce((sum, t) => sum + t.mergeModifier.value, 0);
-  const synergyBonus = activeSynergies.reduce((sum, s) => sum + s.bonus, 0);
-  const rate = BASE_MERGE_RATE + modifierSum + synergyBonus;
-  return clamp(rate, MIN_MERGE_RATE, MAX_MERGE_RATE);
-}
-
-/**
- * Resolve 6 child traits by independently processing each slot.
- */
-export function resolveTraitInheritance(
-  traitsA: CreatureTrait[],
-  traitsB: CreatureTrait[],
-  rng: () => number
-): CreatureTrait[] {
-  const result: CreatureTrait[] = [];
-
-  for (const slotId of TRAIT_SLOTS) {
-    const traitA = traitsA.find((t) => t.slotId === slotId);
-    const traitB = traitsB.find((t) => t.slotId === slotId);
-
-    // Determine rarer parent trait
-    const indexA = traitA ? rarityIndex(traitA.rarity) : 0;
-    const indexB = traitB ? rarityIndex(traitB.rarity) : 0;
-    const rarerIndex = Math.max(indexA, indexB);
-    const rarerTrait = indexA >= indexB ? traitA : traitB;
-    const otherTrait = indexA >= indexB ? traitB : traitA;
-    const rarerRarity = rarityAt(rarerIndex);
-
-    // Step 1 — calculate mutation chance
-    const traitPair = [traitA, traitB].filter(Boolean) as CreatureTrait[];
-    const volatileCount = traitPair.filter((t) => t.mergeModifier.type === "volatile").length;
-    const stableCount = traitPair.filter((t) => t.mergeModifier.type === "stable").length;
-    const mutationChance = clamp(
-      BASE_MUTATION + volatileCount * VOLATILE_MUTATION_BONUS - stableCount * STABLE_MUTATION_PENALTY,
-      MIN_MUTATION,
-      MAX_MUTATION
-    );
-
-    // Step 2 — roll for mutation
-    const mutRoll = rng();
-    if (mutRoll < mutationChance) {
-      // Mutation path
-      const dirRoll = rng();
-      if (dirRoll < MUTATION_UP_WEIGHT) {
-        // Mutation UP
-        const doublRoll = rng();
-        const step = doublRoll < DOUBLE_MUTATION_CHANCE ? 2 : 1;
-        const newIndex = clamp(rarerIndex + step, 0, RARITY_ORDER.length - 1);
-        const newRarity = rarityAt(newIndex);
-        const candidates = getTraitsByRarity(slotId, newRarity);
-        if (candidates.length > 0) {
-          const picked = pickRandom(candidates, rng);
-          result.push({
-            slotId,
-            traitId: picked.id,
-            rarity: picked.rarity,
-            mergeModifier: picked.mergeModifier,
-          });
-        } else {
-          // Fallback: use rarer parent's trait or a synthetic one
-          result.push(rarerTrait ?? {
-            slotId,
-            traitId: `${slotId}_fallback`,
-            rarity: newRarity,
-            mergeModifier: { type: "stable", value: 0 },
-          });
-        }
-      } else {
-        // Mutation DOWN
-        const newIndex = clamp(rarerIndex - 1, 0, RARITY_ORDER.length - 1);
-        const newRarity = rarityAt(newIndex);
-        const candidates = getTraitsByRarity(slotId, newRarity);
-        if (candidates.length > 0) {
-          const picked = pickRandom(candidates, rng);
-          result.push({
-            slotId,
-            traitId: picked.id,
-            rarity: picked.rarity,
-            mergeModifier: picked.mergeModifier,
-          });
-        } else {
-          result.push(rarerTrait ?? {
-            slotId,
-            traitId: `${slotId}_fallback`,
-            rarity: newRarity,
-            mergeModifier: { type: "stable", value: 0 },
-          });
-        }
-      }
-    } else {
-      // Step 3 — no mutation: inherit
-      const inheritRoll = rng();
-      if (inheritRoll < 0.55) {
-        // 55%: rarer parent's trait
-        if (rarerTrait) {
-          result.push({ ...rarerTrait });
-        } else {
-          result.push({
-            slotId,
-            traitId: `${slotId}_fallback`,
-            rarity: "common",
-            mergeModifier: { type: "stable", value: 0 },
-          });
-        }
-      } else if (inheritRoll < 0.85) {
-        // 30%: other parent's trait
-        const source = otherTrait ?? rarerTrait;
-        if (source) {
-          result.push({ ...source });
-        } else {
-          result.push({
-            slotId,
-            traitId: `${slotId}_fallback`,
-            rarity: "common",
-            mergeModifier: { type: "stable", value: 0 },
-          });
-        }
-      } else {
-        // 15%: random trait of same rarity as rarer parent
-        const candidates = getTraitsByRarity(slotId, rarerRarity);
-        if (candidates.length > 0) {
-          const picked = pickRandom(candidates, rng);
-          result.push({
-            slotId,
-            traitId: picked.id,
-            rarity: picked.rarity,
-            mergeModifier: picked.mergeModifier,
-          });
-        } else if (rarerTrait) {
-          result.push({ ...rarerTrait });
-        } else {
-          result.push({
-            slotId,
-            traitId: `${slotId}_fallback`,
-            rarity: rarerRarity,
-            mergeModifier: { type: "stable", value: 0 },
-          });
-        }
-      }
-    }
+    // Higher rarity slots get higher weight
+    const weight = SLOT_WEIGHT_BASE + currentIndex * SLOT_WEIGHT_PER_TIER;
+    results.push({
+      slotId: slot.slotId,
+      currentRarity: slot.rarity,
+      nextRarity,
+      chance: weight, // raw weight before normalization
+    });
   }
 
-  return result;
+  // Normalize to percentages
+  const totalWeight = results.reduce((sum, r) => sum + r.chance, 0);
+  for (const r of results) {
+    r.chance = totalWeight > 0 ? r.chance / totalWeight : 1 / results.length;
+  }
+
+  // Sort by chance descending
+  results.sort((a, b) => b.chance - a.chance);
+
+  return results;
 }
 
 /**
- * Attempt to merge two creatures. Both parents are removed regardless of outcome.
+ * Preview a merge: returns slot chances without mutating state.
+ * Throws if creatures not found or same creature used for both.
  */
-export function attemptMerge(
-  state: GameState,
-  parentAId: string,
-  parentBId: string,
-  rng: () => number
-): MergeResult {
-  if (parentAId === parentBId) {
+export function previewMerge(state: GameState, targetId: string, foodId: string): MergePreview {
+  if (targetId === foodId) {
     throw new Error("Cannot merge a creature with itself.");
   }
 
-  const parentA = state.collection.find((c) => c.id === parentAId);
-  const parentB = state.collection.find((c) => c.id === parentBId);
+  const target = state.collection.find((c) => c.id === targetId);
+  const food = state.collection.find((c) => c.id === foodId);
 
-  if (!parentA) throw new Error(`Creature not found: ${parentAId}`);
-  if (!parentB) throw new Error(`Creature not found: ${parentBId}`);
+  if (!target) throw new Error(`Creature not found: ${targetId}`);
+  if (!food) throw new Error(`Creature not found: ${foodId}`);
 
-  const allSynergies = getSynergies();
-  const activeSynergies = findSynergies(parentA, parentB, allSynergies);
-  const mergeRate = calculateMergeRate(parentA, parentB, activeSynergies);
+  const slotChances = calculateSlotChances(target);
 
-  // Remove both parents (consumed regardless of outcome)
-  state.collection = state.collection.filter(
-    (c) => c.id !== parentAId && c.id !== parentBId
-  );
-  state.profile.totalMerges += 1;
+  return { target, food, slotChances };
+}
 
-  // Roll for success
-  const roll = rng();
-  if (roll < mergeRate) {
-    const childTraits = resolveTraitInheritance(parentA.traits, parentB.traits, rng);
-    const child: CollectionCreature = {
-      id: generateId(),
-      traits: childTraits,
-      caughtAt: Date.now(),
-      generation: Math.max(parentA.generation, parentB.generation) + 1,
-      mergedFrom: [parentAId, parentBId],
-    };
-    state.collection.push(child);
-    return {
-      success: true,
-      parentA,
-      parentB,
-      child,
-      mergeRate,
-      synergyBonuses: activeSynergies,
-    };
+/**
+ * Execute a sacrifice merge:
+ * 1. Pick a slot via weighted random from slot chances
+ * 2. Upgrade that slot one tier
+ * 3. Graft a random variant from the new tier onto the target
+ * 4. Remove food from collection
+ * 5. Increment target generation, set mergedFrom
+ */
+export function executeMerge(
+  state: GameState,
+  targetId: string,
+  foodId: string,
+  rng: () => number = Math.random
+): MergeResult {
+  if (targetId === foodId) {
+    throw new Error("Cannot merge a creature with itself.");
   }
 
+  const target = state.collection.find((c) => c.id === targetId);
+  const food = state.collection.find((c) => c.id === foodId);
+
+  if (!target) throw new Error(`Creature not found: ${targetId}`);
+  if (!food) throw new Error(`Creature not found: ${foodId}`);
+
+  const slotChances = calculateSlotChances(target);
+
+  // Weighted random pick a slot
+  const roll = rng();
+  let cumulative = 0;
+  let pickedSlotId: SlotId = slotChances[0].slotId;
+  for (const sc of slotChances) {
+    cumulative += sc.chance;
+    if (roll < cumulative) {
+      pickedSlotId = sc.slotId;
+      break;
+    }
+  }
+
+  // Find the actual slot on the target
+  const slotIndex = target.slots.findIndex((s) => s.slotId === pickedSlotId);
+  const slot = target.slots[slotIndex];
+
+  const previousRarity = slot.rarity;
+  const currentIndex = RARITY_ORDER.indexOf(previousRarity);
+  const newIndex = Math.min(currentIndex + 1, RARITY_ORDER.length - 1);
+  const newRarity: Rarity = RARITY_ORDER[newIndex];
+
+  // Pick a random variant at the new tier for grafting
+  const variants = getVariantsBySlotAndRarity(pickedSlotId, newRarity);
+  const pickedVariant = variants.length > 0
+    ? variants[Math.floor(rng() * variants.length)]
+    : null;
+
+  // Update target slot in-place
+  target.slots[slotIndex] = {
+    slotId: pickedSlotId,
+    variantId: pickedVariant?.id ?? slot.variantId,
+    rarity: newRarity,
+  };
+
+  // Update target metadata
+  target.generation += 1;
+  target.mergedFrom = [targetId, foodId];
+
+  // Remove food from collection
+  state.collection = state.collection.filter((c) => c.id !== foodId);
+
+  // Increment merge count
+  state.profile.totalMerges += 1;
+
   return {
-    success: false,
-    parentA,
-    parentB,
-    child: null,
-    mergeRate,
-    synergyBonuses: activeSynergies,
+    success: true,
+    target,
+    food,
+    upgradedSlot: pickedSlotId,
+    previousRarity,
+    newRarity,
+    graftedVariantName: pickedVariant?.name ?? `${pickedSlotId} variant`,
   };
 }
