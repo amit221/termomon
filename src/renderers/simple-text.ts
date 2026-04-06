@@ -21,7 +21,12 @@ const stringWidth = require("string-width") as (str: string) => number;
 const RESET = "\x1b[0m";
 const BOLD = "\x1b[1m";
 const DIM = "\x1b[2m";
+const WHITE = "\x1b[97m";
+const BLUE = "\x1b[34m";
 const GREEN = "\x1b[32m";
+const YELLOW = "\x1b[33m";
+
+const ENERGY_ICON = `${YELLOW}⚡${RESET}`;
 
 const RARITY_COLOR: Record<Rarity, string> = {
   common: "\x1b[90m",
@@ -95,7 +100,7 @@ function renderCreatureLines(slots: CreatureSlot[]): string[] {
 function energyBar(energy: number, maxEnergy: number): string {
   const filled = Math.min(10, Math.round((energy / maxEnergy) * 10));
   const bar = "█".repeat(filled) + "░".repeat(10 - filled);
-  return `  Energy: ${GREEN}${bar}${RESET} ${energy}/${maxEnergy}`;
+  return `  ${ENERGY_ICON} ${GREEN}${bar}${RESET} ${energy}/${maxEnergy}`;
 }
 
 function xpBar(xp: number, nextXp: number): string {
@@ -116,41 +121,80 @@ function divider(): string {
   return `  ${DIM}${"─".repeat(46)}${RESET}`;
 }
 
-// --- Variant names line ---
+// --- Side-by-side creature + traits display ---
 
-function variantNamesLine(slots: CreatureSlot[]): string {
-  const names: string[] = [];
+const ART_PAD = 20; // fixed width for the art column (visual chars)
+
+function padArtLine(line: string, targetWidth: number): string {
+  const w = stringWidth(line);
+  const pad = Math.max(0, targetWidth - w);
+  return line + " ".repeat(pad);
+}
+
+function renderCreatureSideBySide(slots: CreatureSlot[]): string[] {
+  const artLines = renderCreatureLines(slots);
   const order: SlotId[] = ["eyes", "mouth", "body", "tail"];
+  const traitLines: string[] = [];
+
   for (const slotId of order) {
     const s = slots.find((sl) => sl.slotId === slotId);
     if (s) {
       const variant = getVariantById(s.variantId);
-      names.push(variant?.name ?? s.variantId);
+      const name = variant?.name ?? s.variantId;
+      traitLines.push(`${DIM}${slotId.padEnd(5)}${RESET} ${col(name, s.rarity)} ${DIM}(${s.rarity})${RESET}`);
+    } else {
+      traitLines.push(`${DIM}${slotId.padEnd(5)}${RESET} ${DIM}—${RESET}`);
     }
   }
-  return `      ${DIM}${names.join("  ")}${RESET}`;
+
+  const lines: string[] = [];
+  for (let i = 0; i < 4; i++) {
+    lines.push(padArtLine(artLines[i], ART_PAD) + traitLines[i]);
+  }
+  return lines;
+}
+
+// --- Compact horizontal trait display (for scan list) ---
+
+function horizontalTraitLine(slots: CreatureSlot[]): string {
+  const order: SlotId[] = ["eyes", "mouth", "body", "tail"];
+  const parts: string[] = [];
+  for (const slotId of order) {
+    const s = slots.find((sl) => sl.slotId === slotId);
+    if (s) {
+      const variant = getVariantById(s.variantId);
+      const art = variant?.art ?? "?";
+      parts.push(col(art.padEnd(6), s.rarity));
+    }
+  }
+  return `      ${parts.join(" ")}`;
+}
+
+function horizontalLabelLine(): string {
+  return `      ${DIM}eyes   mouth  body   tail${RESET}`;
 }
 
 export class SimpleTextRenderer implements Renderer {
   renderScan(result: ScanResult): string {
     const lines: string[] = [];
 
-    lines.push(energyBar(result.energy, MAX_ENERGY));
-    lines.push(`  ${DIM}${result.nearby.length} creature${result.nearby.length !== 1 ? "s" : ""} nearby${RESET}`);
+    lines.push(`  ${ENERGY_ICON} ${GREEN}${"█".repeat(Math.min(10, Math.round((result.energy / MAX_ENERGY) * 10)))}${"░".repeat(10 - Math.min(10, Math.round((result.energy / MAX_ENERGY) * 10)))}${RESET} ${result.energy}/${MAX_ENERGY}`);
     lines.push("");
 
     for (const entry of result.nearby) {
       const c = entry.creature;
       const rate = Math.round(entry.catchRate * 100);
-      lines.push(`  ${DIM}[${entry.index + 1}]${RESET} ${BOLD}${c.name}${RESET}         Rate: ${rate}%  Cost: ${entry.energyCost}E`);
-      for (const line of renderCreatureLines(c.slots)) {
+      const statsIndent = " ".repeat(ART_PAD);
+      lines.push(`  ${DIM}[${entry.index + 1}]${RESET} ${BOLD}${c.name}${RESET}`);
+      lines.push(`${statsIndent}${DIM}Rate:${RESET} ${rate}%  ${DIM}Cost:${RESET} ${entry.energyCost}${ENERGY_ICON}`);
+      for (const line of renderCreatureSideBySide(c.slots)) {
         lines.push(line);
       }
       lines.push("");
     }
 
     lines.push(divider());
-    lines.push(`  ${DIM}/catch <number> to attempt a catch${RESET}`);
+    lines.push(`  ${WHITE}Use ${BLUE}/catch <number>${WHITE} to attempt a catch${RESET}`);
 
     return lines.join("\n");
   }
@@ -163,11 +207,11 @@ export class SimpleTextRenderer implements Renderer {
       lines.push(`  ${GREEN}${BOLD}✦ CAUGHT! ✦${RESET}`);
       lines.push("");
       lines.push(`  ${BOLD}${c.name}${RESET} joined your collection!`);
-      for (const line of renderCreatureLines(c.slots)) {
+      for (const line of renderCreatureSideBySide(c.slots)) {
         lines.push(line);
       }
       lines.push("");
-      lines.push(`  ${DIM}+${result.xpEarned} XP   -${result.energySpent} Energy${RESET}`);
+      lines.push(`  ${DIM}+${result.xpEarned} XP   -${result.energySpent}${RESET}${ENERGY_ICON}`);
       lines.push("");
       lines.push(divider());
     } else if (result.fled) {
@@ -176,18 +220,18 @@ export class SimpleTextRenderer implements Renderer {
       lines.push(`  ${BOLD}${c.name}${RESET} fled into the void!`);
       lines.push(`  ${DIM}The creature is gone.${RESET}`);
       lines.push("");
-      lines.push(`  ${DIM}-${result.energySpent} Energy${RESET}`);
+      lines.push(`  ${DIM}-${result.energySpent}${RESET}${ENERGY_ICON}`);
       lines.push("");
       lines.push(divider());
     } else {
       lines.push(`  ${RARITY_COLOR["legendary"]}${BOLD}✦ ESCAPED ✦${RESET}`);
       lines.push("");
       lines.push(`  ${BOLD}${c.name}${RESET} slipped away!`);
-      for (const line of renderCreatureLines(c.slots)) {
+      for (const line of renderCreatureSideBySide(c.slots)) {
         lines.push(line);
       }
       lines.push("");
-      lines.push(`  ${DIM}-${result.energySpent} Energy   ${result.attemptsRemaining} attempts remaining${RESET}`);
+      lines.push(`  ${DIM}-${result.energySpent}${RESET}${ENERGY_ICON}   ${DIM}${result.attemptsRemaining} attempts remaining${RESET}`);
       lines.push("");
       lines.push(divider());
     }
@@ -204,13 +248,13 @@ export class SimpleTextRenderer implements Renderer {
     lines.push("");
 
     lines.push(`  ${BOLD}Target: ${target.name}${RESET}`);
-    for (const line of renderCreatureLines(target.slots)) {
+    for (const line of renderCreatureSideBySide(target.slots)) {
       lines.push(line);
     }
     lines.push("");
 
     lines.push(`  ${BOLD}Food: ${food.name}${RESET}`);
-    for (const line of renderCreatureLines(food.slots)) {
+    for (const line of renderCreatureSideBySide(food.slots)) {
       lines.push(line);
     }
     lines.push("");
@@ -244,10 +288,9 @@ export class SimpleTextRenderer implements Renderer {
     lines.push(`    ${DIM}→ ${graftedVariantName} (grafted)${RESET}`);
     lines.push("");
 
-    for (const line of renderCreatureLines(target.slots)) {
+    for (const line of renderCreatureSideBySide(target.slots)) {
       lines.push(line);
     }
-    lines.push(variantNamesLine(target.slots));
     lines.push("");
 
     lines.push(`  ${DIM}${food.name} was consumed.${RESET}`);
@@ -269,10 +312,9 @@ export class SimpleTextRenderer implements Renderer {
 
     for (const creature of collection) {
       lines.push(`  ${BOLD}${creature.name}${RESET}  Lv ${creature.generation}`);
-      for (const line of renderCreatureLines(creature.slots)) {
+      for (const line of renderCreatureSideBySide(creature.slots)) {
         lines.push(line);
       }
-      lines.push(variantNamesLine(creature.slots));
       lines.push("");
     }
 
@@ -294,7 +336,7 @@ export class SimpleTextRenderer implements Renderer {
     lines.push("");
     lines.push(`  Level: ${p.level}`);
     lines.push(`  XP:    ${xpBar(p.xp, nextXp)}`);
-    lines.push(`  Energy:${GREEN}${"█".repeat(Math.min(10, Math.round((result.energy / MAX_ENERGY) * 10)))}${"░".repeat(10 - Math.min(10, Math.round((result.energy / MAX_ENERGY) * 10)))}${RESET} ${result.energy}/${MAX_ENERGY}`);
+    lines.push(`  ${ENERGY_ICON} ${GREEN}${"█".repeat(Math.min(10, Math.round((result.energy / MAX_ENERGY) * 10)))}${"░".repeat(10 - Math.min(10, Math.round((result.energy / MAX_ENERGY) * 10)))}${RESET} ${result.energy}/${MAX_ENERGY}`);
     lines.push("");
     lines.push(`  Catches:    ${p.totalCatches}`);
     lines.push(`  Merges:     ${p.totalMerges}`);

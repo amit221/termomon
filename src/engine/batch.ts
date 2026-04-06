@@ -20,9 +20,9 @@ function pickRarity(rng: () => number): Rarity {
 
 function pickBatchSize(rng: () => number): number {
   const roll = rng();
-  if (roll < 0.4) return 2;
-  if (roll < 0.8) return 3;
-  return 4;
+  if (roll < 0.4) return 3;
+  if (roll < 0.8) return 4;
+  return 5;
 }
 
 /**

@@ -69,8 +69,8 @@ describe("renderScan", () => {
 
   test("contains energy costs", () => {
     const out = renderer.renderScan(result);
-    expect(out).toContain("3E");
-    expect(out).toContain("1E");
+    expect(out).toContain("Cost:");
+    expect(out).toContain("⚡");
   });
 
   test("contains ANSI color codes", () => {
@@ -80,7 +80,7 @@ describe("renderScan", () => {
 
   test("contains energy bar", () => {
     const out = renderer.renderScan(result);
-    expect(out).toContain("Energy:");
+    expect(out).toContain("⚡");
     expect(out).toContain("6/");
   });
 });
@@ -291,9 +291,9 @@ describe("renderMergeResult", () => {
 // --- renderEnergy ---
 
 describe("renderEnergy", () => {
-  test("contains Energy label and values", () => {
+  test("contains Energy icon and values", () => {
     const out = renderer.renderEnergy(6, 10);
-    expect(out).toContain("Energy:");
+    expect(out).toContain("⚡");
     expect(out).toContain("6/10");
   });
 

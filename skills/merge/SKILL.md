@@ -8,8 +8,14 @@ Parse the arguments for target and food creature IDs.
 
 Usage: `/merge [targetId] [foodId]`
 
-First call `mcp__plugin_compi_compi__merge` with `targetId` and `foodId` (no `confirm`) to show the merge preview.
+1. Call `mcp__plugin_compi_compi__merge` with `targetId` and `foodId` (no `confirm`) to get the preview.
+2. Then run this Bash command to display it with colors:
+   ```
+   cat "$LOCALAPPDATA/Temp/compi_display.txt" && rm -f "$LOCALAPPDATA/Temp/compi_display.txt"
+   ```
+3. Respond with: "Press Ctrl+O to expand the merge preview above. Proceed with /merge [targetId] [foodId] --confirm"
 
-CRITICAL: Output the tool's text response AS-IS in a code block. Do NOT summarize, paraphrase, or reformat. The output contains colored ASCII art that must be preserved exactly.
-
-After showing the preview, ask the user if they want to proceed. If yes, call `mcp__plugin_compi_compi__merge` again with `targetId`, `foodId`, and `confirm: true`.
+If `--confirm` is in the arguments:
+1. Call `mcp__plugin_compi_compi__merge` with `targetId`, `foodId`, and `confirm: true`.
+2. Run the same Bash cat+rm command.
+3. Respond with: "Press Ctrl+O to expand the merge result above."

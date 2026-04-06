@@ -4,6 +4,13 @@ model: claude-haiku-4-5-20251001
 description: Show nearby creatures that can be caught
 ---
 
-Use the `mcp__plugin_compi_compi__scan` tool to scan for nearby creatures.
+1. Call the `mcp__plugin_compi_compi__scan` tool to scan for nearby creatures.
+2. Then run this Bash command to display the result with colors:
+   ```
+   cat "$LOCALAPPDATA/Temp/compi_display.txt" && rm -f "$LOCALAPPDATA/Temp/compi_display.txt"
+   ```
 
-CRITICAL: Output the tool's text response AS-IS in a code block. Do NOT summarize, paraphrase, or reformat. The output contains ASCII art that must be preserved exactly. Just put the entire response inside a code block and nothing else.
+After both steps, count the creatures from the MCP response and respond with ONLY:
+"You found [N] compis! Press Ctrl+O to expand the output above and see them."
+
+Do NOT describe or list the creatures.

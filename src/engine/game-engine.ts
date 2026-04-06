@@ -36,7 +36,11 @@ export class GameEngine {
     return { notifications, spawned, energyGained, despawned };
   }
 
-  scan(): ScanResult {
+  scan(rng: () => number = Math.random): ScanResult {
+    // Auto-spawn if no creatures nearby
+    if (this.state.nearby.length === 0) {
+      spawnBatch(this.state, Date.now(), rng);
+    }
     const nearby: ScanEntry[] = this.state.nearby.map((creature, index) => ({
       index,
       creature,

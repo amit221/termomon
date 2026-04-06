@@ -4,6 +4,13 @@ model: claude-haiku-4-5-20251001
 description: Browse your caught creatures and their traits
 ---
 
-Use the `mcp__plugin_compi_compi__collection` tool to browse caught creatures.
+1. Call the `mcp__plugin_compi_compi__collection` tool to browse caught creatures.
+2. Then run this Bash command to display the result with colors:
+   ```
+   cat "$LOCALAPPDATA/Temp/compi_display.txt" && rm -f "$LOCALAPPDATA/Temp/compi_display.txt"
+   ```
 
-CRITICAL: Output the tool's text response AS-IS in a code block. Do NOT summarize, paraphrase, or reformat. The output contains ASCII art that must be preserved exactly.
+After both steps, respond with ONLY:
+"Press Ctrl+O to expand the output above and see your collection."
+
+Do NOT describe the collection.

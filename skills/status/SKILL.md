@@ -4,6 +4,11 @@ model: claude-haiku-4-5-20251001
 description: View your player profile and game stats
 ---
 
-Use the `mcp__plugin_compi_compi__status` tool to view player profile and stats.
+1. Call the `mcp__plugin_compi_compi__status` tool to view player stats.
+2. Then run this Bash command to display it with colors:
+   ```
+   cat "$LOCALAPPDATA/Temp/compi_display.txt" && rm -f "$LOCALAPPDATA/Temp/compi_display.txt"
+   ```
 
-CRITICAL: Output the tool's text response AS-IS in a code block. Do NOT summarize, paraphrase, or reformat.
+After both steps, respond with ONLY:
+"Press Ctrl+O to expand the output above."

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import * as path from "path";
 import * as os from "os";
+import * as fs from "fs";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
@@ -13,6 +14,12 @@ const statePath =
   process.env.COMPI_STATE_PATH ||
   path.join(os.homedir(), ".compi", "state.json");
 
+// Platforms that can't render ANSI in MCP text (e.g. Claude Code) set
+// COMPI_DISPLAY_FILE=1 to have the server write output to a temp file.
+// The platform's skill adapter can then cat it for colored terminal output.
+const writeDisplayFile = process.env.COMPI_DISPLAY_FILE === "1";
+const displayPath = path.join(os.tmpdir(), "compi_display.txt");
+
 function loadEngine() {
   const stateManager = new StateManager(statePath);
   const state = stateManager.load();
@@ -20,7 +27,12 @@ function loadEngine() {
   return { stateManager, engine };
 }
 
+// MCP always returns full ANSI output.
+// Platform-specific rendering happens at the skill/display layer.
 function text(content: string) {
+  if (writeDisplayFile) {
+    fs.writeFileSync(displayPath, content);
+  }
   return { content: [{ type: "text" as const, text: content }] };
 }
 
