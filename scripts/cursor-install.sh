@@ -64,47 +64,35 @@ fi
 PLUGINS_JSON="$CLAUDE_DIR/plugins/installed_plugins.json"
 mkdir -p "$(dirname "$PLUGINS_JSON")"
 
-INSTALL_PATH_ESCAPED=$(echo "$INSTALL_DIR" | sed 's/\\/\\\\/g')
-
-if [ -f "$PLUGINS_JSON" ]; then
-  # Upsert the plugin entry using node
-  node -e "
-    const fs = require('fs');
-    const data = JSON.parse(fs.readFileSync('$PLUGINS_JSON', 'utf8'));
+COMPI_PLUGINS_JSON="$PLUGINS_JSON" COMPI_INSTALL_DIR="$INSTALL_DIR" COMPI_PLUGIN_NAME="$PLUGIN_NAME" \
+  node -e '
+    const fs = require("fs");
+    const p = process.env.COMPI_PLUGINS_JSON;
+    const installDir = process.env.COMPI_INSTALL_DIR;
+    const name = process.env.COMPI_PLUGIN_NAME + "@local";
+    let data = {};
+    try { data = JSON.parse(fs.readFileSync(p, "utf8")); } catch {}
     if (!data.plugins) data.plugins = {};
-    data.plugins['${PLUGIN_NAME}@local'] = [{ scope: 'user', installPath: '$INSTALL_PATH_ESCAPED' }];
-    fs.writeFileSync('$PLUGINS_JSON', JSON.stringify(data, null, 2));
-    console.log('Updated $PLUGINS_JSON');
-  "
-else
-  node -e "
-    const fs = require('fs');
-    const data = { plugins: { '${PLUGIN_NAME}@local': [{ scope: 'user', installPath: '$INSTALL_PATH_ESCAPED' }] } };
-    fs.writeFileSync('$PLUGINS_JSON', JSON.stringify(data, null, 2));
-    console.log('Created $PLUGINS_JSON');
-  "
-fi
+    data.plugins[name] = [{ scope: "user", installPath: installDir }];
+    fs.writeFileSync(p, JSON.stringify(data, null, 2));
+    console.log("Registered plugin in " + p);
+  '
 
 # 7. Enable plugin in settings.json
 SETTINGS_JSON="$CLAUDE_DIR/settings.json"
 
-if [ -f "$SETTINGS_JSON" ]; then
-  node -e "
-    const fs = require('fs');
-    const data = JSON.parse(fs.readFileSync('$SETTINGS_JSON', 'utf8'));
+COMPI_SETTINGS_JSON="$SETTINGS_JSON" COMPI_PLUGIN_NAME="$PLUGIN_NAME" \
+  node -e '
+    const fs = require("fs");
+    const p = process.env.COMPI_SETTINGS_JSON;
+    const name = process.env.COMPI_PLUGIN_NAME + "@local";
+    let data = {};
+    try { data = JSON.parse(fs.readFileSync(p, "utf8")); } catch {}
     if (!data.enabledPlugins) data.enabledPlugins = {};
-    data.enabledPlugins['${PLUGIN_NAME}@local'] = true;
-    fs.writeFileSync('$SETTINGS_JSON', JSON.stringify(data, null, 2));
-    console.log('Updated $SETTINGS_JSON');
-  "
-else
-  node -e "
-    const fs = require('fs');
-    const data = { enabledPlugins: { '${PLUGIN_NAME}@local': true } };
-    fs.writeFileSync('$SETTINGS_JSON', JSON.stringify(data, null, 2));
-    console.log('Created $SETTINGS_JSON');
-  "
-fi
+    data.enabledPlugins[name] = true;
+    fs.writeFileSync(p, JSON.stringify(data, null, 2));
+    console.log("Enabled plugin in " + p);
+  '
 
 echo ""
 echo "Done! Restart Cursor to load the plugin."
