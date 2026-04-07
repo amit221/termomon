@@ -8,17 +8,27 @@ import { z } from "zod";
 import { StateManager } from "./state/state-manager";
 import { GameEngine } from "./engine/game-engine";
 import { SimpleTextRenderer } from "./renderers/simple-text";
+import { SvgRenderer } from "./renderers/svg-renderer";
 import { MAX_ENERGY } from "./engine/energy";
+import { Renderer } from "./types";
 
 const statePath =
   process.env.COMPI_STATE_PATH ||
   path.join(os.homedir(), ".compi", "state.json");
 
+// COMPI_RENDER_MODE controls output format:
+//   "ansi" (default) — ANSI colored text for terminal display
+//   "svg"            — SVG image returned as base64 for IDE chat (e.g. Cursor)
+const renderMode = process.env.COMPI_RENDER_MODE || "ansi";
+
 // Platforms that can't render ANSI in MCP text (e.g. Claude Code) set
 // COMPI_DISPLAY_FILE=1 to have the server write output to a temp file.
-// The platform's skill adapter can then cat it for colored terminal output.
 const writeDisplayFile = process.env.COMPI_DISPLAY_FILE === "1";
 const displayPath = path.join(os.tmpdir(), "compi_display.txt");
+
+function createRenderer(): Renderer {
+  return renderMode === "svg" ? new SvgRenderer() : new SimpleTextRenderer();
+}
 
 function loadEngine() {
   const stateManager = new StateManager(statePath);
@@ -27,9 +37,11 @@ function loadEngine() {
   return { stateManager, engine };
 }
 
-// MCP always returns full ANSI output.
-// Platform-specific rendering happens at the skill/display layer.
-function text(content: string) {
+function output(content: string) {
+  if (renderMode === "svg") {
+    const base64 = Buffer.from(content).toString("base64");
+    return { content: [{ type: "image" as const, data: base64, mimeType: "image/svg+xml" }] };
+  }
   if (writeDisplayFile) {
     fs.writeFileSync(displayPath, content);
   }
@@ -43,10 +55,10 @@ const server = new McpServer({
 
 server.tool("scan", "Show nearby creatures that can be caught", {}, () => {
   const { stateManager, engine } = loadEngine();
-  const renderer = new SimpleTextRenderer();
+  const renderer = createRenderer();
   const result = engine.scan();
   stateManager.save(engine.getState());
-  return text(renderer.renderScan(result));
+  return output(renderer.renderScan(result));
 });
 
 server.tool(
@@ -55,17 +67,17 @@ server.tool(
   { index: z.number().describe("1-indexed creature number from scan list") },
   ({ index }) => {
     const { stateManager, engine } = loadEngine();
-    const renderer = new SimpleTextRenderer();
+    const renderer = createRenderer();
     const result = engine.catch(index - 1);
     stateManager.save(engine.getState());
-    return text(renderer.renderCatch(result));
+    return output(renderer.renderCatch(result));
   }
 );
 
 server.tool("collection", "Browse caught creatures", {}, () => {
   const { engine } = loadEngine();
-  const renderer = new SimpleTextRenderer();
-  return text(renderer.renderCollection(engine.getState().collection));
+  const renderer = createRenderer();
+  return output(renderer.renderCollection(engine.getState().collection));
 });
 
 server.tool(
@@ -78,30 +90,30 @@ server.tool(
   },
   ({ targetId, foodId, confirm }) => {
     const { stateManager, engine } = loadEngine();
-    const renderer = new SimpleTextRenderer();
+    const renderer = createRenderer();
     if (confirm) {
       const result = engine.mergeExecute(targetId, foodId);
       stateManager.save(engine.getState());
-      return text(renderer.renderMergeResult(result));
+      return output(renderer.renderMergeResult(result));
     } else {
       const preview = engine.mergePreview(targetId, foodId);
-      return text(renderer.renderMergePreview(preview));
+      return output(renderer.renderMergePreview(preview));
     }
   }
 );
 
 server.tool("energy", "Show current energy level", {}, () => {
   const { engine } = loadEngine();
-  const renderer = new SimpleTextRenderer();
+  const renderer = createRenderer();
   const state = engine.getState();
-  return text(renderer.renderEnergy(state.energy, MAX_ENERGY));
+  return output(renderer.renderEnergy(state.energy, MAX_ENERGY));
 });
 
 server.tool("status", "View player profile and game stats", {}, () => {
   const { engine } = loadEngine();
-  const renderer = new SimpleTextRenderer();
+  const renderer = createRenderer();
   const result = engine.status();
-  return text(renderer.renderStatus(result));
+  return output(renderer.renderStatus(result));
 });
 
 server.tool(
@@ -116,10 +128,10 @@ server.tool(
         gameState.settings.notificationLevel = value as "minimal" | "moderate" | "off";
       }
       stateManager.save(gameState);
-      return text(`Settings updated: ${key} = ${value}`);
+      return output(`Settings updated: ${key} = ${value}`);
     }
     const settings = gameState.settings;
-    return text(`SETTINGS\n\nNotifications: ${settings.notificationLevel}`);
+    return output(`SETTINGS\n\nNotifications: ${settings.notificationLevel}`);
   }
 );
 

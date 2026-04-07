@@ -15,7 +15,7 @@
       "command": "node",
       "args": ["${CURSOR_PLUGIN_ROOT}/dist/mcp-server.js"],
       "env": {
-        "COMPI_DISPLAY_FILE": "1"
+        "COMPI_RENDER_MODE": "svg"
       }
     }
   }
