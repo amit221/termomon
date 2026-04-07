@@ -1,0 +1,8 @@
+---
+name: scan
+description: Show nearby creatures that can be caught
+---
+
+Call the compi `scan` MCP tool to scan for nearby creatures.
+
+Output the tool's text response AS-IS in a code block. Do NOT summarize, paraphrase, or reformat.
