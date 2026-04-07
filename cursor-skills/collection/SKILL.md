@@ -3,6 +3,10 @@ name: collection
 description: Browse your caught creatures and their traits
 ---
 
-Call the compi `collection` MCP tool to browse caught creatures.
+1. Call the compi `collection` MCP tool to browse caught creatures.
+2. Then run this Bash command to display the result with colors:
+   ```
+   cat "$LOCALAPPDATA/Temp/compi_display.txt" && rm -f "$LOCALAPPDATA/Temp/compi_display.txt"
+   ```
 
-Output the tool's text response AS-IS in a code block. Do NOT summarize, paraphrase, or reformat.
+Do NOT describe the collection.

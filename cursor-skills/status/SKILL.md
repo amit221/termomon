@@ -3,6 +3,8 @@ name: status
 description: View your player profile and game stats
 ---
 
-Call the compi `status` MCP tool to view player stats.
-
-Output the tool's text response AS-IS in a code block. Do NOT summarize, paraphrase, or reformat.
+1. Call the compi `status` MCP tool to view player stats.
+2. Then run this Bash command to display it with colors:
+   ```
+   cat "$LOCALAPPDATA/Temp/compi_display.txt" && rm -f "$LOCALAPPDATA/Temp/compi_display.txt"
+   ```

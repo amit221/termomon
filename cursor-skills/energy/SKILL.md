@@ -3,6 +3,8 @@ name: energy
 description: Show current energy level
 ---
 
-Call the compi `energy` MCP tool to check energy.
-
-Output the tool's text response AS-IS in a code block. Do NOT summarize, paraphrase, or reformat.
+1. Call the compi `energy` MCP tool to check energy.
+2. Then run this Bash command to display it with colors:
+   ```
+   cat "$LOCALAPPDATA/Temp/compi_display.txt" && rm -f "$LOCALAPPDATA/Temp/compi_display.txt"
+   ```
