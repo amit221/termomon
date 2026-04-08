@@ -340,6 +340,25 @@ describe("renderStatus", () => {
   });
 });
 
+// --- species-specific art ---
+
+describe("species-specific art", () => {
+  test("renderScan uses species art template framing", () => {
+    // Compi's art template is ["  ~(EE)~", "    MM", "   BB", "   TT"]
+    // So rendered output should contain ~( framing from the template
+    const result: ScanResult = {
+      energy: 6,
+      batch: null,
+      nearby: [
+        { index: 0, creature: makeNearby("c1", "Sparks"), catchRate: 0.55, energyCost: 3 },
+      ],
+    };
+    const out = renderer.renderScan(result);
+    expect(out).toContain("~(");
+    expect(out).toContain(")~");
+  });
+});
+
 // --- renderNotification ---
 
 describe("renderNotification", () => {

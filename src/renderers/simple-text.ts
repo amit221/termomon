@@ -12,6 +12,7 @@ import {
 } from "../types";
 import { MAX_ENERGY } from "../engine/energy";
 import { getVariantById } from "../config/traits";
+import { getSpeciesById, getTraitDefinition } from "../config/species";
 
 const stringWidth = require("string-width") as (str: string) => number;
 
@@ -46,31 +47,60 @@ function centerLine(rawText: string, coloredText: string): string {
   return " ".repeat(Math.max(0, left)) + coloredText;
 }
 
-function renderCreatureLines(slots: CreatureSlot[]): string[] {
-  const bySlot: Partial<Record<SlotId, CreatureSlot>> = {};
+function renderCreatureLines(slots: CreatureSlot[], speciesId?: string): string[] {
+  // Build slot-to-art map using species-aware lookup
+  const slotArt: Record<string, string> = {};
   for (const s of slots) {
-    bySlot[s.slotId] = s;
+    const trait = speciesId
+      ? getTraitDefinition(speciesId, s.variantId)
+      : getVariantById(s.variantId);
+    slotArt[s.slotId] = trait?.art ?? "???";
   }
 
-  const eyesSlot = bySlot["eyes"];
-  const mouthSlot = bySlot["mouth"];
-  const bodySlot = bySlot["body"];
-  const tailSlot = bySlot["tail"];
+  // Build slot-to-color map
+  const slotColor: Record<string, string> = {};
+  for (const s of slots) {
+    slotColor[s.slotId] = COLOR_ANSI[s.color ?? "white"] || WHITE;
+  }
 
-  const eyesColor = COLOR_ANSI[eyesSlot?.color ?? "white"] || WHITE;
-  const mouthColor = COLOR_ANSI[mouthSlot?.color ?? "white"] || WHITE;
-  const bodyColor = COLOR_ANSI[bodySlot?.color ?? "white"] || WHITE;
-  const tailColor = COLOR_ANSI[tailSlot?.color ?? "white"] || WHITE;
+  const species = speciesId ? getSpeciesById(speciesId) : undefined;
 
-  const eyesArt = eyesSlot ? (getVariantById(eyesSlot.variantId)?.art ?? "o.o") : "o.o";
-  const mouthArt = mouthSlot ? (getVariantById(mouthSlot.variantId)?.art ?? " - ") : " - ";
-  const bodyArt = bodySlot ? (getVariantById(bodySlot.variantId)?.art ?? " ░░ ") : " ░░ ";
-  const tailArt = tailSlot ? (getVariantById(tailSlot.variantId)?.art ?? "~") : "~";
+  if (species?.art) {
+    // Use species art template with placeholder replacement
+    return species.art.map((line) => {
+      let result = line;
+      let coloredResult = line;
+      const replacements: [string, string, string][] = [
+        ["EE", slotArt["eyes"] ?? "", slotColor["eyes"] ?? WHITE],
+        ["MM", slotArt["mouth"] ?? "", slotColor["mouth"] ?? WHITE],
+        ["BB", slotArt["body"] ?? "", slotColor["body"] ?? WHITE],
+        ["TT", slotArt["tail"] ?? "", slotColor["tail"] ?? WHITE],
+      ];
+      for (const [placeholder, art, color] of replacements) {
+        if (result.includes(placeholder)) {
+          result = result.replace(placeholder, art);
+          coloredResult = coloredResult.replace(placeholder, `${color}${art}${RESET}`);
+        }
+      }
+      return "      " + coloredResult;
+    });
+  }
 
-  const eyesLine = "      " + centerLine(eyesArt, `${eyesColor}${eyesArt}${RESET}`);
-  const mouthLine = "      " + centerLine(`(${mouthArt})`, `${mouthColor}(${mouthArt})${RESET}`);
-  const bodyLine = "      " + centerLine(`╱${bodyArt}╲`, `${bodyColor}╱${bodyArt}╲${RESET}`);
-  const tailLine = "      " + centerLine(tailArt, `${tailColor}${tailArt}${RESET}`);
+  // Fallback: original hardcoded layout (for backward compat)
+  const eyesArt = slotArt["eyes"] ?? "o.o";
+  const mouthArt = slotArt["mouth"] ?? " - ";
+  const bodyArt = slotArt["body"] ?? " ░░ ";
+  const tailArt = slotArt["tail"] ?? "~";
+
+  const eyesC = slotColor["eyes"] ?? WHITE;
+  const mouthC = slotColor["mouth"] ?? WHITE;
+  const bodyC = slotColor["body"] ?? WHITE;
+  const tailC = slotColor["tail"] ?? WHITE;
+
+  const eyesLine = "      " + centerLine(eyesArt, `${eyesC}${eyesArt}${RESET}`);
+  const mouthLine = "      " + centerLine(`(${mouthArt})`, `${mouthC}(${mouthArt})${RESET}`);
+  const bodyLine = "      " + centerLine(`╱${bodyArt}╲`, `${bodyC}╱${bodyArt}╲${RESET}`);
+  const tailLine = "      " + centerLine(tailArt, `${tailC}${tailArt}${RESET}`);
 
   return [eyesLine, mouthLine, bodyLine, tailLine];
 }
@@ -105,15 +135,15 @@ function padArtLine(line: string, targetWidth: number): string {
   return line + " ".repeat(pad);
 }
 
-function renderCreatureSideBySide(slots: CreatureSlot[]): string[] {
-  const artLines = renderCreatureLines(slots);
+function renderCreatureSideBySide(slots: CreatureSlot[], speciesId?: string): string[] {
+  const artLines = renderCreatureLines(slots, speciesId);
   const order: SlotId[] = ["eyes", "mouth", "body", "tail"];
   const traitLines: string[] = [];
 
   for (const slotId of order) {
     const s = slots.find((sl) => sl.slotId === slotId);
     if (s) {
-      const variant = getVariantById(s.variantId);
+      const variant = speciesId ? getTraitDefinition(speciesId, s.variantId) : getVariantById(s.variantId);
       const name = variant?.name ?? s.variantId;
       const slotColor = COLOR_ANSI[s.color ?? "white"] || WHITE;
       traitLines.push(`${DIM}${slotId.padEnd(5)}${RESET} ${slotColor}${name}${RESET}`);
@@ -123,8 +153,11 @@ function renderCreatureSideBySide(slots: CreatureSlot[]): string[] {
   }
 
   const lines: string[] = [];
-  for (let i = 0; i < 4; i++) {
-    lines.push(padArtLine(artLines[i], ART_PAD) + traitLines[i]);
+  const maxLines = Math.max(artLines.length, traitLines.length);
+  for (let i = 0; i < maxLines; i++) {
+    const artLine = artLines[i] ?? "";
+    const traitLine = traitLines[i] ?? "";
+    lines.push(padArtLine(artLine, ART_PAD) + traitLine);
   }
   return lines;
 }
@@ -162,7 +195,7 @@ export class SimpleTextRenderer implements Renderer {
       const statsIndent = " ".repeat(ART_PAD);
       lines.push(`  ${DIM}[${entry.index + 1}]${RESET} ${BOLD}${c.name}${RESET} ${DIM}(${c.speciesId})${RESET}`);
       lines.push(`${statsIndent}${DIM}Rate:${RESET} ${rate}%  ${DIM}Cost:${RESET} ${entry.energyCost}${ENERGY_ICON}`);
-      for (const line of renderCreatureSideBySide(c.slots)) {
+      for (const line of renderCreatureSideBySide(c.slots, c.speciesId)) {
         lines.push(line);
       }
       lines.push("");
@@ -182,7 +215,7 @@ export class SimpleTextRenderer implements Renderer {
       lines.push(`  ${GREEN}${BOLD}✦ CAUGHT! ✦${RESET}`);
       lines.push("");
       lines.push(`  ${BOLD}${c.name}${RESET} joined your collection!`);
-      for (const line of renderCreatureSideBySide(c.slots)) {
+      for (const line of renderCreatureSideBySide(c.slots, c.speciesId)) {
         lines.push(line);
       }
       lines.push("");
@@ -202,7 +235,7 @@ export class SimpleTextRenderer implements Renderer {
       lines.push(`  ${YELLOW}${BOLD}✦ ESCAPED ✦${RESET}`);
       lines.push("");
       lines.push(`  ${BOLD}${c.name}${RESET} slipped away!`);
-      for (const line of renderCreatureSideBySide(c.slots)) {
+      for (const line of renderCreatureSideBySide(c.slots, c.speciesId)) {
         lines.push(line);
       }
       lines.push("");
@@ -223,13 +256,13 @@ export class SimpleTextRenderer implements Renderer {
     lines.push("");
 
     lines.push(`  ${BOLD}Parent A: ${parentA.name}${RESET}`);
-    for (const line of renderCreatureSideBySide(parentA.slots)) {
+    for (const line of renderCreatureSideBySide(parentA.slots, parentA.speciesId)) {
       lines.push(line);
     }
     lines.push("");
 
     lines.push(`  ${BOLD}Parent B: ${parentB.name}${RESET}`);
-    for (const line of renderCreatureSideBySide(parentB.slots)) {
+    for (const line of renderCreatureSideBySide(parentB.slots, parentB.speciesId)) {
       lines.push(line);
     }
     lines.push("");
@@ -257,7 +290,7 @@ export class SimpleTextRenderer implements Renderer {
     lines.push("");
 
     lines.push(`  ${BOLD}${child.name}${RESET} was born!`);
-    for (const line of renderCreatureSideBySide(child.slots)) {
+    for (const line of renderCreatureSideBySide(child.slots, child.speciesId)) {
       lines.push(line);
     }
     lines.push("");
@@ -289,7 +322,7 @@ export class SimpleTextRenderer implements Renderer {
 
     for (const creature of collection) {
       lines.push(`  ${BOLD}${creature.name}${RESET}  ${DIM}${creature.speciesId}${RESET}  Lv ${creature.generation}`);
-      for (const line of renderCreatureSideBySide(creature.slots)) {
+      for (const line of renderCreatureSideBySide(creature.slots, creature.speciesId)) {
         lines.push(line);
       }
       lines.push("");
@@ -312,7 +345,7 @@ export class SimpleTextRenderer implements Renderer {
 
     for (const creature of archive) {
       lines.push(`  ${BOLD}${creature.name}${RESET}  ${DIM}${creature.speciesId}${RESET}  Lv ${creature.generation}`);
-      for (const line of renderCreatureSideBySide(creature.slots)) {
+      for (const line of renderCreatureSideBySide(creature.slots, creature.speciesId)) {
         lines.push(line);
       }
       lines.push("");
