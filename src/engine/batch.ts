@@ -1,6 +1,6 @@
 // src/engine/batch.ts — Multi-species creature spawning
 
-import { GameState, NearbyCreature, CreatureSlot, CreatureColor, SLOT_IDS, SlotId } from "../types";
+import { GameState, NearbyCreature, CreatureSlot, CreatureColor, SlotId } from "../types";
 import { pickSpecies, pickTraitForSlot, getSpeciesById } from "../config/species";
 import { loadCreatureName } from "../config/traits";
 import { loadConfig } from "../config/loader";
@@ -34,7 +34,8 @@ export function generateCreatureSlots(speciesId: string, rng: () => number): Cre
   const species = getSpeciesById(speciesId);
   if (!species) throw new Error(`Unknown species: ${speciesId}`);
 
-  return SLOT_IDS.map((slotId: SlotId) => {
+  const speciesSlots = Object.keys(species.traitPools) as SlotId[];
+  return speciesSlots.map((slotId: SlotId) => {
     const trait = pickTraitForSlot(species, slotId, rng);
     const color = pickColor(rng);
     return { slotId, variantId: trait.id, color };
