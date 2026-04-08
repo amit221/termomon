@@ -10,7 +10,8 @@
     "build": "tsc && cp src/mcp-app.html dist/mcp-app.html",
     "test": "jest",
     "test:watch": "jest --watch",
-    "dev": "tsc --watch"
+    "dev": "tsc --watch",
+    "serve:cursor": "node dist/mcp-http-server.js"
   },
   "keywords": [
     "cli",
@@ -41,6 +42,10 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
     "string-width": "^4.2.3"
   }
 }

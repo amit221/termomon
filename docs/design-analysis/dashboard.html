@@ -1,0 +1,1422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Compi Game Design Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface2: #21262d;
+    --border: #30363d;
+    --text: #e6edf3;
+    --text-dim: #8b949e;
+    --accent: #58a6ff;
+    --common: #9e9e9e;
+    --uncommon: #4caf50;
+    --rare: #2196f3;
+    --epic: #9c27b0;
+    --legendary: #ff9800;
+    --mythic: #f44336;
+    --astral: #00bcd4;
+    --eternal: #ffd700;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    line-height: 1.5;
+  }
+
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  header h1 {
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  header .badge {
+    background: var(--accent);
+    color: var(--bg);
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 12px;
+    text-transform: uppercase;
+  }
+
+  .tabs {
+    display: flex;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    gap: 0;
+    overflow-x: auto;
+  }
+
+  .tab-btn {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    padding: 12px 20px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+
+  .tab-btn:hover { color: var(--text); }
+  .tab-btn.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+
+  .tab-content { display: none; padding: 24px; max-width: 1400px; margin: 0 auto; }
+  .tab-content.active { display: block; }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+
+  .card h2 {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 16px;
+    color: var(--text);
+  }
+
+  .card h3 {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 12px;
+    color: var(--text-dim);
+  }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+
+  @media (max-width: 900px) {
+    .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+  }
+
+  .stat-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px;
+    text-align: center;
+  }
+
+  .stat-card .value {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--accent);
+  }
+
+  .stat-card .label {
+    font-size: 12px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 4px;
+  }
+
+  /* Rarity staircase */
+  .staircase {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    padding: 20px 0;
+    height: 320px;
+  }
+
+  .stair {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  .stair-bar {
+    width: 100%;
+    border-radius: 6px 6px 0 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    padding: 10px 4px;
+    position: relative;
+    min-height: 40px;
+  }
+
+  .stair-bar .stars {
+    font-size: 14px;
+    color: rgba(255,255,255,0.9);
+    font-weight: 700;
+  }
+
+  .stair-bar .tier-name {
+    font-size: 11px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.85);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    margin-top: 6px;
+  }
+
+  .stair-label {
+    font-size: 11px;
+    color: var(--text-dim);
+    text-align: center;
+  }
+
+  /* Tables */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  th {
+    text-align: left;
+    padding: 10px 12px;
+    background: var(--surface2);
+    color: var(--text-dim);
+    font-weight: 600;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+  }
+
+  td {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  tr:hover td { background: rgba(88,166,255,0.04); }
+
+  .row-jump td { background: rgba(255,152,0,0.08); }
+  .row-star td { background: rgba(76,175,80,0.06); }
+
+  .rarity-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+
+  .table-scroll { max-height: 600px; overflow-y: auto; border-radius: 6px; border: 1px solid var(--border); }
+
+  /* Chart containers */
+  .chart-container { position: relative; width: 100%; }
+  .chart-container canvas { max-height: 400px; }
+
+  /* Timeline */
+  .timeline {
+    display: flex;
+    align-items: center;
+    padding: 20px 0;
+    position: relative;
+  }
+
+  .timeline-line {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--border);
+    transform: translateY(-50%);
+    border-radius: 2px;
+  }
+
+  .timeline-point {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1;
+  }
+
+  .timeline-dot {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 2px solid var(--bg);
+  }
+
+  .timeline-label {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 8px;
+    text-align: center;
+  }
+
+  .timeline-day {
+    font-size: 10px;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+
+  /* Trait tree */
+  .slot-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 16px;
+  }
+
+  .slot-tab {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    transition: all 0.2s;
+  }
+
+  .slot-tab:hover { border-color: var(--accent); color: var(--text); }
+  .slot-tab.active {
+    background: var(--accent);
+    color: var(--bg);
+    border-color: var(--accent);
+  }
+
+  .tree-container {
+    width: 100%;
+    overflow-x: auto;
+    background: var(--surface2);
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    min-height: 500px;
+  }
+
+  .tree-container svg {
+    display: block;
+  }
+
+  .tree-node {
+    cursor: pointer;
+    transition: opacity 0.3s;
+  }
+
+  .tree-node:hover rect { stroke-width: 2.5; }
+
+  .tree-edge { transition: opacity 0.3s, stroke 0.3s; }
+
+  .tooltip-box {
+    position: fixed;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-size: 12px;
+    color: var(--text);
+    z-index: 1000;
+    pointer-events: none;
+    max-width: 250px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    display: none;
+  }
+
+  .tooltip-box .art {
+    font-family: 'Courier New', monospace;
+    font-size: 16px;
+    text-align: center;
+    margin: 6px 0;
+    letter-spacing: 2px;
+  }
+
+  /* Simulation box plot */
+  .box-plot-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  .box-plot-label {
+    width: 90px;
+    font-size: 13px;
+    font-weight: 500;
+    text-align: right;
+    color: var(--text-dim);
+  }
+
+  .box-plot-bar {
+    flex: 1;
+    height: 32px;
+    position: relative;
+    background: var(--surface2);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .box-range {
+    position: absolute;
+    top: 4px;
+    height: 24px;
+    border-radius: 3px;
+    opacity: 0.7;
+  }
+
+  .box-iqr {
+    position: absolute;
+    top: 2px;
+    height: 28px;
+    border-radius: 3px;
+    opacity: 0.9;
+  }
+
+  .box-median {
+    position: absolute;
+    top: 0;
+    width: 3px;
+    height: 32px;
+    background: white;
+    border-radius: 1px;
+  }
+
+  .box-plot-values {
+    width: 200px;
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+
+  .summary-text {
+    font-size: 14px;
+    color: var(--text-dim);
+    line-height: 1.7;
+  }
+
+  .summary-text strong { color: var(--text); }
+
+  .pity-explanation {
+    background: var(--surface2);
+    border-left: 3px solid var(--accent);
+    padding: 12px 16px;
+    border-radius: 0 6px 6px 0;
+    margin-top: 16px;
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+
+  .pity-explanation strong { color: var(--text); }
+
+  .highlight-text { color: var(--accent); font-weight: 600; }
+  .dimmed { opacity: 0.25; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Compi Game Design Dashboard</h1>
+  <span class="badge">V2 Final</span>
+</header>
+
+<nav class="tabs">
+  <button class="tab-btn active" data-tab="overview">Overview</button>
+  <button class="tab-btn" data-tab="progression">Progression</button>
+  <button class="tab-btn" data-tab="merge">Merge System</button>
+  <button class="tab-btn" data-tab="trait-tree">Trait Tree</button>
+  <button class="tab-btn" data-tab="simulation">Simulation</button>
+</nav>
+
+<!-- ============ OVERVIEW ============ -->
+<div id="overview" class="tab-content active">
+  <div class="grid-4" style="margin-bottom:20px">
+    <div class="stat-card">
+      <div class="value">35</div>
+      <div class="label">Steps per Slot</div>
+    </div>
+    <div class="stat-card">
+      <div class="value">140</div>
+      <div class="label">Total Steps (4 slots)</div>
+    </div>
+    <div class="stat-card">
+      <div class="value" style="color:var(--uncommon)">44d</div>
+      <div class="label">Strategic P50</div>
+    </div>
+    <div class="stat-card">
+      <div class="value" style="color:var(--legendary)">51d</div>
+      <div class="label">Random P50</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Rarity Tier Staircase</h2>
+    <div class="staircase">
+      <div class="stair">
+        <div class="stair-bar" style="background:var(--common);height:12%">
+          <span class="stars">0</span>
+        </div>
+        <div class="stair-label">Common<br><small>30%</small></div>
+      </div>
+      <div class="stair">
+        <div class="stair-bar" style="background:var(--uncommon);height:22%">
+          <span class="stars">1</span>
+        </div>
+        <div class="stair-label">Uncommon<br><small>25%</small></div>
+      </div>
+      <div class="stair">
+        <div class="stair-bar" style="background:var(--rare);height:35%">
+          <span class="stars">2</span>
+        </div>
+        <div class="stair-label">Rare<br><small>20%</small></div>
+      </div>
+      <div class="stair">
+        <div class="stair-bar" style="background:var(--epic);height:48%">
+          <span class="stars">3</span>
+        </div>
+        <div class="stair-label">Epic<br><small>13%</small></div>
+      </div>
+      <div class="stair">
+        <div class="stair-bar" style="background:var(--legendary);height:60%">
+          <span class="stars">4</span>
+        </div>
+        <div class="stair-label">Legendary<br><small>8%</small></div>
+      </div>
+      <div class="stair">
+        <div class="stair-bar" style="background:var(--mythic);height:73%">
+          <span class="stars">5</span>
+        </div>
+        <div class="stair-label">Mythic<br><small>4%</small></div>
+      </div>
+      <div class="stair">
+        <div class="stair-bar" style="background:var(--astral);height:86%">
+          <span class="stars">6</span>
+        </div>
+        <div class="stair-label">Astral<br><small>Merge</small></div>
+      </div>
+      <div class="stair">
+        <div class="stair-bar" style="background:var(--eternal);height:100%">
+          <span class="stars">7</span>
+        </div>
+        <div class="stair-label">Eternal<br><small>Merge</small></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>System Summary</h2>
+    <p class="summary-text">
+      Compi is a terminal creature collection game where creatures have <strong>4 trait slots</strong> (eyes, mouth, body, tail),
+      each progressing through <strong>8 rarity tiers</strong> from Common to Eternal. Progression is driven by a
+      <strong>merge system</strong> where sacrificing "food" creatures upgrades a target creature's slots.
+      Each slot requires <strong>35 merge steps</strong> (28 star upgrades + 7 cross-rarity jumps) for a total of <strong>140 steps</strong>
+      to fully max one creature. The <strong>harmonic signature system</strong> provides strategic depth:
+      every trait has a mathematical signature, and choosing food creatures with optimal resonance yields up to
+      <strong>+20% merge bonus</strong>. A <strong>pity timer</strong> guarantees progress even with bad luck, keeping the
+      P95/P50 variance ratio at an excellent <strong>1.07</strong>. Strategic players complete in ~<strong>44 days</strong>,
+      random players in ~<strong>51 days</strong> -- a meaningful but non-punishing 13.6% advantage for informed play.
+    </p>
+  </div>
+
+  <div class="grid-3">
+    <div class="stat-card">
+      <div class="value" style="font-size:22px">~27</div>
+      <div class="label">Catches / Day</div>
+    </div>
+    <div class="stat-card">
+      <div class="value" style="font-size:22px">17 min</div>
+      <div class="label">Batch Interval</div>
+    </div>
+    <div class="stat-card">
+      <div class="value" style="font-size:22px">6h</div>
+      <div class="label">Active Hours / Day</div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ PROGRESSION ============ -->
+<div id="progression" class="tab-content">
+  <div class="grid-2">
+    <div class="card">
+      <h2>Cumulative Catches per Step (1 Slot)</h2>
+      <div class="chart-container">
+        <canvas id="cumulChart"></canvas>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Catches per Tier (Strategic)</h2>
+      <div class="chart-container">
+        <canvas id="tierChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Progression Timeline</h2>
+    <div class="timeline" style="padding:30px 20px">
+      <div class="timeline-line"></div>
+      <div class="timeline-point">
+        <div class="timeline-day">Day 1</div>
+        <div class="timeline-dot" style="background:var(--common)"></div>
+        <div class="timeline-label">Start<br>Common</div>
+      </div>
+      <div class="timeline-point">
+        <div class="timeline-day">Day 1</div>
+        <div class="timeline-dot" style="background:var(--uncommon)"></div>
+        <div class="timeline-label">Uncommon</div>
+      </div>
+      <div class="timeline-point">
+        <div class="timeline-day">Day 1</div>
+        <div class="timeline-dot" style="background:var(--rare)"></div>
+        <div class="timeline-label">Rare</div>
+      </div>
+      <div class="timeline-point">
+        <div class="timeline-day">Day 2</div>
+        <div class="timeline-dot" style="background:var(--epic)"></div>
+        <div class="timeline-label">Epic</div>
+      </div>
+      <div class="timeline-point">
+        <div class="timeline-day">Day 4</div>
+        <div class="timeline-dot" style="background:var(--legendary)"></div>
+        <div class="timeline-label">Legendary</div>
+      </div>
+      <div class="timeline-point">
+        <div class="timeline-day">Day 7</div>
+        <div class="timeline-dot" style="background:var(--mythic)"></div>
+        <div class="timeline-label">Mythic</div>
+      </div>
+      <div class="timeline-point">
+        <div class="timeline-day">Day 11</div>
+        <div class="timeline-dot" style="background:var(--astral)"></div>
+        <div class="timeline-label">Astral</div>
+      </div>
+      <div class="timeline-point">
+        <div class="timeline-day">Day 44</div>
+        <div class="timeline-dot" style="background:var(--eternal)"></div>
+        <div class="timeline-label">All 4 Eternal<br><strong style="color:var(--eternal)">COMPLETE</strong></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MERGE SYSTEM ============ -->
+<div id="merge" class="tab-content">
+  <div class="card">
+    <h2>All 35 Merge Steps (Per Slot)</h2>
+    <div class="table-scroll">
+      <table id="mergeTable">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Step</th>
+            <th>Type</th>
+            <th>Base Rate</th>
+            <th>Pity Threshold</th>
+            <th>Exp Merges</th>
+            <th>Catches/Merge</th>
+            <th>Total Catches</th>
+            <th>Cumulative</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <h2>Food Rarity Requirements</h2>
+      <table>
+        <thead><tr><th>Target Rarity</th><th>Catches/Merge</th><th>Rationale</th></tr></thead>
+        <tbody>
+          <tr><td><span class="rarity-badge" style="background:var(--common);color:#000">Common</span></td><td>1.2</td><td>Any creature qualifies</td></tr>
+          <tr><td><span class="rarity-badge" style="background:var(--uncommon);color:#000">Uncommon</span></td><td>1.4</td><td>70% of catches qualify</td></tr>
+          <tr><td><span class="rarity-badge" style="background:var(--rare);color:#fff">Rare</span></td><td>1.8</td><td>45% of catches qualify</td></tr>
+          <tr><td><span class="rarity-badge" style="background:var(--epic);color:#fff">Epic</span></td><td>2.5</td><td>25% of catches qualify</td></tr>
+          <tr><td><span class="rarity-badge" style="background:var(--legendary);color:#000">Legendary</span></td><td>3.5</td><td>12% of catches qualify</td></tr>
+          <tr><td><span class="rarity-badge" style="background:var(--mythic);color:#fff">Mythic</span></td><td>4.5</td><td>4% + stockpile reuse</td></tr>
+          <tr><td><span class="rarity-badge" style="background:var(--astral);color:#000">Astral</span></td><td>4.8</td><td>Condensed from mythic</td></tr>
+          <tr><td><span class="rarity-badge" style="background:var(--eternal);color:#000">Eternal</span></td><td>5.5</td><td>Condensed from astral</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <h2>Pity Timer System</h2>
+      <div class="pity-explanation">
+        <p><strong>How it works:</strong> After <code>threshold / 2</code> consecutive failures, a linear bonus ramps up. At <code>threshold</code> failures, success is <strong>guaranteed (100%)</strong>.</p>
+        <br>
+        <p><strong>Example: Legendary jump (threshold = 4)</strong></p>
+        <table style="margin-top:8px">
+          <tr><td>Attempt 1</td><td>52% base</td></tr>
+          <tr><td>Attempt 2</td><td>52% base</td></tr>
+          <tr><td>Attempt 3</td><td>52% + ~24% pity = <strong>76%</strong></td></tr>
+          <tr><td>Attempt 4</td><td><strong style="color:var(--uncommon)">Guaranteed 100%</strong></td></tr>
+        </table>
+        <br>
+        <p>This keeps the <strong>P95/P50 variance ratio at 1.07</strong> -- bad luck barely extends the journey.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ TRAIT TREE ============ -->
+<div id="trait-tree" class="tab-content">
+  <div class="card">
+    <h2>Trait Upgrade Tree</h2>
+    <p style="font-size:13px;color:var(--text-dim);margin-bottom:12px">
+      Click a node to highlight its upgrade paths. Thicker lines indicate higher probability connections.
+      Hover for trait details and ASCII art.
+    </p>
+    <div class="slot-tabs">
+      <button class="slot-tab active" data-slot="eyes">Eyes</button>
+      <button class="slot-tab" data-slot="mouth">Mouth</button>
+      <button class="slot-tab" data-slot="body">Body</button>
+      <button class="slot-tab" data-slot="tail">Tail</button>
+    </div>
+    <div class="tree-container" id="treeContainer"></div>
+  </div>
+</div>
+
+<!-- ============ SIMULATION ============ -->
+<div id="simulation" class="tab-content">
+  <div class="grid-2">
+    <div class="card">
+      <h2>Random vs Strategic: Catches</h2>
+      <div class="chart-container">
+        <canvas id="simCatchChart"></canvas>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Random vs Strategic: Days</h2>
+      <div class="chart-container">
+        <canvas id="simDayChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Distribution: Days to Completion</h2>
+    <div style="padding:20px 0">
+      <div class="box-plot-row">
+        <div class="box-plot-label" style="color:var(--uncommon)">Strategic</div>
+        <div class="box-plot-bar" id="boxStrategic"></div>
+        <div class="box-plot-values" id="boxStrategicVals"></div>
+      </div>
+      <div class="box-plot-row">
+        <div class="box-plot-label" style="color:var(--legendary)">Random</div>
+        <div class="box-plot-bar" id="boxRandom"></div>
+        <div class="box-plot-values" id="boxRandomVals"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:4px 102px 0 102px;font-size:10px;color:var(--text-dim)">
+        <span>40d</span><span>44d</span><span>48d</span><span>52d</span><span>56d</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Milestone Timeline</h2>
+    <div class="grid-4" style="margin-bottom:16px">
+      <div class="stat-card">
+        <div class="value" style="font-size:24px;color:var(--uncommon)">~11d</div>
+        <div class="label">1st Slot Complete</div>
+      </div>
+      <div class="stat-card">
+        <div class="value" style="font-size:24px;color:var(--rare)">~23d</div>
+        <div class="label">2 Slots (50%)</div>
+      </div>
+      <div class="stat-card">
+        <div class="value" style="font-size:24px;color:var(--epic)">~34d</div>
+        <div class="label">3 Slots (75%)</div>
+      </div>
+      <div class="stat-card">
+        <div class="value" style="font-size:24px;color:var(--eternal)">~44d</div>
+        <div class="label">All 4 Slots</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid-3">
+    <div class="stat-card">
+      <div class="value" style="font-size:20px;color:var(--accent)">13.6%</div>
+      <div class="label">Strategic Advantage</div>
+    </div>
+    <div class="stat-card">
+      <div class="value" style="font-size:20px;color:var(--uncommon)">1.07</div>
+      <div class="label">P95/P50 Variance</div>
+    </div>
+    <div class="stat-card">
+      <div class="value" style="font-size:20px;color:var(--legendary)">+20%</div>
+      <div class="label">Max Trait Bonus</div>
+    </div>
+  </div>
+</div>
+
+<div class="tooltip-box" id="tooltip"></div>
+
+<script>
+// ====== DATA ======
+const RARITY_COLORS = {
+  common:'#9e9e9e', uncommon:'#4caf50', rare:'#2196f3', epic:'#9c27b0',
+  legendary:'#ff9800', mythic:'#f44336', astral:'#00bcd4', eternal:'#ffd700'
+};
+
+const RARITIES = ['common','uncommon','rare','epic','legendary','mythic','astral','eternal'];
+
+const progressionData = [
+  {step:'common->uncommon jump',type:'jump',baseRate:0.92,pity:2,expMerges:1.00,catchesMerge:1.2,totalCatches:1.2,cumul:1.2},
+  {step:'uncommon star 1/1',type:'star',baseRate:0.90,pity:2,expMerges:1.00,catchesMerge:1.4,totalCatches:1.4,cumul:2.6},
+  {step:'uncommon->rare jump',type:'jump',baseRate:0.80,pity:3,expMerges:2.22,catchesMerge:1.4,totalCatches:3.1,cumul:5.7},
+  {step:'rare star 1/2',type:'star',baseRate:0.88,pity:3,expMerges:1.02,catchesMerge:1.8,totalCatches:1.8,cumul:7.5},
+  {step:'rare star 2/2',type:'star',baseRate:0.88,pity:3,expMerges:1.02,catchesMerge:1.8,totalCatches:1.8,cumul:9.4},
+  {step:'rare->epic jump',type:'jump',baseRate:0.65,pity:3,expMerges:3.94,catchesMerge:1.8,totalCatches:7.1,cumul:16.5},
+  {step:'epic star 1/3',type:'star',baseRate:0.85,pity:3,expMerges:1.05,catchesMerge:2.5,totalCatches:2.6,cumul:19.1},
+  {step:'epic star 2/3',type:'star',baseRate:0.85,pity:3,expMerges:1.05,catchesMerge:2.5,totalCatches:2.6,cumul:21.7},
+  {step:'epic star 3/3',type:'star',baseRate:0.85,pity:3,expMerges:1.05,catchesMerge:2.5,totalCatches:2.6,cumul:24.4},
+  {step:'epic->legendary jump',type:'jump',baseRate:0.52,pity:4,expMerges:6.32,catchesMerge:2.5,totalCatches:15.8,cumul:40.2},
+  {step:'legendary star 1/4',type:'star',baseRate:0.82,pity:4,expMerges:1.09,catchesMerge:3.5,totalCatches:3.8,cumul:44.0},
+  {step:'legendary star 2/4',type:'star',baseRate:0.82,pity:4,expMerges:1.09,catchesMerge:3.5,totalCatches:3.8,cumul:47.8},
+  {step:'legendary star 3/4',type:'star',baseRate:0.82,pity:4,expMerges:1.09,catchesMerge:3.5,totalCatches:3.8,cumul:51.6},
+  {step:'legendary star 4/4',type:'star',baseRate:0.82,pity:4,expMerges:1.09,catchesMerge:3.5,totalCatches:3.8,cumul:55.4},
+  {step:'legendary->mythic jump',type:'jump',baseRate:0.44,pity:4,expMerges:8.84,catchesMerge:3.5,totalCatches:31.0,cumul:86.3},
+  {step:'mythic star 1/5',type:'star',baseRate:0.78,pity:4,expMerges:1.14,catchesMerge:4.5,totalCatches:5.1,cumul:91.4},
+  {step:'mythic star 2/5',type:'star',baseRate:0.78,pity:4,expMerges:1.14,catchesMerge:4.5,totalCatches:5.1,cumul:96.6},
+  {step:'mythic star 3/5',type:'star',baseRate:0.78,pity:4,expMerges:1.14,catchesMerge:4.5,totalCatches:5.1,cumul:101.7},
+  {step:'mythic star 4/5',type:'star',baseRate:0.78,pity:4,expMerges:1.14,catchesMerge:4.5,totalCatches:5.1,cumul:106.8},
+  {step:'mythic star 5/5',type:'star',baseRate:0.78,pity:4,expMerges:1.14,catchesMerge:4.5,totalCatches:5.1,cumul:111.9},
+  {step:'mythic->astral jump',type:'jump',baseRate:0.38,pity:5,expMerges:11.94,catchesMerge:4.5,totalCatches:53.7,cumul:165.6},
+  {step:'astral star 1/6',type:'star',baseRate:0.75,pity:5,expMerges:1.18,catchesMerge:4.8,totalCatches:5.6,cumul:171.3},
+  {step:'astral star 2/6',type:'star',baseRate:0.75,pity:5,expMerges:1.18,catchesMerge:4.8,totalCatches:5.6,cumul:176.9},
+  {step:'astral star 3/6',type:'star',baseRate:0.75,pity:5,expMerges:1.18,catchesMerge:4.8,totalCatches:5.6,cumul:182.5},
+  {step:'astral star 4/6',type:'star',baseRate:0.75,pity:5,expMerges:1.18,catchesMerge:4.8,totalCatches:5.6,cumul:188.2},
+  {step:'astral star 5/6',type:'star',baseRate:0.75,pity:5,expMerges:1.18,catchesMerge:4.8,totalCatches:5.6,cumul:193.8},
+  {step:'astral star 6/6',type:'star',baseRate:0.75,pity:5,expMerges:1.18,catchesMerge:4.8,totalCatches:5.6,cumul:199.5},
+  {step:'astral->eternal jump',type:'jump',baseRate:0.32,pity:6,expMerges:15.88,catchesMerge:4.8,totalCatches:76.2,cumul:275.7},
+  {step:'eternal star 1/7',type:'star',baseRate:0.72,pity:6,expMerges:1.22,catchesMerge:5.5,totalCatches:6.7,cumul:282.4},
+  {step:'eternal star 2/7',type:'star',baseRate:0.72,pity:6,expMerges:1.22,catchesMerge:5.5,totalCatches:6.7,cumul:289.1},
+  {step:'eternal star 3/7',type:'star',baseRate:0.72,pity:6,expMerges:1.22,catchesMerge:5.5,totalCatches:6.7,cumul:295.8},
+  {step:'eternal star 4/7',type:'star',baseRate:0.72,pity:6,expMerges:1.22,catchesMerge:5.5,totalCatches:6.7,cumul:302.5},
+  {step:'eternal star 5/7',type:'star',baseRate:0.72,pity:6,expMerges:1.22,catchesMerge:5.5,totalCatches:6.7,cumul:309.2},
+  {step:'eternal star 6/7',type:'star',baseRate:0.72,pity:6,expMerges:1.22,catchesMerge:5.5,totalCatches:6.7,cumul:315.9},
+  {step:'eternal star 7/7',type:'star',baseRate:0.72,pity:6,expMerges:1.22,catchesMerge:5.5,totalCatches:6.7,cumul:322.7}
+];
+
+const tierCatches = {
+  Common:1, Uncommon:4, Rare:14, Epic:25, Legendary:53, Mythic:95, Astral:125, Eternal:39
+};
+
+const simData = {
+  strategic: {catches:{mean:1190,p10:1131,p25:1158,p50:1189,p75:1221,p90:1251,p95:1269,min:1029,max:1397},
+              merges:{mean:304,p50:303},
+              days:{mean:44.1,p10:41.9,p25:42.9,p50:44.0,p75:45.2,p90:46.3,p95:47.0}},
+  random:   {catches:{mean:1377,p10:1302,p25:1336,p50:1377,p75:1416,p90:1453,p95:1475,min:1162,max:1616},
+              merges:{mean:349,p50:349},
+              days:{mean:51.0,p10:48.2,p25:49.5,p50:51.0,p75:52.4,p90:53.8,p95:54.6}}
+};
+
+// Trait tree data (embedded)
+const traitTreeData = {
+  traits: {
+    eyes: {
+      common: [{id:'eye_c01',name:'Pebble Gaze',art:'\u25CB.\u25CB'},{id:'eye_c02',name:'Dash Sight',art:'-.\u2013'},{id:'eye_c03',name:'Pip Vision',art:'\u00B7.\u00B7'},{id:'eye_c04',name:'Round Look',art:'O.O'},{id:'eye_c05',name:'Bead Eyes',art:'\u00B0.\u00B0'}],
+      uncommon: [{id:'eye_u01',name:'Half Moon',art:'\u25D0.\u25D0'},{id:'eye_u02',name:'Crescent',art:'\u25D1_\u25D1'},{id:'eye_u03',name:'Owl Sight',art:'\u25CBw\u25CB'},{id:'eye_u04',name:'Slit Gaze',art:'>.>'}],
+      rare: [{id:'eye_r01',name:'Ring Gaze',art:'\u25CE.\u25CE'},{id:'eye_r02',name:'Dot Sight',art:'\u25CF_\u25CF'},{id:'eye_r03',name:'Core Eyes',art:'\u25C9w\u25C9'}],
+      epic: [{id:'eye_e01',name:'Gem Gaze',art:'\u25C6.\u25C6'},{id:'eye_e02',name:'Star Dust',art:'\u2756_\u2756'},{id:'eye_e03',name:'Spark Eyes',art:'\u2726w\u2726'}],
+      legendary: [{id:'eye_l01',name:'Star Sight',art:'\u2605w\u2605'},{id:'eye_l02',name:'Moon Eyes',art:'\u2606_\u2606'}],
+      mythic: [{id:'eye_m01',name:'Void Gaze',art:'\u2299_\u2299'},{id:'eye_m02',name:'Prism Eyes',art:'\u25C8_\u25C8'}],
+      astral: [{id:'eye_a01',name:'Nebula Gaze'},{id:'eye_a02',name:'Singularity'}],
+      eternal: [{id:'eye_t01',name:'Omniscience'}]
+    },
+    mouth: {
+      common: [{id:'mth_c01',name:'Flat Line',art:' - '},{id:'mth_c02',name:'Wave',art:' ~ '},{id:'mth_c03',name:'Smile',art:' \u25E1 '},{id:'mth_c04',name:'Dot',art:' . '},{id:'mth_c05',name:'Underline',art:' _ '}],
+      uncommon: [{id:'mth_u01',name:'Circle',art:' \u2218 '},{id:'mth_u02',name:'Ripple',art:' \u2248 '},{id:'mth_u03',name:'Curve',art:' \u2312 '},{id:'mth_u04',name:'Whisker',art:' v '}],
+      rare: [{id:'mth_r01',name:'Omega',art:' \u03C9 '},{id:'mth_r02',name:'Swirl',art:' \u223F '},{id:'mth_r03',name:'Triangle',art:' \u25B3 '}],
+      epic: [{id:'mth_e01',name:'Prism',art:' \u2207 '},{id:'mth_e02',name:'Void',art:' \u2297 '},{id:'mth_e03',name:'Gem',art:' \u25C7 '}],
+      legendary: [{id:'mth_l01',name:'Diamond',art:' \u25C7 '},{id:'mth_l02',name:'Spark',art:' \u2726 '}],
+      mythic: [{id:'mth_m01',name:'Core',art:' \u2297 '},{id:'mth_m02',name:'Nova',art:' \u2726 '}],
+      astral: [{id:'mth_a01',name:'Resonance'},{id:'mth_a02',name:'Cascade'}],
+      eternal: [{id:'mth_t01',name:'Genesis'}]
+    },
+    body: {
+      common: [{id:'bod_c01',name:'Dots',art:' \u2591\u2591 '},{id:'bod_c02',name:'Light',art:' \u00B7\u00B7 '},{id:'bod_c03',name:'Plain',art:' -- '},{id:'bod_c04',name:'Thin',art:' :: '},{id:'bod_c05',name:'Faint',art:' \u2219\u2219 '}],
+      uncommon: [{id:'bod_u01',name:'Shade',art:' \u2592\u2592 '},{id:'bod_u02',name:'Mesh',art:' ## '},{id:'bod_u03',name:'Grain',art:' \u2591\u2592 '},{id:'bod_u04',name:'Cross',art:' ++ '}],
+      rare: [{id:'bod_r01',name:'Crystal',art:' \u2593\u2593 '},{id:'bod_r02',name:'Wave',art:' \u2248\u2248 '},{id:'bod_r03',name:'Pulse',art:' \u223F\u223F '}],
+      epic: [{id:'bod_e01',name:'Shell',art:' \u25C6\u25C6 '},{id:'bod_e02',name:'Core',art:' \u2299\u2299 '},{id:'bod_e03',name:'Facet',art:' \u25C8\u25C8 '}],
+      legendary: [{id:'bod_l01',name:'Hex',art:' \u2B21\u2B21 '},{id:'bod_l02',name:'Star',art:' \u2726\u2726 '}],
+      mythic: [{id:'bod_m01',name:'Prism',art:' \u25C8\u25C8 '},{id:'bod_m02',name:'Void',art:' \u2299\u2299 '}],
+      astral: [{id:'bod_a01',name:'Nebula'},{id:'bod_a02',name:'Lattice'}],
+      eternal: [{id:'bod_t01',name:'Cosmos'}]
+    },
+    tail: {
+      common: [{id:'tal_c01',name:'Curl',art:'~~/'},{id:'tal_c02',name:'Swish',art:'\\~\\'},{id:'tal_c03',name:'Stub',art:'_v_'},{id:'tal_c04',name:'Droop',art:'___'},{id:'tal_c05',name:'Flick',art:'~/~'}],
+      uncommon: [{id:'tal_u01',name:'Zigzag',art:'\u2307\u2307'},{id:'tal_u02',name:'Drift',art:'\u223F\u223F'},{id:'tal_u03',name:'Whirl',art:'~~\u2307'},{id:'tal_u04',name:'Wag',art:'~\u2307~'}],
+      rare: [{id:'tal_r01',name:'Ripple',art:'\u224B\u224B'},{id:'tal_r02',name:'Bolt',art:'\u21AF\u21AF'},{id:'tal_r03',name:'Fork',art:'\\\u2307/'}],
+      epic: [{id:'tal_e01',name:'Lightning',art:'\\\u26A1/'},{id:'tal_e02',name:'Infinity',art:'\\\u221E/'},{id:'tal_e03',name:'Shimmer',art:'\u2727\u2727'}],
+      legendary: [{id:'tal_l01',name:'Comet',art:'\u2604\u2604'},{id:'tal_l02',name:'Glitter',art:'\\\u2727/'}],
+      mythic: [{id:'tal_m01',name:'Supernova',art:'\u2604\u2727\u2604'},{id:'tal_m02',name:'Eternal Tail',art:'\\\u221E/'}],
+      astral: [{id:'tal_a01',name:'Aurora'},{id:'tal_a02',name:'Vortex'}],
+      eternal: [{id:'tal_t01',name:'Infinity Trail'}]
+    }
+  },
+  tree: {
+    eyes: {
+      eye_c01:{fromRarity:'common',toRarity:'uncommon',connections:{eye_u04:0.5,eye_u03:0.25,eye_u02:0.15,eye_u01:0.1}},
+      eye_c02:{fromRarity:'common',toRarity:'uncommon',connections:{eye_u04:0.5,eye_u03:0.25,eye_u02:0.15,eye_u01:0.1}},
+      eye_c03:{fromRarity:'common',toRarity:'uncommon',connections:{eye_u04:0.5,eye_u03:0.25,eye_u02:0.15,eye_u01:0.1}},
+      eye_c04:{fromRarity:'common',toRarity:'uncommon',connections:{eye_u04:0.5,eye_u03:0.25,eye_u02:0.15,eye_u01:0.1}},
+      eye_c05:{fromRarity:'common',toRarity:'uncommon',connections:{eye_u04:0.5,eye_u03:0.25,eye_u02:0.15,eye_u01:0.1}},
+      eye_u01:{fromRarity:'uncommon',toRarity:'rare',connections:{eye_r01:0.55,eye_r02:0.3,eye_r03:0.15}},
+      eye_u02:{fromRarity:'uncommon',toRarity:'rare',connections:{eye_r01:0.55,eye_r02:0.3,eye_r03:0.15}},
+      eye_u03:{fromRarity:'uncommon',toRarity:'rare',connections:{eye_r01:0.55,eye_r02:0.3,eye_r03:0.15}},
+      eye_u04:{fromRarity:'uncommon',toRarity:'rare',connections:{eye_r01:0.55,eye_r02:0.3,eye_r03:0.15}},
+      eye_r01:{fromRarity:'rare',toRarity:'epic',connections:{eye_e03:0.55,eye_e02:0.3,eye_e01:0.15}},
+      eye_r02:{fromRarity:'rare',toRarity:'epic',connections:{eye_e03:0.55,eye_e02:0.3,eye_e01:0.15}},
+      eye_r03:{fromRarity:'rare',toRarity:'epic',connections:{eye_e03:0.55,eye_e02:0.3,eye_e01:0.15}},
+      eye_e01:{fromRarity:'epic',toRarity:'legendary',connections:{eye_l02:0.65,eye_l01:0.35}},
+      eye_e02:{fromRarity:'epic',toRarity:'legendary',connections:{eye_l02:0.65,eye_l01:0.35}},
+      eye_e03:{fromRarity:'epic',toRarity:'legendary',connections:{eye_l02:0.65,eye_l01:0.35}},
+      eye_l01:{fromRarity:'legendary',toRarity:'mythic',connections:{eye_m01:0.65,eye_m02:0.35}},
+      eye_l02:{fromRarity:'legendary',toRarity:'mythic',connections:{eye_m01:0.65,eye_m02:0.35}},
+      eye_m01:{fromRarity:'mythic',toRarity:'astral',connections:{eye_a01:0.65,eye_a02:0.35}},
+      eye_m02:{fromRarity:'mythic',toRarity:'astral',connections:{eye_a01:0.65,eye_a02:0.35}},
+      eye_a01:{fromRarity:'astral',toRarity:'eternal',connections:{eye_t01:1}},
+      eye_a02:{fromRarity:'astral',toRarity:'eternal',connections:{eye_t01:1}}
+    },
+    mouth: {
+      mth_c01:{fromRarity:'common',toRarity:'uncommon',connections:{mth_u01:0.5,mth_u02:0.25,mth_u03:0.15,mth_u04:0.1}},
+      mth_c02:{fromRarity:'common',toRarity:'uncommon',connections:{mth_u01:0.5,mth_u02:0.25,mth_u03:0.15,mth_u04:0.1}},
+      mth_c03:{fromRarity:'common',toRarity:'uncommon',connections:{mth_u01:0.5,mth_u02:0.25,mth_u03:0.15,mth_u04:0.1}},
+      mth_c04:{fromRarity:'common',toRarity:'uncommon',connections:{mth_u01:0.5,mth_u02:0.25,mth_u03:0.15,mth_u04:0.1}},
+      mth_c05:{fromRarity:'common',toRarity:'uncommon',connections:{mth_u01:0.5,mth_u02:0.25,mth_u03:0.15,mth_u04:0.1}},
+      mth_u01:{fromRarity:'uncommon',toRarity:'rare',connections:{mth_r01:0.55,mth_r02:0.3,mth_r03:0.15}},
+      mth_u02:{fromRarity:'uncommon',toRarity:'rare',connections:{mth_r01:0.55,mth_r02:0.3,mth_r03:0.15}},
+      mth_u03:{fromRarity:'uncommon',toRarity:'rare',connections:{mth_r01:0.55,mth_r02:0.3,mth_r03:0.15}},
+      mth_u04:{fromRarity:'uncommon',toRarity:'rare',connections:{mth_r01:0.55,mth_r02:0.3,mth_r03:0.15}},
+      mth_r01:{fromRarity:'rare',toRarity:'epic',connections:{mth_e03:0.55,mth_e02:0.3,mth_e01:0.15}},
+      mth_r02:{fromRarity:'rare',toRarity:'epic',connections:{mth_e03:0.55,mth_e02:0.3,mth_e01:0.15}},
+      mth_r03:{fromRarity:'rare',toRarity:'epic',connections:{mth_e03:0.55,mth_e02:0.3,mth_e01:0.15}},
+      mth_e01:{fromRarity:'epic',toRarity:'legendary',connections:{mth_l02:0.65,mth_l01:0.35}},
+      mth_e02:{fromRarity:'epic',toRarity:'legendary',connections:{mth_l02:0.65,mth_l01:0.35}},
+      mth_e03:{fromRarity:'epic',toRarity:'legendary',connections:{mth_l02:0.65,mth_l01:0.35}},
+      mth_l01:{fromRarity:'legendary',toRarity:'mythic',connections:{mth_m01:0.65,mth_m02:0.35}},
+      mth_l02:{fromRarity:'legendary',toRarity:'mythic',connections:{mth_m01:0.65,mth_m02:0.35}},
+      mth_m01:{fromRarity:'mythic',toRarity:'astral',connections:{mth_a01:0.65,mth_a02:0.35}},
+      mth_m02:{fromRarity:'mythic',toRarity:'astral',connections:{mth_a01:0.65,mth_a02:0.35}},
+      mth_a01:{fromRarity:'astral',toRarity:'eternal',connections:{mth_t01:1}},
+      mth_a02:{fromRarity:'astral',toRarity:'eternal',connections:{mth_t01:1}}
+    },
+    body: {
+      bod_c01:{fromRarity:'common',toRarity:'uncommon',connections:{bod_u01:0.5,bod_u02:0.25,bod_u03:0.15,bod_u04:0.1}},
+      bod_c02:{fromRarity:'common',toRarity:'uncommon',connections:{bod_u01:0.5,bod_u02:0.25,bod_u03:0.15,bod_u04:0.1}},
+      bod_c03:{fromRarity:'common',toRarity:'uncommon',connections:{bod_u01:0.5,bod_u02:0.25,bod_u03:0.15,bod_u04:0.1}},
+      bod_c04:{fromRarity:'common',toRarity:'uncommon',connections:{bod_u01:0.5,bod_u02:0.25,bod_u03:0.15,bod_u04:0.1}},
+      bod_c05:{fromRarity:'common',toRarity:'uncommon',connections:{bod_u01:0.5,bod_u02:0.25,bod_u03:0.15,bod_u04:0.1}},
+      bod_u01:{fromRarity:'uncommon',toRarity:'rare',connections:{bod_r01:0.55,bod_r02:0.3,bod_r03:0.15}},
+      bod_u02:{fromRarity:'uncommon',toRarity:'rare',connections:{bod_r01:0.55,bod_r02:0.3,bod_r03:0.15}},
+      bod_u03:{fromRarity:'uncommon',toRarity:'rare',connections:{bod_r01:0.55,bod_r02:0.3,bod_r03:0.15}},
+      bod_u04:{fromRarity:'uncommon',toRarity:'rare',connections:{bod_r01:0.55,bod_r02:0.3,bod_r03:0.15}},
+      bod_r01:{fromRarity:'rare',toRarity:'epic',connections:{bod_e03:0.55,bod_e02:0.3,bod_e01:0.15}},
+      bod_r02:{fromRarity:'rare',toRarity:'epic',connections:{bod_e03:0.55,bod_e02:0.3,bod_e01:0.15}},
+      bod_r03:{fromRarity:'rare',toRarity:'epic',connections:{bod_e03:0.55,bod_e02:0.3,bod_e01:0.15}},
+      bod_e01:{fromRarity:'epic',toRarity:'legendary',connections:{bod_l02:0.65,bod_l01:0.35}},
+      bod_e02:{fromRarity:'epic',toRarity:'legendary',connections:{bod_l02:0.65,bod_l01:0.35}},
+      bod_e03:{fromRarity:'epic',toRarity:'legendary',connections:{bod_l02:0.65,bod_l01:0.35}},
+      bod_l01:{fromRarity:'legendary',toRarity:'mythic',connections:{bod_m01:0.65,bod_m02:0.35}},
+      bod_l02:{fromRarity:'legendary',toRarity:'mythic',connections:{bod_m01:0.65,bod_m02:0.35}},
+      bod_m01:{fromRarity:'mythic',toRarity:'astral',connections:{bod_a01:0.65,bod_a02:0.35}},
+      bod_m02:{fromRarity:'mythic',toRarity:'astral',connections:{bod_a01:0.65,bod_a02:0.35}},
+      bod_a01:{fromRarity:'astral',toRarity:'eternal',connections:{bod_t01:1}},
+      bod_a02:{fromRarity:'astral',toRarity:'eternal',connections:{bod_t01:1}}
+    },
+    tail: {
+      tal_c01:{fromRarity:'common',toRarity:'uncommon',connections:{tal_u01:0.5,tal_u02:0.25,tal_u03:0.15,tal_u04:0.1}},
+      tal_c02:{fromRarity:'common',toRarity:'uncommon',connections:{tal_u01:0.5,tal_u02:0.25,tal_u03:0.15,tal_u04:0.1}},
+      tal_c03:{fromRarity:'common',toRarity:'uncommon',connections:{tal_u01:0.5,tal_u02:0.25,tal_u03:0.15,tal_u04:0.1}},
+      tal_c04:{fromRarity:'common',toRarity:'uncommon',connections:{tal_u01:0.5,tal_u02:0.25,tal_u03:0.15,tal_u04:0.1}},
+      tal_c05:{fromRarity:'common',toRarity:'uncommon',connections:{tal_u01:0.5,tal_u02:0.25,tal_u03:0.15,tal_u04:0.1}},
+      tal_u01:{fromRarity:'uncommon',toRarity:'rare',connections:{tal_r01:0.55,tal_r02:0.3,tal_r03:0.15}},
+      tal_u02:{fromRarity:'uncommon',toRarity:'rare',connections:{tal_r01:0.55,tal_r02:0.3,tal_r03:0.15}},
+      tal_u03:{fromRarity:'uncommon',toRarity:'rare',connections:{tal_r01:0.55,tal_r02:0.3,tal_r03:0.15}},
+      tal_u04:{fromRarity:'uncommon',toRarity:'rare',connections:{tal_r01:0.55,tal_r02:0.3,tal_r03:0.15}},
+      tal_r01:{fromRarity:'rare',toRarity:'epic',connections:{tal_e03:0.55,tal_e02:0.3,tal_e01:0.15}},
+      tal_r02:{fromRarity:'rare',toRarity:'epic',connections:{tal_e03:0.55,tal_e02:0.3,tal_e01:0.15}},
+      tal_r03:{fromRarity:'rare',toRarity:'epic',connections:{tal_e03:0.55,tal_e02:0.3,tal_e01:0.15}},
+      tal_e01:{fromRarity:'epic',toRarity:'legendary',connections:{tal_l02:0.65,tal_l01:0.35}},
+      tal_e02:{fromRarity:'epic',toRarity:'legendary',connections:{tal_l02:0.65,tal_l01:0.35}},
+      tal_e03:{fromRarity:'epic',toRarity:'legendary',connections:{tal_l02:0.65,tal_l01:0.35}},
+      tal_l01:{fromRarity:'legendary',toRarity:'mythic',connections:{tal_m01:0.65,tal_m02:0.35}},
+      tal_l02:{fromRarity:'legendary',toRarity:'mythic',connections:{tal_m01:0.65,tal_m02:0.35}},
+      tal_m01:{fromRarity:'mythic',toRarity:'astral',connections:{tal_a01:0.65,tal_a02:0.35}},
+      tal_m02:{fromRarity:'mythic',toRarity:'astral',connections:{tal_a01:0.65,tal_a02:0.35}},
+      tal_a01:{fromRarity:'astral',toRarity:'eternal',connections:{tal_t01:1}},
+      tal_a02:{fromRarity:'astral',toRarity:'eternal',connections:{tal_t01:1}}
+    }
+  }
+};
+
+// ====== TAB NAVIGATION ======
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById(btn.dataset.tab).classList.add('active');
+    // Resize charts when tab becomes visible
+    if (btn.dataset.tab === 'progression') {
+      setTimeout(() => { cumulChart && cumulChart.resize(); tierChart && tierChart.resize(); }, 50);
+    }
+    if (btn.dataset.tab === 'simulation') {
+      setTimeout(() => { simCatchChart && simCatchChart.resize(); simDayChart && simDayChart.resize(); }, 50);
+    }
+    if (btn.dataset.tab === 'trait-tree') {
+      renderTree(currentSlot);
+    }
+  });
+});
+
+// ====== PROGRESSION CHARTS ======
+const chartDefaults = {
+  color: '#8b949e',
+  borderColor: '#30363d',
+  font: { family: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" }
+};
+
+Chart.defaults.color = chartDefaults.color;
+Chart.defaults.borderColor = chartDefaults.borderColor;
+
+// Cumulative catches line chart
+const cumulCtx = document.getElementById('cumulChart').getContext('2d');
+
+// Color each point by the rarity tier it belongs to
+function getStepRarity(step) {
+  const s = step.step.toLowerCase();
+  if (s.includes('eternal')) return 'eternal';
+  if (s.includes('astral')) return 'astral';
+  if (s.includes('mythic')) return 'mythic';
+  if (s.includes('legendary')) return 'legendary';
+  if (s.includes('epic')) return 'epic';
+  if (s.includes('rare')) return 'rare';
+  if (s.includes('uncommon')) return 'uncommon';
+  return 'common';
+}
+
+const cumulColors = progressionData.map(s => RARITY_COLORS[getStepRarity(s)]);
+
+const cumulChart = new Chart(cumulCtx, {
+  type: 'line',
+  data: {
+    labels: progressionData.map((_, i) => i + 1),
+    datasets: [{
+      label: 'Cumulative Catches',
+      data: progressionData.map(d => d.cumul),
+      borderColor: '#58a6ff',
+      backgroundColor: 'rgba(88,166,255,0.1)',
+      fill: true,
+      tension: 0.3,
+      pointBackgroundColor: cumulColors,
+      pointBorderColor: cumulColors,
+      pointRadius: 4,
+      pointHoverRadius: 6
+    }]
+  },
+  options: {
+    responsive: true,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        callbacks: {
+          title: (items) => progressionData[items[0].dataIndex].step,
+          label: (item) => `Cumulative: ${item.raw} catches`
+        }
+      }
+    },
+    scales: {
+      x: { title: { display: true, text: 'Step #' }, grid: { color: 'rgba(48,54,61,0.5)' } },
+      y: { title: { display: true, text: 'Cumulative Catches' }, grid: { color: 'rgba(48,54,61,0.5)' } }
+    }
+  }
+});
+
+// Tier bar chart
+const tierCtx = document.getElementById('tierChart').getContext('2d');
+const tierLabels = Object.keys(tierCatches);
+const tierValues = Object.values(tierCatches);
+const tierColors = tierLabels.map(t => RARITY_COLORS[t.toLowerCase()]);
+
+const tierChart = new Chart(tierCtx, {
+  type: 'bar',
+  data: {
+    labels: tierLabels,
+    datasets: [{
+      label: 'Catches per Tier',
+      data: tierValues,
+      backgroundColor: tierColors.map(c => c + 'cc'),
+      borderColor: tierColors,
+      borderWidth: 1
+    }]
+  },
+  options: {
+    responsive: true,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { grid: { color: 'rgba(48,54,61,0.5)' } },
+      y: { title: { display: true, text: 'Catches' }, grid: { color: 'rgba(48,54,61,0.5)' } }
+    }
+  }
+});
+
+// ====== MERGE TABLE ======
+const mergeTableBody = document.querySelector('#mergeTable tbody');
+progressionData.forEach((d, i) => {
+  const rarity = getStepRarity(d);
+  const rowClass = d.type === 'jump' ? 'row-jump' : 'row-star';
+  const tr = document.createElement('tr');
+  tr.className = rowClass;
+  tr.innerHTML = `
+    <td>${i + 1}</td>
+    <td>${d.step}</td>
+    <td><span class="rarity-badge" style="background:${d.type === 'jump' ? 'rgba(255,152,0,0.2);color:#ff9800' : 'rgba(76,175,80,0.2);color:#4caf50'}">${d.type === 'jump' ? 'JUMP' : 'STAR'}</span></td>
+    <td>${(d.baseRate * 100).toFixed(0)}%</td>
+    <td>${d.pity}</td>
+    <td>${d.expMerges.toFixed(2)}</td>
+    <td>${d.catchesMerge}</td>
+    <td>${d.totalCatches}</td>
+    <td style="font-weight:600;color:${RARITY_COLORS[rarity]}">${d.cumul}</td>
+  `;
+  mergeTableBody.appendChild(tr);
+});
+
+// ====== TRAIT TREE ======
+let currentSlot = 'eyes';
+let selectedNode = null;
+
+const tooltip = document.getElementById('tooltip');
+
+// Build trait lookup for art
+const traitLookup = {};
+for (const slot of ['eyes','mouth','body','tail']) {
+  for (const rarity of RARITIES) {
+    const traits = traitTreeData.traits[slot][rarity] || [];
+    for (const t of traits) {
+      traitLookup[t.id] = t;
+    }
+  }
+}
+
+document.querySelectorAll('.slot-tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.slot-tab').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentSlot = btn.dataset.slot;
+    selectedNode = null;
+    renderTree(currentSlot);
+  });
+});
+
+function renderTree(slot) {
+  const container = document.getElementById('treeContainer');
+  const traits = traitTreeData.traits[slot];
+  const tree = traitTreeData.tree[slot];
+
+  // Layout: each rarity is a column
+  const colWidth = 140;
+  const nodeHeight = 36;
+  const nodeWidth = 120;
+  const paddingX = 40;
+  const paddingY = 30;
+
+  // Calculate positions
+  const nodePositions = {};
+  let maxY = 0;
+
+  RARITIES.forEach((rarity, colIdx) => {
+    const traitList = traits[rarity] || [];
+    const totalHeight = traitList.length * (nodeHeight + 16) - 16;
+    const startY = paddingY;
+
+    traitList.forEach((trait, rowIdx) => {
+      const x = paddingX + colIdx * colWidth;
+      const y = startY + rowIdx * (nodeHeight + 16);
+      nodePositions[trait.id] = { x, y, rarity, name: trait.name, id: trait.id };
+      if (y + nodeHeight > maxY) maxY = y + nodeHeight;
+    });
+  });
+
+  const svgWidth = paddingX * 2 + RARITIES.length * colWidth;
+  const svgHeight = maxY + paddingY + 40;
+
+  // Build edges
+  let edgesHTML = '';
+  const allEdges = [];
+
+  for (const [fromId, node] of Object.entries(tree)) {
+    if (!nodePositions[fromId]) continue;
+    const from = nodePositions[fromId];
+    for (const [toId, weight] of Object.entries(node.connections)) {
+      if (!nodePositions[toId]) continue;
+      const to = nodePositions[toId];
+      const strokeWidth = Math.max(1, weight * 6);
+      const opacity = 0.3 + weight * 0.5;
+      allEdges.push({ fromId, toId, weight });
+      edgesHTML += `<line class="tree-edge" data-from="${fromId}" data-to="${toId}"
+        x1="${from.x + nodeWidth}" y1="${from.y + nodeHeight / 2}"
+        x2="${to.x}" y2="${to.y + nodeHeight / 2}"
+        stroke="${RARITY_COLORS[nodePositions[toId].rarity]}"
+        stroke-width="${strokeWidth}" stroke-opacity="${opacity}"
+        stroke-linecap="round"/>`;
+    }
+  }
+
+  // Build nodes
+  let nodesHTML = '';
+  for (const [id, pos] of Object.entries(nodePositions)) {
+    const color = RARITY_COLORS[pos.rarity];
+    const textColor = (pos.rarity === 'eternal' || pos.rarity === 'legendary') ? '#000' : '#fff';
+    nodesHTML += `<g class="tree-node" data-id="${id}" data-rarity="${pos.rarity}">
+      <rect x="${pos.x}" y="${pos.y}" width="${nodeWidth}" height="${nodeHeight}"
+        rx="6" fill="${color}" stroke="${color}" stroke-width="1.5" opacity="0.85"/>
+      <text x="${pos.x + nodeWidth / 2}" y="${pos.y + nodeHeight / 2 + 1}"
+        text-anchor="middle" dominant-baseline="middle"
+        fill="${textColor}" font-size="11" font-weight="600" font-family="sans-serif"
+        style="pointer-events:none">${pos.name.length > 13 ? pos.name.slice(0, 12) + '..' : pos.name}</text>
+    </g>`;
+  }
+
+  // Rarity column headers
+  let headersHTML = '';
+  RARITIES.forEach((rarity, colIdx) => {
+    const x = paddingX + colIdx * colWidth + nodeWidth / 2;
+    headersHTML += `<text x="${x}" y="${svgHeight - 10}" text-anchor="middle"
+      fill="${RARITY_COLORS[rarity]}" font-size="11" font-weight="700"
+      text-transform="uppercase" font-family="sans-serif">${rarity.charAt(0).toUpperCase() + rarity.slice(1)}</text>`;
+  });
+
+  container.innerHTML = `<svg width="${svgWidth}" height="${svgHeight}" xmlns="http://www.w3.org/2000/svg">
+    ${edgesHTML}${nodesHTML}${headersHTML}
+  </svg>`;
+
+  // Event handlers
+  container.querySelectorAll('.tree-node').forEach(node => {
+    node.addEventListener('mouseenter', (e) => {
+      const id = node.dataset.id;
+      const trait = traitLookup[id];
+      if (!trait) return;
+      const pos = nodePositions[id];
+      let html = `<strong style="color:${RARITY_COLORS[pos.rarity]}">${trait.name}</strong><br>`;
+      html += `<span style="color:var(--text-dim)">${pos.rarity.charAt(0).toUpperCase() + pos.rarity.slice(1)} | ${slot}</span>`;
+      if (trait.art) {
+        html += `<div class="art">${trait.art}</div>`;
+      }
+      // Show connections
+      const treeNode = tree[id];
+      if (treeNode) {
+        html += `<div style="margin-top:6px;font-size:11px;color:var(--text-dim)">Upgrades to:</div>`;
+        for (const [toId, w] of Object.entries(treeNode.connections)) {
+          const toTrait = traitLookup[toId];
+          if (toTrait) {
+            html += `<div style="font-size:11px"><span style="color:${RARITY_COLORS[nodePositions[toId].rarity]}">${toTrait.name}</span> ${(w * 100).toFixed(0)}%</div>`;
+          }
+        }
+      }
+      tooltip.innerHTML = html;
+      tooltip.style.display = 'block';
+      const rect = node.getBoundingClientRect();
+      tooltip.style.left = (rect.right + 10) + 'px';
+      tooltip.style.top = rect.top + 'px';
+    });
+
+    node.addEventListener('mouseleave', () => {
+      tooltip.style.display = 'none';
+    });
+
+    node.addEventListener('click', () => {
+      const id = node.dataset.id;
+      if (selectedNode === id) {
+        selectedNode = null;
+        // Reset all
+        container.querySelectorAll('.tree-node').forEach(n => n.style.opacity = '1');
+        container.querySelectorAll('.tree-edge').forEach(e => e.style.opacity = '');
+        return;
+      }
+      selectedNode = id;
+
+      // Find connected nodes
+      const connected = new Set([id]);
+      // Forward from this node
+      function findForward(nodeId) {
+        const tn = tree[nodeId];
+        if (!tn) return;
+        for (const toId of Object.keys(tn.connections)) {
+          connected.add(toId);
+          findForward(toId);
+        }
+      }
+      // Backward to this node
+      function findBackward(nodeId) {
+        for (const [fromId, tn] of Object.entries(tree)) {
+          if (tn.connections[nodeId] !== undefined) {
+            connected.add(fromId);
+            findBackward(fromId);
+          }
+        }
+      }
+      findForward(id);
+      findBackward(id);
+
+      container.querySelectorAll('.tree-node').forEach(n => {
+        n.style.opacity = connected.has(n.dataset.id) ? '1' : '0.15';
+      });
+      container.querySelectorAll('.tree-edge').forEach(e => {
+        const from = e.dataset.from;
+        const to = e.dataset.to;
+        if (connected.has(from) && connected.has(to)) {
+          e.style.opacity = '';
+          e.style.stroke = '';
+        } else {
+          e.style.opacity = '0.05';
+        }
+      });
+    });
+  });
+}
+
+// Initial render
+setTimeout(() => renderTree('eyes'), 100);
+
+// ====== SIMULATION CHARTS ======
+const simCatchCtx = document.getElementById('simCatchChart').getContext('2d');
+const simCatchChart = new Chart(simCatchCtx, {
+  type: 'bar',
+  data: {
+    labels: ['P10','P25','P50','P75','P90','P95'],
+    datasets: [
+      {
+        label: 'Strategic',
+        data: [simData.strategic.catches.p10, simData.strategic.catches.p25, simData.strategic.catches.p50,
+               simData.strategic.catches.p75, simData.strategic.catches.p90, simData.strategic.catches.p95],
+        backgroundColor: 'rgba(76,175,80,0.7)',
+        borderColor: '#4caf50',
+        borderWidth: 1
+      },
+      {
+        label: 'Random',
+        data: [simData.random.catches.p10, simData.random.catches.p25, simData.random.catches.p50,
+               simData.random.catches.p75, simData.random.catches.p90, simData.random.catches.p95],
+        backgroundColor: 'rgba(255,152,0,0.7)',
+        borderColor: '#ff9800',
+        borderWidth: 1
+      }
+    ]
+  },
+  options: {
+    responsive: true,
+    plugins: { legend: { labels: { color: '#e6edf3' } } },
+    scales: {
+      x: { grid: { color: 'rgba(48,54,61,0.5)' } },
+      y: { title: { display: true, text: 'Catches' }, grid: { color: 'rgba(48,54,61,0.5)' } }
+    }
+  }
+});
+
+const simDayCtx = document.getElementById('simDayChart').getContext('2d');
+const simDayChart = new Chart(simDayCtx, {
+  type: 'bar',
+  data: {
+    labels: ['P10','P25','P50','P75','P90','P95'],
+    datasets: [
+      {
+        label: 'Strategic',
+        data: [simData.strategic.days.p10, simData.strategic.days.p25, simData.strategic.days.p50,
+               simData.strategic.days.p75, simData.strategic.days.p90, simData.strategic.days.p95],
+        backgroundColor: 'rgba(76,175,80,0.7)',
+        borderColor: '#4caf50',
+        borderWidth: 1
+      },
+      {
+        label: 'Random',
+        data: [simData.random.days.p10, simData.random.days.p25, simData.random.days.p50,
+               simData.random.days.p75, simData.random.days.p90, simData.random.days.p95],
+        backgroundColor: 'rgba(255,152,0,0.7)',
+        borderColor: '#ff9800',
+        borderWidth: 1
+      }
+    ]
+  },
+  options: {
+    responsive: true,
+    plugins: { legend: { labels: { color: '#e6edf3' } } },
+    scales: {
+      x: { grid: { color: 'rgba(48,54,61,0.5)' } },
+      y: { title: { display: true, text: 'Days' }, grid: { color: 'rgba(48,54,61,0.5)' } }
+    }
+  }
+});
+
+// ====== BOX PLOTS ======
+function renderBoxPlot(containerId, valsId, data, color) {
+  const container = document.getElementById(containerId);
+  const valsEl = document.getElementById(valsId);
+  const minRange = 40;
+  const maxRange = 56;
+  const range = maxRange - minRange;
+
+  function pct(val) { return ((val - minRange) / range * 100); }
+
+  // P10-P90 range
+  const rangeEl = document.createElement('div');
+  rangeEl.className = 'box-range';
+  rangeEl.style.left = pct(data.p10) + '%';
+  rangeEl.style.width = (pct(data.p90) - pct(data.p10)) + '%';
+  rangeEl.style.background = color;
+  rangeEl.style.opacity = '0.3';
+
+  // IQR (P25-P75)
+  const iqrEl = document.createElement('div');
+  iqrEl.className = 'box-iqr';
+  iqrEl.style.left = pct(data.p25) + '%';
+  iqrEl.style.width = (pct(data.p75) - pct(data.p25)) + '%';
+  iqrEl.style.background = color;
+
+  // Median line
+  const medEl = document.createElement('div');
+  medEl.className = 'box-median';
+  medEl.style.left = pct(data.p50) + '%';
+
+  container.appendChild(rangeEl);
+  container.appendChild(iqrEl);
+  container.appendChild(medEl);
+
+  valsEl.innerHTML = `P10: ${data.p10}d | P50: <strong style="color:${color}">${data.p50}d</strong> | P90: ${data.p90}d | P95: ${data.p95}d`;
+}
+
+renderBoxPlot('boxStrategic', 'boxStrategicVals', simData.strategic.days, '#4caf50');
+renderBoxPlot('boxRandom', 'boxRandomVals', simData.random.days, '#ff9800');
+</script>
+</body>
+</html>
