@@ -12,6 +12,7 @@ import {
   SlotId,
   SLOT_IDS,
 } from "../../src/types";
+import * as speciesModule from "../../src/config/species";
 
 // --- Helpers ---
 
@@ -412,5 +413,81 @@ describe("executeBreed", () => {
 
     const result = executeBreed(state, "a1", "b1", () => 0);
     expect(result.child).not.toHaveProperty("color");
+  });
+});
+
+// --- Variable slots ---
+
+describe("breed — variable slots", () => {
+  test("breed preview works with 3-slot species", () => {
+    // Mock whiski species with only 3 slots (no body)
+    const whiskerSpecies = {
+      id: "whiski",
+      name: "Whisker",
+      description: "A whiskered creature",
+      spawnWeight: 0.15,
+      art: ["ASCII art"],
+      traitPools: {
+        eyes: [
+          { id: "eye_c01", name: "Pebble Gaze", art: "O", spawnRate: 0.12 },
+          { id: "eye_r01", name: "Ring Gaze", art: "@", spawnRate: 0.05 },
+        ],
+        mouth: [
+          { id: "mth_c01", name: "Flat Line", art: "-", spawnRate: 0.12 },
+          { id: "mth_r01", name: "Omega", art: "W", spawnRate: 0.05 },
+        ],
+        tail: [
+          { id: "tal_c01", name: "Curl", art: "~", spawnRate: 0.12 },
+          { id: "tal_r01", name: "Ripple", art: "S", spawnRate: 0.05 },
+        ],
+      },
+    };
+
+    // Create a map of all traits from the species
+    const allTraits = new Map<string, any>();
+    for (const [slotId, traits] of Object.entries(whiskerSpecies.traitPools)) {
+      if (traits) {
+        for (const trait of traits) {
+          allTraits.set(trait.id, trait);
+        }
+      }
+    }
+
+    // Spy on and mock the functions
+    const getSpeciesById = jest.spyOn(speciesModule, "getSpeciesById");
+    const getTraitDefinition = jest.spyOn(speciesModule, "getTraitDefinition");
+
+    getSpeciesById.mockImplementation((speciesId: string) => {
+      if (speciesId === "whiski") {
+        return whiskerSpecies as any;
+      }
+      // Call the real implementation for other species
+      return (getSpeciesById as any).getMockImplementation() ? undefined : speciesModule.getSpeciesById(speciesId);
+    });
+
+    getTraitDefinition.mockImplementation(
+      (speciesId: string, variantId: string) => {
+        if (speciesId === "whiski") {
+          return allTraits.get(variantId);
+        }
+        return undefined;
+      }
+    );
+
+    const parentA = makeCreature("a", "whiski", ALL_COMMON);
+    parentA.slots = parentA.slots.filter(s => s.slotId !== "body");
+
+    const parentB = makeCreature("b", "whiski", ALL_RARE);
+    parentB.slots = parentB.slots.filter(s => s.slotId !== "body");
+
+    const state = makeState([parentA, parentB]);
+
+    const preview = previewBreed(state, "a", "b");
+    expect(preview.slotInheritance).toHaveLength(3);
+    expect(preview.slotInheritance.map(s => s.slotId)).toEqual(["eyes", "mouth", "tail"]);
+
+    // Clean up mocks
+    getSpeciesById.mockRestore();
+    getTraitDefinition.mockRestore();
   });
 });

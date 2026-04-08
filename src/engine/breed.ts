@@ -129,7 +129,12 @@ function buildSlotInheritance(
   parentA: CollectionCreature,
   parentB: CollectionCreature
 ): SlotInheritance[] {
-  return SLOT_IDS.map((slotId) => {
+  const species = getSpeciesById(speciesId);
+  const speciesSlots = species
+    ? (Object.keys(species.traitPools) as SlotId[])
+    : SLOT_IDS;
+
+  return speciesSlots.map((slotId) => {
     const slotA = parentA.slots.find((s) => s.slotId === slotId);
     const slotB = parentB.slots.find((s) => s.slotId === slotId);
 
