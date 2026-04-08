@@ -2,7 +2,7 @@
 
 ## Overview
 
-Overhaul Compi from a single-creature rarity grinder into a multi-species creature collection game. Players catch, merge, and curate a collection of 15 distinct creatures, each defined by species, traits, and color. Strategic depth comes from merge inheritance mechanics, trait rarity, and collection building.
+Overhaul Compi from a single-creature rarity grinder into a multi-species creature collection game. Players catch, merge, and curate a collection of 15 distinct creatures, each defined by species and traits. Strategic depth comes from merge inheritance mechanics, trait rarity, and collection building.
 
 ---
 
@@ -13,7 +13,7 @@ Overhaul Compi from a single-creature rarity grinder into a multi-species creatu
 | Creatures | 1 creature, 1 species (Compi) | 15 active slots, 10+ species |
 | Traits | Cosmetic, grouped by rarity tier | Gameplay-relevant, individual spawn rates |
 | Rarity tiers | Common/Uncommon/Rare/Epic/Legendary/Mythic | Removed. Rarity = trait spawn % |
-| Colors | None | 8 colors with independent spawn rates |
+| Colors | None (trait art is the visual) | Unchanged — trait art IS the visual identity |
 | Merge | Sacrifice food into target, always succeeds, upgrades 1 slot's rarity | Both parents consumed, 1 child born, trait inheritance per slot with odds |
 | Goal | Max rarity on 1 creature | Build a diverse, rare-looking collection |
 | Archive | None | Trophy case for finished creatures |
@@ -44,16 +44,16 @@ Example distribution (10 species):
 
 | Species | Spawn Weight | ~Probability |
 |---------|-------------|-------------|
-| Compi | 20 | ~20% |
-| Felith | 18 | ~18% |
-| Gloon | 15 | ~15% |
-| Thornyx | 12 | ~12% |
+| Compi | 10 | ~10% |
+| Felith | 10 | ~10% |
+| Gloon | 10 | ~10% |
+| Thornyx | 10 | ~10% |
 | Craggor | 10 | ~10% |
-| Orbix | 8 | ~8% |
-| Zephyx | 7 | ~7% |
-| Drakon | 5 | ~5% |
-| Spectra | 3 | ~3% |
-| Luminos | 2 | ~2% |
+| Orbix | 10 | ~10% |
+| Zephyx | 10 | ~10% |
+| Drakon | 10 | ~10% |
+| Spectra | 10 | ~10% |
+| Luminos | 10 | ~10% |
 
 These weights are tunable in config. New species can be added without engine changes.
 
@@ -73,27 +73,27 @@ Example — Compi's eyes trait pool:
 
 | Trait | Art | Spawn % |
 |-------|-----|---------|
-| Pebble Gaze | `○.○` | 18% |
-| Dash Sight | `-.–` | 16% |
-| Pip Vision | `·.·` | 14% |
-| Round Look | `O.O` | 12% |
-| Bead Eyes | `°.°` | 10% |
-| Half Moon | `◐.◐` | 8% |
-| Crescent | `◑_◑` | 6% |
-| Owl Sight | `○w○` | 4% |
-| Slit Gaze | `>.>` | 3% |
-| Ring Gaze | `◎.◎` | 2.5% |
-| Dot Sight | `●_●` | 2% |
-| Core Eyes | `◉w◉` | 1.5% |
-| Gem Gaze | `◆.◆` | 1% |
-| Star Dust | `❖_❖` | 0.8% |
-| Spark Eyes | `✦w✦` | 0.6% |
-| Star Sight | `★w★` | 0.4% |
-| Moon Eyes | `☆_☆` | 0.3% |
-| Void Gaze | `⊙_⊙` | 0.2% |
-| Prism Eyes | `◈_◈` | 0.1% |
+| Pebble Gaze | `○.○` | 12% |
+| Dash Sight | `-.–` | 11% |
+| Pip Vision | `·.·` | 10% |
+| Round Look | `O.O` | 9% |
+| Bead Eyes | `°.°` | 8% |
+| Half Moon | `◐.◐` | 7% |
+| Crescent | `◑_◑` | 6.5% |
+| Owl Sight | `○w○` | 6% |
+| Slit Gaze | `>.>` | 5.5% |
+| Ring Gaze | `◎.◎` | 5% |
+| Dot Sight | `●_●` | 4.5% |
+| Core Eyes | `◉w◉` | 4% |
+| Gem Gaze | `◆.◆` | 3% |
+| Star Dust | `❖_❖` | 2.5% |
+| Spark Eyes | `✦w✦` | 2% |
+| Star Sight | `★w★` | 1.5% |
+| Moon Eyes | `☆_☆` | 1% |
+| Void Gaze | `⊙_⊙` | 0.7% |
+| Prism Eyes | `◈_◈` | 0.3% |
 
-Spawn rates sum to ~100% per slot. The distribution follows a long tail — most traits are relatively common, a few are extremely rare.
+Spawn rates sum to ~100% per slot. The distribution is a gentle curve — common traits appear ~12% of the time, the rarest around ~0.3%. The gap is meaningful but not extreme.
 
 ### Trait Spawn Rates Per Slot
 
@@ -101,30 +101,13 @@ All 4 slots (eyes, mouth, body, tail) follow the same pattern independently. Eac
 
 ### Creature Rarity
 
-A creature has no rarity label. Its effective rarity is the **product of its trait spawn rates + color spawn rate**. A creature with four 0.1% traits in shadow color is astronomically rarer than one with four 18% traits in grey.
+A creature has no rarity label. Its effective rarity is the **product of its trait spawn rates**. A creature with four 0.3% traits is astronomically rarer than one with four 12% traits.
 
 ---
 
 ## Color System
 
-### Colors
-
-Each creature spawns with one color. Color is independent of species and traits. Color determines the CSS tint applied to the creature's ASCII art.
-
-| Color | Hex | Spawn % |
-|-------|-----|---------|
-| Grey | #9e9e9e | 30% |
-| Green | #4caf50 | 20% |
-| Blue | #2196f3 | 18% |
-| Red | #f44336 | 12% |
-| Purple | #9c27b0 | 10% |
-| Gold | #ffd700 | 6% |
-| Holographic | animated gradient | 3% |
-| Shadow | #1a1a2e | 1% |
-
-### Color in Display
-
-The creature's entire ASCII art is rendered in its color. Holographic uses an animated rainbow gradient. Shadow uses a dark color with subtle glow.
+Colors work the same as the current system — each trait already has its own color/visual style based on its ASCII art. No new color layer is added. The visual richness comes from the trait variety itself, not a separate color axis.
 
 ---
 
@@ -140,27 +123,25 @@ Merging two creatures of the **same species** produces one child. Both parents a
 2. Both parents are **consumed** (removed from collection)
 3. One child is born (same species)
 4. Child's **traits**: each slot independently inherits from one parent
-5. Child's **color**: inherited from one parent or mutated
-
 ### Trait Inheritance
 
-For each of the 4 slots, the game rolls which parent's trait the child gets. The inheritance is **not 50/50** — rarer traits are harder to pass down.
+For each of the 4 slots, the game rolls which parent's trait the child gets. The inheritance is **not 50/50** — rarer traits have a slightly higher chance of being inherited, reflecting their "stronger" genetic presence.
 
 **Inheritance chance formula:**
 
 ```
-trait_pass_chance = 0.3 + (spawn_rate * 2.5)
-clamped to [0.20, 0.85]
+trait_pass_chance = 0.50 + (0.12 - spawn_rate) * 0.8
+clamped to [0.45, 0.58]
 ```
 
 | Trait Spawn Rate | Inheritance Chance |
 |------------------|--------------------|
-| 18% (very common) | 75% |
-| 10% (common) | 55% |
-| 5% (uncommon) | 43% |
-| 2% (rare) | 35% |
-| 1% (very rare) | 33% |
-| 0.1% (ultra-rare) | 20% (floor) |
+| 12% (very common) | 45% (floor) |
+| 8% (common) | 48% |
+| 5% (mid) | 51% |
+| 3% (uncommon) | 52% |
+| 1% (rare) | 54% |
+| 0.3% (ultra-rare) | 58% (ceiling) |
 
 **Per-slot resolution:**
 
@@ -173,31 +154,24 @@ For each slot:
 **Example:**
 
 ```
-Parent A eyes: Void Gaze (0.2% spawn → 20% inheritance)
-Parent B eyes: Pebble Gaze (18% spawn → 75% inheritance)
+Parent A eyes: Void Gaze (0.7% spawn → 56% inheritance)
+Parent B eyes: Pebble Gaze (12% spawn → 45% inheritance)
 
-prob_A = 20 / (20 + 75) = 21%
-prob_B = 75 / (20 + 75) = 79%
+prob_A = 56 / (56 + 45) = 55%
+prob_B = 45 / (56 + 45) = 45%
 
-Child has 21% chance of Void Gaze, 79% chance of Pebble Gaze
+Child has 55% chance of Void Gaze, 45% chance of Pebble Gaze
 ```
 
-This means: to reliably pass a rare trait, you need to merge two creatures that BOTH have it. If both parents have Void Gaze:
+The rare trait has a slight edge — but it's close to a coin flip. You're favored but not guaranteed.
+
+If both parents have Void Gaze:
 
 ```
-prob_A = 20 / (20 + 20) = 50%  → guaranteed one of them (both are the same trait)
-Child gets Void Gaze = 100% (both parents have it)
+Both parents have the same trait → child gets Void Gaze = 100%
 ```
 
-**Key insight**: merging two creatures with the same rare trait guarantees the child has it. This creates the strategy of "catching duplicates" — you need multiple creatures with the same rare trait to lock it in.
-
-### Color Inheritance
-
-1. 47.5% chance: child gets Parent A's color
-2. 47.5% chance: child gets Parent B's color
-3. 5% chance: color mutation — random roll from color spawn rate table
-
-Color mutation can go rarer OR more common. It's the only way to "discover" a new color without catching it.
+**Key insight**: merging two creatures with the same rare trait guarantees the child has it. This creates the strategy of "catching duplicates" — you need multiple creatures with the same rare trait to lock it in. The slight inheritance edge on rarer traits means they're a bit "stickier" when competing against common traits, but not by much.
 
 ### Merge Cost
 
@@ -245,12 +219,11 @@ If active collection is at 15, catching a new creature prompts:
 - Batch lingers 30 minutes
 - 3 shared catch attempts per batch
 
-### Species + Trait + Color Generation
+### Species + Trait Generation
 
 When a creature spawns:
 1. Roll species (weighted by species spawn rates)
 2. For each of 4 slots: roll trait from that species' pool (weighted by trait spawn rates)
-3. Roll color (weighted by color spawn rates)
 
 All rolls are independent.
 
@@ -280,9 +253,9 @@ Rarer creatures are harder to catch but never impossible. Species rarity affects
 
 ### Modified Commands
 
-- `/scan` — shows nearby creatures with species, traits, color. Trait spawn rates visible so players can evaluate rarity
+- `/scan` — shows nearby creatures with species and traits. Trait spawn rates visible so players can evaluate rarity
 - `/catch [number]` — catches a creature from nearby batch (unchanged mechanic, adjusted difficulty)
-- `/collection` — shows active collection (up to 15), with species, traits, color per creature
+- `/collection` — shows active collection (up to 15), with species and traits per creature
 - `/merge [id1] [id2]` — merge two same-species creatures, shows preview of inheritance odds before confirming
 - `/merge confirm` — executes the merge
 - `/status` — player profile with stats
@@ -291,7 +264,7 @@ Rarer creatures are harder to catch but never impossible. Species rarity affects
 
 - `/archive [id]` — move a creature from active collection to archive (permanent, cannot undo)
 - `/archive` (no args) — view archived creatures
-- `/inspect [id]` — detailed view of one creature: species, all trait spawn rates, color, merge history
+- `/inspect [id]` — detailed view of one creature: species, all trait spawn rates, merge history
 - `/release [id]` — permanently delete a creature from active collection (frees a slot)
 
 ---
@@ -330,7 +303,6 @@ interface CollectionCreature {
   id: string;
   speciesId: string;        // NEW: which species
   name: string;
-  color: Color;             // NEW: creature color
   slots: CreatureSlot[];
   caughtAt: number;
   generation: number;       // 0 = wild caught, increments on merge
@@ -349,12 +321,6 @@ interface CreatureSlot {
 }
 ```
 
-### New: Color
-
-```typescript
-type Color = 'grey' | 'green' | 'blue' | 'red' | 'purple' | 'gold' | 'holographic' | 'shadow';
-```
-
 ### Config Structure
 
 ```
@@ -364,7 +330,6 @@ config/
     drakon.json      // Drakon species definition + trait pools
     felith.json      // etc.
     ...
-  colors.json        // Color definitions + spawn rates
   balance.json       // Merge costs, catch rates, batch settings
 ```
 
@@ -377,7 +342,6 @@ config/
 - Current creature becomes a Compi species creature
 - Current trait assignments map to the new Compi trait pool (same trait IDs)
 - Current rarity field is dropped — the trait's spawn rate replaces it
-- Color assigned based on current average rarity (higher avg rarity = rarer starting color as a reward)
 - Collection starts with 1 creature (the existing one), 14 empty slots
 
 ---
@@ -405,6 +369,8 @@ Each species needs:
 
 Total new content: 9 species × 76 traits = 684 new trait definitions.
 
+**Important**: Each species should be designed and reviewed individually in its own implementation step. The ASCII art and traits need to be visually verified to look good — this is creative work that can't be batch-generated and needs human review per species.
+
 ---
 
 ## Balance Targets
@@ -412,7 +378,7 @@ Total new content: 9 species × 76 traits = 684 new trait definitions.
 | Metric | Target |
 |--------|--------|
 | Catches per day (active coding) | ~42 (unchanged) |
-| Time to "perfect" one creature (all rare traits + rare color) | 3-6 weeks |
+| Time to "perfect" one creature (all rare traits) | 3-6 weeks |
 | Time to fill collection (15 diverse creatures) | 1-2 weeks |
 | Time to fill collection with all rare traits | Months (aspirational) |
 | Merges per day | 2-5 |
