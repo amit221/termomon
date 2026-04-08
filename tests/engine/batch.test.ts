@@ -61,6 +61,13 @@ describe("generateCreatureSlots", () => {
     }
   });
 
+  test("each slot has a color field", () => {
+    const slots = generateCreatureSlots("compi", () => 0.5);
+    for (const s of slots) {
+      expect(CREATURE_COLORS).toContain(s.color);
+    }
+  });
+
   test("throws for unknown species", () => {
     expect(() => generateCreatureSlots("nonexistent", () => 0.5)).toThrow("Unknown species: nonexistent");
   });
@@ -89,7 +96,7 @@ describe("spawnBatch", () => {
   test("does not spawn if batch already active", () => {
     const state = makeState({
       batch: { attemptsRemaining: 2, failPenalty: 0, spawnedAt: Date.now() },
-      nearby: [{ id: "test", speciesId: "compi", color: "white", name: "Glorp", slots: [], spawnedAt: Date.now() }],
+      nearby: [{ id: "test", speciesId: "compi", name: "Glorp", slots: [], spawnedAt: Date.now() }],
     });
     const spawned = spawnBatch(state, Date.now(), () => 0.5);
     expect(spawned).toHaveLength(0);
@@ -125,7 +132,7 @@ describe("cleanupBatch", () => {
     const thirtyOneMinAgo = Date.now() - 31 * 60 * 1000;
     const state = makeState({
       batch: { attemptsRemaining: 2, failPenalty: 0, spawnedAt: thirtyOneMinAgo },
-      nearby: [{ id: "old", speciesId: "compi", color: "white", name: "Blobby", slots: [], spawnedAt: thirtyOneMinAgo }],
+      nearby: [{ id: "old", speciesId: "compi", name: "Blobby", slots: [], spawnedAt: thirtyOneMinAgo }],
     });
     const despawned = cleanupBatch(state, Date.now());
     expect(state.nearby).toHaveLength(0);
@@ -136,7 +143,7 @@ describe("cleanupBatch", () => {
   test("removes batch when no attempts remaining", () => {
     const state = makeState({
       batch: { attemptsRemaining: 0, failPenalty: 0.2, spawnedAt: Date.now() },
-      nearby: [{ id: "a", speciesId: "compi", color: "white", name: "Zibbit", slots: [], spawnedAt: Date.now() }],
+      nearby: [{ id: "a", speciesId: "compi", name: "Zibbit", slots: [], spawnedAt: Date.now() }],
     });
     const despawned = cleanupBatch(state, Date.now());
     expect(state.nearby).toHaveLength(0);
@@ -147,7 +154,7 @@ describe("cleanupBatch", () => {
   test("keeps batch if still active", () => {
     const state = makeState({
       batch: { attemptsRemaining: 2, failPenalty: 0, spawnedAt: Date.now() },
-      nearby: [{ id: "a", speciesId: "compi", color: "white", name: "Glimby", slots: [], spawnedAt: Date.now() }],
+      nearby: [{ id: "a", speciesId: "compi", name: "Glimby", slots: [], spawnedAt: Date.now() }],
     });
     const despawned = cleanupBatch(state, Date.now());
     expect(state.nearby).toHaveLength(1);
@@ -192,12 +199,22 @@ describe("pickColor", () => {
   });
 });
 
-describe("spawnBatch — color", () => {
-  test("each spawned creature has a color field", () => {
+describe("spawnBatch — per-slot color", () => {
+  test("each slot on spawned creatures has a color field", () => {
     const state = makeState();
     spawnBatch(state, Date.now(), () => 0.5);
     for (const c of state.nearby) {
-      expect(CREATURE_COLORS).toContain(c.color);
+      for (const s of c.slots) {
+        expect(CREATURE_COLORS).toContain(s.color);
+      }
+    }
+  });
+
+  test("creature does not have a color field", () => {
+    const state = makeState();
+    spawnBatch(state, Date.now(), () => 0.5);
+    for (const c of state.nearby) {
+      expect(c).not.toHaveProperty("color");
     }
   });
 });

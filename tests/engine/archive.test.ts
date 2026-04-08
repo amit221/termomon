@@ -6,7 +6,6 @@ function makeCreature(id: string, archived = false): CollectionCreature {
   return {
     id,
     speciesId: "species_test",
-    color: "white",
     name: `Creature_${id}`,
     slots: [],
     caughtAt: Date.now(),

@@ -23,7 +23,7 @@ export interface TraitDefinition {
 export interface CreatureSlot {
   slotId: SlotId;
   variantId: string;
-  // rarity removed — spawn rate lives in species config
+  color: CreatureColor;
 }
 
 // --- Colors ---
@@ -61,7 +61,6 @@ export interface Tick {
 export interface NearbyCreature {
   id: string;
   speciesId: string;
-  color: CreatureColor;
   name: string;
   slots: CreatureSlot[];
   spawnedAt: number;
@@ -70,7 +69,6 @@ export interface NearbyCreature {
 export interface CollectionCreature {
   id: string;
   speciesId: string;
-  color: CreatureColor;
   name: string;
   slots: CreatureSlot[];
   caughtAt: number;

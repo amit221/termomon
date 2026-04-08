@@ -15,22 +15,23 @@ import {
 
 // --- Helpers ---
 
-function makeSlot(slotId: SlotId, variantId: string): CreatureSlot {
-  return { slotId, variantId };
+function makeSlot(slotId: SlotId, variantId: string, color: string = "white"): CreatureSlot {
+  return { slotId, variantId, color: color as any };
 }
 
 function makeCreature(
   id: string,
   speciesId: string,
   variants: [string, string, string, string],
-  overrides?: Partial<CollectionCreature>
+  overrides?: Partial<CollectionCreature>,
+  slotColors?: [string, string, string, string]
 ): CollectionCreature {
+  const colors = slotColors ?? ["white", "white", "white", "white"];
   return {
     id,
     speciesId,
-    color: "white",
     name: `Creature_${id}`,
-    slots: SLOT_IDS.map((slotId, i) => makeSlot(slotId, variants[i])),
+    slots: SLOT_IDS.map((slotId, i) => makeSlot(slotId, variants[i], colors[i])),
     caughtAt: Date.now(),
     generation: 0,
     archived: false,
@@ -378,37 +379,38 @@ describe("executeBreed", () => {
     expect(state.collection).toEqual(collectionBefore);
   });
 
-  it("inherits color from parent A when rng < 0.5", () => {
-    const a = makeCreature("a1", "compi", ALL_COMMON, { color: "cyan" });
-    const b = makeCreature("b1", "compi", ALL_RARE, { color: "red" });
+  it("child inherits per-slot color from parent A when rng picks A", () => {
+    const a = makeCreature("a1", "compi", ALL_COMMON, {}, ["cyan", "magenta", "yellow", "red"]);
+    const b = makeCreature("b1", "compi", ALL_RARE, {}, ["white", "white", "white", "white"]);
     const state = makeState([a, b], 20);
 
-    // rng sequence: first 4 calls for slot inheritance, then color roll
-    // We need the 5th call to be < 0.5 for parentA color
-    let callCount = 0;
-    const rng = () => {
-      callCount++;
-      // Slot rolls (first 4) return 0 (pick A), color roll returns 0.1 (< 0.5 → pick A)
-      return callCount <= 4 ? 0 : 0.1;
-    };
-
-    const result = executeBreed(state, "a1", "b1", rng);
-    expect(result.child.color).toBe("cyan");
+    // rng=0 always picks parent A
+    const result = executeBreed(state, "a1", "b1", () => 0);
+    expect(result.child.slots[0].color).toBe("cyan");
+    expect(result.child.slots[1].color).toBe("magenta");
+    expect(result.child.slots[2].color).toBe("yellow");
+    expect(result.child.slots[3].color).toBe("red");
   });
 
-  it("inherits color from parent B when rng >= 0.5", () => {
-    const a = makeCreature("a1", "compi", ALL_COMMON, { color: "cyan" });
-    const b = makeCreature("b1", "compi", ALL_RARE, { color: "red" });
+  it("child inherits per-slot color from parent B when rng picks B", () => {
+    const a = makeCreature("a1", "compi", ALL_COMMON, {}, ["white", "white", "white", "white"]);
+    const b = makeCreature("b1", "compi", ALL_RARE, {}, ["cyan", "magenta", "yellow", "red"]);
     const state = makeState([a, b], 20);
 
-    // rng sequence: first 4 calls for slot inheritance, then color roll
-    let callCount = 0;
-    const rng = () => {
-      callCount++;
-      return callCount <= 4 ? 0 : 0.9;
-    };
+    // rng=0.99 always picks parent B
+    const result = executeBreed(state, "a1", "b1", () => 0.99);
+    expect(result.child.slots[0].color).toBe("cyan");
+    expect(result.child.slots[1].color).toBe("magenta");
+    expect(result.child.slots[2].color).toBe("yellow");
+    expect(result.child.slots[3].color).toBe("red");
+  });
 
-    const result = executeBreed(state, "a1", "b1", rng);
-    expect(result.child.color).toBe("red");
+  it("child does not have creature-level color field", () => {
+    const a = makeCreature("a1", "compi", ALL_COMMON);
+    const b = makeCreature("b1", "compi", ALL_RARE);
+    const state = makeState([a, b], 20);
+
+    const result = executeBreed(state, "a1", "b1", () => 0);
+    expect(result.child).not.toHaveProperty("color");
   });
 });

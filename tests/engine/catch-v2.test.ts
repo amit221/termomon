@@ -40,6 +40,7 @@ function makeSlots(variantIds: string[]): CreatureSlot[] {
   return variantIds.map((v, i) => ({
     slotId: SLOT_IDS[i % SLOT_IDS.length],
     variantId: v,
+    color: "white" as const,
   }));
 }
 
@@ -54,7 +55,7 @@ function setupTraitRates(rates: Record<string, number>): void {
 }
 
 function makeNearby(id: string, variantIds: string[], speciesId = "compi"): NearbyCreature {
-  return { id, speciesId, color: "white", name: "Glorp", slots: makeSlots(variantIds), spawnedAt: Date.now() };
+  return { id, speciesId, name: "Glorp", slots: makeSlots(variantIds), spawnedAt: Date.now() };
 }
 
 function makeState(overrides: Partial<GameState> = {}): GameState {

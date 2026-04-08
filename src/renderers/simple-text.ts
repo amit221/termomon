@@ -9,7 +9,6 @@ import {
   CollectionCreature,
   CreatureSlot,
   SlotId,
-  CreatureColor,
 } from "../types";
 import { MAX_ENERGY } from "../engine/energy";
 import { getVariantById } from "../config/traits";
@@ -47,8 +46,7 @@ function centerLine(rawText: string, coloredText: string): string {
   return " ".repeat(Math.max(0, left)) + coloredText;
 }
 
-function renderCreatureLines(slots: CreatureSlot[], color: string = "white"): string[] {
-  const c = COLOR_ANSI[color] || WHITE;
+function renderCreatureLines(slots: CreatureSlot[]): string[] {
   const bySlot: Partial<Record<SlotId, CreatureSlot>> = {};
   for (const s of slots) {
     bySlot[s.slotId] = s;
@@ -59,15 +57,20 @@ function renderCreatureLines(slots: CreatureSlot[], color: string = "white"): st
   const bodySlot = bySlot["body"];
   const tailSlot = bySlot["tail"];
 
+  const eyesColor = COLOR_ANSI[eyesSlot?.color ?? "white"] || WHITE;
+  const mouthColor = COLOR_ANSI[mouthSlot?.color ?? "white"] || WHITE;
+  const bodyColor = COLOR_ANSI[bodySlot?.color ?? "white"] || WHITE;
+  const tailColor = COLOR_ANSI[tailSlot?.color ?? "white"] || WHITE;
+
   const eyesArt = eyesSlot ? (getVariantById(eyesSlot.variantId)?.art ?? "o.o") : "o.o";
   const mouthArt = mouthSlot ? (getVariantById(mouthSlot.variantId)?.art ?? " - ") : " - ";
   const bodyArt = bodySlot ? (getVariantById(bodySlot.variantId)?.art ?? " ░░ ") : " ░░ ";
   const tailArt = tailSlot ? (getVariantById(tailSlot.variantId)?.art ?? "~") : "~";
 
-  const eyesLine = "      " + centerLine(eyesArt, `${c}${eyesArt}${RESET}`);
-  const mouthLine = "      " + centerLine(`(${mouthArt})`, `${c}(${mouthArt})${RESET}`);
-  const bodyLine = "      " + centerLine(`╱${bodyArt}╲`, `${c}╱${bodyArt}╲${RESET}`);
-  const tailLine = "      " + centerLine(tailArt, `${c}${tailArt}${RESET}`);
+  const eyesLine = "      " + centerLine(eyesArt, `${eyesColor}${eyesArt}${RESET}`);
+  const mouthLine = "      " + centerLine(`(${mouthArt})`, `${mouthColor}(${mouthArt})${RESET}`);
+  const bodyLine = "      " + centerLine(`╱${bodyArt}╲`, `${bodyColor}╱${bodyArt}╲${RESET}`);
+  const tailLine = "      " + centerLine(tailArt, `${tailColor}${tailArt}${RESET}`);
 
   return [eyesLine, mouthLine, bodyLine, tailLine];
 }
@@ -102,9 +105,8 @@ function padArtLine(line: string, targetWidth: number): string {
   return line + " ".repeat(pad);
 }
 
-function renderCreatureSideBySide(slots: CreatureSlot[], color: string = "white"): string[] {
-  const artLines = renderCreatureLines(slots, color);
-  const cc = COLOR_ANSI[color] || WHITE;
+function renderCreatureSideBySide(slots: CreatureSlot[]): string[] {
+  const artLines = renderCreatureLines(slots);
   const order: SlotId[] = ["eyes", "mouth", "body", "tail"];
   const traitLines: string[] = [];
 
@@ -113,7 +115,8 @@ function renderCreatureSideBySide(slots: CreatureSlot[], color: string = "white"
     if (s) {
       const variant = getVariantById(s.variantId);
       const name = variant?.name ?? s.variantId;
-      traitLines.push(`${DIM}${slotId.padEnd(5)}${RESET} ${cc}${name}${RESET}`);
+      const slotColor = COLOR_ANSI[s.color ?? "white"] || WHITE;
+      traitLines.push(`${DIM}${slotId.padEnd(5)}${RESET} ${slotColor}${name}${RESET}`);
     } else {
       traitLines.push(`${DIM}${slotId.padEnd(5)}${RESET} ${DIM}—${RESET}`);
     }
@@ -157,9 +160,9 @@ export class SimpleTextRenderer implements Renderer {
       const c = entry.creature;
       const rate = Math.round(entry.catchRate * 100);
       const statsIndent = " ".repeat(ART_PAD);
-      lines.push(`  ${DIM}[${entry.index + 1}]${RESET} ${BOLD}${c.name}${RESET} ${DIM}(${c.speciesId})${RESET} ${DIM}[${c.color}]${RESET}`);
+      lines.push(`  ${DIM}[${entry.index + 1}]${RESET} ${BOLD}${c.name}${RESET} ${DIM}(${c.speciesId})${RESET}`);
       lines.push(`${statsIndent}${DIM}Rate:${RESET} ${rate}%  ${DIM}Cost:${RESET} ${entry.energyCost}${ENERGY_ICON}`);
-      for (const line of renderCreatureSideBySide(c.slots, c.color)) {
+      for (const line of renderCreatureSideBySide(c.slots)) {
         lines.push(line);
       }
       lines.push("");
@@ -178,8 +181,8 @@ export class SimpleTextRenderer implements Renderer {
     if (result.success) {
       lines.push(`  ${GREEN}${BOLD}✦ CAUGHT! ✦${RESET}`);
       lines.push("");
-      lines.push(`  ${BOLD}${c.name}${RESET} ${DIM}[${c.color}]${RESET} joined your collection!`);
-      for (const line of renderCreatureSideBySide(c.slots, c.color)) {
+      lines.push(`  ${BOLD}${c.name}${RESET} joined your collection!`);
+      for (const line of renderCreatureSideBySide(c.slots)) {
         lines.push(line);
       }
       lines.push("");
@@ -199,7 +202,7 @@ export class SimpleTextRenderer implements Renderer {
       lines.push(`  ${YELLOW}${BOLD}✦ ESCAPED ✦${RESET}`);
       lines.push("");
       lines.push(`  ${BOLD}${c.name}${RESET} slipped away!`);
-      for (const line of renderCreatureSideBySide(c.slots, c.color)) {
+      for (const line of renderCreatureSideBySide(c.slots)) {
         lines.push(line);
       }
       lines.push("");
@@ -219,14 +222,14 @@ export class SimpleTextRenderer implements Renderer {
     lines.push(`  ${DIM}Both parents will be consumed.${RESET}`);
     lines.push("");
 
-    lines.push(`  ${BOLD}Parent A: ${parentA.name}${RESET} ${DIM}[${parentA.color}]${RESET}`);
-    for (const line of renderCreatureSideBySide(parentA.slots, parentA.color)) {
+    lines.push(`  ${BOLD}Parent A: ${parentA.name}${RESET}`);
+    for (const line of renderCreatureSideBySide(parentA.slots)) {
       lines.push(line);
     }
     lines.push("");
 
-    lines.push(`  ${BOLD}Parent B: ${parentB.name}${RESET} ${DIM}[${parentB.color}]${RESET}`);
-    for (const line of renderCreatureSideBySide(parentB.slots, parentB.color)) {
+    lines.push(`  ${BOLD}Parent B: ${parentB.name}${RESET}`);
+    for (const line of renderCreatureSideBySide(parentB.slots)) {
       lines.push(line);
     }
     lines.push("");
@@ -253,8 +256,8 @@ export class SimpleTextRenderer implements Renderer {
     lines.push(`  ${GREEN}${BOLD}✦ BREED SUCCESS ✦${RESET}`);
     lines.push("");
 
-    lines.push(`  ${BOLD}${child.name}${RESET} ${DIM}[${child.color}]${RESET} was born!`);
-    for (const line of renderCreatureSideBySide(child.slots, child.color)) {
+    lines.push(`  ${BOLD}${child.name}${RESET} was born!`);
+    for (const line of renderCreatureSideBySide(child.slots)) {
       lines.push(line);
     }
     lines.push("");
@@ -285,8 +288,8 @@ export class SimpleTextRenderer implements Renderer {
     lines.push("");
 
     for (const creature of collection) {
-      lines.push(`  ${BOLD}${creature.name}${RESET}  ${DIM}${creature.speciesId}${RESET}  ${DIM}[${creature.color}]${RESET}  Lv ${creature.generation}`);
-      for (const line of renderCreatureSideBySide(creature.slots, creature.color)) {
+      lines.push(`  ${BOLD}${creature.name}${RESET}  ${DIM}${creature.speciesId}${RESET}  Lv ${creature.generation}`);
+      for (const line of renderCreatureSideBySide(creature.slots)) {
         lines.push(line);
       }
       lines.push("");
@@ -308,8 +311,8 @@ export class SimpleTextRenderer implements Renderer {
     lines.push("");
 
     for (const creature of archive) {
-      lines.push(`  ${BOLD}${creature.name}${RESET}  ${DIM}${creature.speciesId}${RESET}  ${DIM}[${creature.color}]${RESET}  Lv ${creature.generation}`);
-      for (const line of renderCreatureSideBySide(creature.slots, creature.color)) {
+      lines.push(`  ${BOLD}${creature.name}${RESET}  ${DIM}${creature.speciesId}${RESET}  Lv ${creature.generation}`);
+      for (const line of renderCreatureSideBySide(creature.slots)) {
         lines.push(line);
       }
       lines.push("");

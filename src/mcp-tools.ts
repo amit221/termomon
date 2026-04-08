@@ -45,18 +45,24 @@ function makeText(content: string, options: RegisterToolsOptions) {
 
 type ToolHandler<T> = (args: T) => Promise<{ content: { type: "text"; text: string }[] }>;
 
-function addTool<T>(
+function addTool<T extends z.ZodRawShape>(
   server: McpServer,
   name: string,
   description: string,
-  inputSchema: z.ZodType<T>,
-  handler: ToolHandler<T>,
+  inputSchema: z.ZodObject<T>,
+  handler: ToolHandler<z.infer<z.ZodObject<T>>>,
   appMeta?: Record<string, unknown>,
 ) {
   if (appMeta) {
     server.registerTool(name, { description, inputSchema, _meta: appMeta }, handler as any);
   } else {
-    server.tool(name, description, inputSchema as any, handler as any);
+    // server.tool() with schema expects the raw shape object, not ZodObject
+    const shape = inputSchema.shape;
+    if (Object.keys(shape).length > 0) {
+      server.tool(name, description, shape as any, handler as any);
+    } else {
+      server.tool(name, description, {}, handler as any);
+    }
   }
 }
 

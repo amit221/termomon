@@ -34,28 +34,30 @@ function defaultState(): GameState {
 function migrateV3toV4(raw: Record<string, unknown>): GameState {
   const state = raw as unknown as GameState & { collection: any[]; nearby: any[] };
 
-  // Add speciesId, archived, and color to collection creatures, remove rarity from slots
+  // Add speciesId, archived to collection creatures, remove rarity from slots, add color to slots
   if (Array.isArray(state.collection)) {
     for (const creature of state.collection) {
       if (!creature.speciesId) creature.speciesId = "compi";
       if (creature.archived === undefined) creature.archived = false;
-      if (!creature.color) creature.color = "white";
+      delete (creature as any).color;
       if (Array.isArray(creature.slots)) {
         for (const slot of creature.slots) {
-          delete slot.rarity;
+          delete (slot as any).rarity;
+          if (!slot.color) slot.color = "white";
         }
       }
     }
   }
 
-  // Add speciesId and color to nearby creatures, remove rarity from slots
+  // Add speciesId to nearby creatures, remove rarity from slots, add color to slots
   if (Array.isArray(state.nearby)) {
     for (const creature of state.nearby) {
       if (!creature.speciesId) creature.speciesId = "compi";
-      if (!creature.color) creature.color = "white";
+      delete (creature as any).color;
       if (Array.isArray(creature.slots)) {
         for (const slot of creature.slots) {
-          delete slot.rarity;
+          delete (slot as any).rarity;
+          if (!slot.color) slot.color = "white";
         }
       }
     }
@@ -86,21 +88,18 @@ export class StateManager {
         logger.info("Incompatible state version, creating fresh state", { path: this.filePath });
         return defaultState();
       }
-      // Backfill color for existing v4 states missing the field
+      // Backfill color to slots for existing v4 states; remove creature-level color
       const state = raw as unknown as GameState;
-      if (Array.isArray(state.collection)) {
-        for (const c of state.collection as any[]) {
-          if (!c.color) c.color = "white";
-        }
-      }
-      if (Array.isArray(state.nearby)) {
-        for (const c of state.nearby as any[]) {
-          if (!c.color) c.color = "white";
-        }
-      }
-      if (Array.isArray(state.archive)) {
-        for (const c of state.archive as any[]) {
-          if (!c.color) c.color = "white";
+      for (const list of [state.collection, state.nearby, state.archive]) {
+        if (Array.isArray(list)) {
+          for (const c of list as any[]) {
+            delete c.color;
+            if (Array.isArray(c.slots)) {
+              for (const slot of c.slots) {
+                if (!slot.color) slot.color = "white";
+              }
+            }
+          }
         }
       }
       return state;

@@ -211,10 +211,14 @@ export function executeBreed(
     const roll = rng();
     const fromA = roll < si.parentAChance;
     const chosenVariant = fromA ? si.parentAVariant : si.parentBVariant;
+    const parentSlot = fromA
+      ? parentA.slots.find((s) => s.slotId === si.slotId)!
+      : parentB.slots.find((s) => s.slotId === si.slotId)!;
 
     childSlots.push({
       slotId: si.slotId,
       variantId: chosenVariant.id,
+      color: parentSlot.color,
     });
     inheritedFrom[si.slotId] = fromA ? "A" : "B";
   }
@@ -223,7 +227,6 @@ export function executeBreed(
   const child: CollectionCreature = {
     id: generateId(),
     speciesId,
-    color: rng() < 0.5 ? parentA.color : parentB.color,
     name: parentA.name,
     slots: childSlots,
     caughtAt: Date.now(),

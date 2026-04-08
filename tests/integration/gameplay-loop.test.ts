@@ -37,11 +37,11 @@ function makeCreature(id: string, speciesId: string, traits: Record<string, stri
   return {
     id,
     speciesId,
-    color: "white",
     name: `Test ${id}`,
     slots: SLOT_IDS.map(slotId => ({
       slotId,
       variantId: traits[slotId],
+      color: "white" as const,
     })),
     caughtAt: Date.now(),
     generation: 0,

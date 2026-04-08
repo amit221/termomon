@@ -36,7 +36,8 @@ export function generateCreatureSlots(speciesId: string, rng: () => number): Cre
 
   return SLOT_IDS.map((slotId: SlotId) => {
     const trait = pickTraitForSlot(species, slotId, rng);
-    return { slotId, variantId: trait.id };
+    const color = pickColor(rng);
+    return { slotId, variantId: trait.id, color };
   });
 }
 
@@ -56,7 +57,6 @@ export function spawnBatch(state: GameState, now: number, rng: () => number): Ne
     const creature: NearbyCreature = {
       id: generateId(),
       speciesId: species.id,
-      color: pickColor(rng),
       name: loadCreatureName(rng),
       slots: generateCreatureSlots(species.id, rng),
       spawnedAt: now,

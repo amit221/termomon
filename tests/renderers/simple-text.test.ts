@@ -12,33 +12,32 @@ import {
 
 // --- Helpers ---
 
-function makeSlots(): CreatureSlot[] {
+function makeSlots(color: string = "white"): CreatureSlot[] {
   const slotIds = ["eyes", "mouth", "body", "tail"] as const;
   const variantIds = ["eye_c01", "mth_c01", "bod_c01", "tal_c01"];
   return slotIds.map((slotId, i) => ({
     slotId,
     variantId: variantIds[i],
+    color: color as any,
   }));
 }
 
-function makeNearby(id: string, name: string, color: string = "white"): NearbyCreature {
+function makeNearby(id: string, name: string, slotColor: string = "white"): NearbyCreature {
   return {
     id,
     speciesId: "compi",
-    color: color as any,
     name,
-    slots: makeSlots(),
+    slots: makeSlots(slotColor),
     spawnedAt: Date.now(),
   };
 }
 
-function makeCollection(id: string, name: string, generation = 1, color: string = "white"): CollectionCreature {
+function makeCollection(id: string, name: string, generation = 1, slotColor: string = "white"): CollectionCreature {
   return {
     id,
     speciesId: "compi",
-    color: color as any,
     name,
-    slots: makeSlots(),
+    slots: makeSlots(slotColor),
     caughtAt: Date.now(),
     generation,
     archived: false,
@@ -352,20 +351,8 @@ describe("renderNotification", () => {
 
 // --- Color display ---
 
-describe("color display", () => {
-  test("renderScan shows creature color name", () => {
-    const result: ScanResult = {
-      energy: 6,
-      batch: null,
-      nearby: [
-        { index: 0, creature: makeNearby("c1", "Sparks", "cyan"), catchRate: 0.55, energyCost: 3 },
-      ],
-    };
-    const out = renderer.renderScan(result);
-    expect(out).toContain("[cyan]");
-  });
-
-  test("renderScan uses cyan ANSI code for cyan creature", () => {
+describe("per-slot color display", () => {
+  test("renderScan uses cyan ANSI code for cyan-slotted creature", () => {
     const result: ScanResult = {
       energy: 6,
       batch: null,
@@ -377,13 +364,26 @@ describe("color display", () => {
     expect(out).toContain("\x1b[36m"); // cyan ANSI code
   });
 
-  test("renderCollection shows creature color name", () => {
-    const collection = [makeCollection("c1", "Sparks", 4, "magenta")];
-    const out = renderer.renderCollection(collection);
-    expect(out).toContain("[magenta]");
+  test("renderScan does not show [color] tag", () => {
+    const result: ScanResult = {
+      energy: 6,
+      batch: null,
+      nearby: [
+        { index: 0, creature: makeNearby("c1", "Sparks", "cyan"), catchRate: 0.55, energyCost: 3 },
+      ],
+    };
+    const out = renderer.renderScan(result);
+    expect(out).not.toContain("[cyan]");
   });
 
-  test("renderCatch shows color on success", () => {
+  test("renderCollection uses magenta ANSI code for magenta-slotted creature", () => {
+    const collection = [makeCollection("c1", "Sparks", 4, "magenta")];
+    const out = renderer.renderCollection(collection);
+    expect(out).toContain("\x1b[35m"); // magenta ANSI code
+    expect(out).not.toContain("[magenta]");
+  });
+
+  test("renderCatch uses red ANSI code on success", () => {
     const result: CatchResult = {
       success: true,
       creature: makeNearby("c1", "Sparks", "red"),
@@ -394,10 +394,11 @@ describe("color display", () => {
       failPenalty: 0,
     };
     const out = renderer.renderCatch(result);
-    expect(out).toContain("[red]");
+    expect(out).toContain("\x1b[31m"); // red ANSI code
+    expect(out).not.toContain("[red]");
   });
 
-  test("renderBreedResult shows color on child", () => {
+  test("renderBreedResult uses cyan ANSI code for cyan-slotted child", () => {
     const parentA = makeCollection("c1", "Sparks", 4, "cyan");
     const parentB = makeCollection("c2", "Muddle", 1, "yellow");
     const child = makeCollection("c3", "Sparks", 5, "cyan");
@@ -409,6 +410,7 @@ describe("color display", () => {
       inheritedFrom: { eyes: "A", mouth: "B", body: "A", tail: "B" },
     };
     const out = renderer.renderBreedResult(result);
-    expect(out).toContain("[cyan]");
+    expect(out).toContain("\x1b[36m"); // cyan ANSI code
+    expect(out).not.toContain("[cyan]");
   });
 });
