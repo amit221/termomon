@@ -16,8 +16,11 @@ function ensureLoaded(): void {
     _speciesById.set(species.id, species);
     const variantMap = new Map<string, TraitDefinition>();
     for (const slotId of Object.keys(species.traitPools) as SlotId[]) {
-      for (const trait of species.traitPools[slotId]) {
-        variantMap.set(trait.id, trait);
+      const traits = species.traitPools[slotId];
+      if (traits) {
+        for (const trait of traits) {
+          variantMap.set(trait.id, trait);
+        }
       }
     }
     _traitIndex.set(species.id, variantMap);

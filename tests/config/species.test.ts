@@ -31,7 +31,7 @@ describe("loadSpecies", () => {
     expect(compi.art).toHaveLength(4);
     for (const slotId of SLOT_IDS) {
       expect(compi.traitPools[slotId]).toBeDefined();
-      expect(compi.traitPools[slotId].length).toBe(19);
+      expect(compi.traitPools[slotId]!.length).toBe(19);
     }
   });
 });
@@ -168,7 +168,8 @@ describe("compi.json data integrity", () => {
   it("has 76 total traits (19 per slot x 4 slots)", () => {
     let total = 0;
     for (const slotId of SLOT_IDS) {
-      total += compi.traitPools[slotId].length;
+      const traits = compi.traitPools[slotId];
+      if (traits) total += traits.length;
     }
     expect(total).toBe(76);
   });
@@ -176,9 +177,12 @@ describe("compi.json data integrity", () => {
   it("all trait IDs are unique", () => {
     const ids = new Set<string>();
     for (const slotId of SLOT_IDS) {
-      for (const trait of compi.traitPools[slotId]) {
-        expect(ids.has(trait.id)).toBe(false);
-        ids.add(trait.id);
+      const traits = compi.traitPools[slotId];
+      if (traits) {
+        for (const trait of traits) {
+          expect(ids.has(trait.id)).toBe(false);
+          ids.add(trait.id);
+        }
       }
     }
     expect(ids.size).toBe(76);
@@ -186,16 +190,22 @@ describe("compi.json data integrity", () => {
 
   it("spawn rates sum to approximately 1.0 per slot", () => {
     for (const slotId of SLOT_IDS) {
-      const sum = compi.traitPools[slotId].reduce((s, t) => s + t.spawnRate, 0);
-      expect(sum).toBeCloseTo(1.0, 1);
+      const traits = compi.traitPools[slotId];
+      if (traits) {
+        const sum = traits.reduce((s, t) => s + t.spawnRate, 0);
+        expect(sum).toBeCloseTo(1.0, 1);
+      }
     }
   });
 
   it("spawn rates are in descending order per slot", () => {
     for (const slotId of SLOT_IDS) {
-      const rates = compi.traitPools[slotId].map((t) => t.spawnRate);
-      for (let i = 1; i < rates.length; i++) {
-        expect(rates[i]).toBeLessThanOrEqual(rates[i - 1]);
+      const traits = compi.traitPools[slotId];
+      if (traits) {
+        const rates = traits.map((t) => t.spawnRate);
+        for (let i = 1; i < rates.length; i++) {
+          expect(rates[i]).toBeLessThanOrEqual(rates[i - 1]);
+        }
       }
     }
   });

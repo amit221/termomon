@@ -39,7 +39,7 @@ export interface SpeciesDefinition {
   description: string;
   spawnWeight: number;
   art: string[]; // multi-line ASCII template
-  traitPools: Record<SlotId, TraitDefinition[]>;
+  traitPools: Partial<Record<SlotId, TraitDefinition[]>>;
 }
 
 // --- Collection ---
