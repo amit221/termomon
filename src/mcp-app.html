@@ -3,18 +3,20 @@
 *{margin:0;padding:0;box-sizing:border-box}
 body{background:#1a1a2e;color:#e0e0e0;font-family:'Cascadia Code','Fira Code',Consolas,monospace;font-size:14px;padding:16px;line-height:1.5}
 pre{white-space:pre-wrap;word-wrap:break-word}
-</style></head><body><pre id="o">Loading...</pre><script>
+#debug{color:#ff0;font-size:11px;margin-top:8px;border-top:1px solid #333;padding-top:8px}
+</style></head><body><pre id="o">Loading...</pre><div id="debug"></div><script>
 var C={'30':'#1a1a2e','31':'#ff1744','32':'#00e676','33':'#ffea00',
 '34':'#448aff','35':'#d500f9','36':'#00e5ff','37':'#e0e0e0',
 '90':'#9e9e9e','91':'#ff1744','92':'#00e676','93':'#ffea00',
 '94':'#448aff','95':'#d500f9','96':'#00e5ff','97':'#ffffff'};
 
+var dbg = document.getElementById('debug');
+function log(msg) { dbg.innerHTML += msg + '<br>'; }
+
 function a2h(t) {
-  // Match ESC[ or bare \x1b[ or \u001b[ — the ESC byte may arrive as char 27 or get stripped
   var re = /(?:\x1b|\u001b)?\[([0-9;]*)m/g;
   var h = '', o = 0, last = 0, m;
   while ((m = re.exec(t)) !== null) {
-    // Text before this match
     var before = t.slice(last, m.index);
     for (var k = 0; k < before.length; k++) {
       if (before[k] === '<') h += '&lt;';
@@ -34,7 +36,6 @@ function a2h(t) {
     }
     if (s.length > 0) { h += '<span style="' + s.join(';') + '">'; o++; }
   }
-  // Remaining text after last match
   var tail = t.slice(last);
   for (var k = 0; k < tail.length; k++) {
     if (tail[k] === '<') h += '&lt;';
@@ -46,40 +47,51 @@ function a2h(t) {
   return h;
 }
 
+log('Script loaded, listening for messages...');
+
 window.addEventListener('message', function(ev) {
   var m = ev.data;
-  if (!m || !m.jsonrpc) return;
+  if (!m) { log('empty message'); return; }
+  if (!m.jsonrpc) { log('non-jsonrpc: ' + typeof m + ' keys=' + (typeof m === 'object' ? Object.keys(m).join(',') : '')); return; }
+
+  log('MSG: method=' + (m.method || 'none') + ' id=' + (m.id || 'none'));
 
   if (m.method === 'ui/initialize') {
     window.parent.postMessage({
       jsonrpc: '2.0', id: m.id,
       result: { protocolVersion: '2026-06-17', capabilities: {} }
-    }, ev.origin || '*');
+    }, '*');
+    log('Responded to ui/initialize');
     return;
   }
 
-  if (m.method === 'ui/notifications/tool-result') {
-    var c = m.params && m.params.content;
+  // Try multiple possible method names for tool result
+  if (m.method === 'ui/notifications/tool-result' || m.method === 'ui/toolResult') {
+    var c = m.params && (m.params.content || (m.params.result && m.params.result.content));
+    log('Tool result! content items: ' + (c ? c.length : 'null'));
     if (c) {
       for (var i = 0; i < c.length; i++) {
+        log('  item[' + i + '] type=' + c[i].type);
         if (c[i].type === 'text') {
-          document.getElementById('o').innerHTML = a2h(c[i].text);
+          var txt = c[i].text;
+          log('  text length=' + txt.length + ' first20=' + txt.substring(0, 20));
+          log('  charCode[0]=' + txt.charCodeAt(0) + ' charCode[1]=' + txt.charCodeAt(1));
+          document.getElementById('o').innerHTML = a2h(txt);
           break;
         }
       }
     }
     if (m.id) {
-      window.parent.postMessage({
-        jsonrpc: '2.0', id: m.id, result: {}
-      }, ev.origin || '*');
+      window.parent.postMessage({ jsonrpc: '2.0', id: m.id, result: {} }, '*');
     }
     return;
   }
 
+  // Log any unknown method
+  log('Unknown method: ' + m.method + ' params keys=' + (m.params ? Object.keys(m.params).join(',') : 'none'));
+
   if (m.id) {
-    window.parent.postMessage({
-      jsonrpc: '2.0', id: m.id, result: {}
-    }, ev.origin || '*');
+    window.parent.postMessage({ jsonrpc: '2.0', id: m.id, result: {} }, '*');
   }
 });
 </script></body></html>
