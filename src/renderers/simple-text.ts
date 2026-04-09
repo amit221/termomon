@@ -13,6 +13,7 @@ import {
 import { MAX_ENERGY } from "../engine/energy";
 import { getVariantById } from "../config/traits";
 import { getSpeciesById, getTraitDefinition } from "../config/species";
+import { calculateSlotScore, calculateCreatureScore } from "../engine/rarity";
 
 const stringWidth = require("string-width") as (str: string) => number;
 
@@ -146,7 +147,8 @@ function renderCreatureSideBySide(slots: CreatureSlot[], speciesId?: string): st
       const variant = speciesId ? getTraitDefinition(speciesId, s.variantId) : getVariantById(s.variantId);
       const name = variant?.name ?? s.variantId;
       const slotColor = COLOR_ANSI[s.color ?? "white"] || WHITE;
-      traitLines.push(`${DIM}${slotId.padEnd(5)}${RESET} ${slotColor}${name}${RESET}`);
+      const score = speciesId ? Math.round(calculateSlotScore(speciesId, s)) : 0;
+      traitLines.push(`${DIM}${slotId.padEnd(5)}${RESET} ${slotColor}${name}${RESET} ${DIM}[${score}]${RESET}`);
     } else {
       traitLines.push(`${DIM}${slotId.padEnd(5)}${RESET} ${DIM}—${RESET}`);
     }
@@ -193,7 +195,8 @@ export class SimpleTextRenderer implements Renderer {
       const c = entry.creature;
       const rate = Math.round(entry.catchRate * 100);
       const statsIndent = " ".repeat(ART_PAD);
-      lines.push(`  ${DIM}[${entry.index + 1}]${RESET} ${BOLD}${c.name}${RESET} ${DIM}(${c.speciesId})${RESET}`);
+      const creatureScore = calculateCreatureScore(c.speciesId, c.slots);
+      lines.push(`  ${DIM}[${entry.index + 1}]${RESET} ${BOLD}${c.name}${RESET} ${DIM}(${c.speciesId})${RESET}  ⭐ ${creatureScore}`);
       lines.push(`${statsIndent}${DIM}Rate:${RESET} ${rate}%  ${DIM}Cost:${RESET} ${entry.energyCost}${ENERGY_ICON}`);
       for (const line of renderCreatureSideBySide(c.slots, c.speciesId)) {
         lines.push(line);
@@ -214,7 +217,8 @@ export class SimpleTextRenderer implements Renderer {
     if (result.success) {
       lines.push(`  ${GREEN}${BOLD}✦ CAUGHT! ✦${RESET}`);
       lines.push("");
-      lines.push(`  ${BOLD}${c.name}${RESET} joined your collection!`);
+      const creatureScore = calculateCreatureScore(c.speciesId, c.slots);
+      lines.push(`  ${BOLD}${c.name}${RESET} joined your collection!  ⭐ ${creatureScore}`);
       for (const line of renderCreatureSideBySide(c.slots, c.speciesId)) {
         lines.push(line);
       }
@@ -289,7 +293,8 @@ export class SimpleTextRenderer implements Renderer {
     lines.push(`  ${GREEN}${BOLD}✦ BREED SUCCESS ✦${RESET}`);
     lines.push("");
 
-    lines.push(`  ${BOLD}${child.name}${RESET} was born!`);
+    const childScore = calculateCreatureScore(child.speciesId, child.slots);
+    lines.push(`  ${BOLD}${child.name}${RESET} was born!  ⭐ ${childScore}`);
     for (const line of renderCreatureSideBySide(child.slots, child.speciesId)) {
       lines.push(line);
     }
@@ -321,7 +326,8 @@ export class SimpleTextRenderer implements Renderer {
     lines.push("");
 
     for (const creature of collection) {
-      lines.push(`  ${BOLD}${creature.name}${RESET}  ${DIM}${creature.speciesId}${RESET}  Lv ${creature.generation}`);
+      const creatureScore = calculateCreatureScore(creature.speciesId, creature.slots);
+      lines.push(`  ${BOLD}${creature.name}${RESET}  ${DIM}${creature.speciesId}${RESET}  Lv ${creature.generation}  ⭐ ${creatureScore}`);
       for (const line of renderCreatureSideBySide(creature.slots, creature.speciesId)) {
         lines.push(line);
       }
@@ -344,7 +350,8 @@ export class SimpleTextRenderer implements Renderer {
     lines.push("");
 
     for (const creature of archive) {
-      lines.push(`  ${BOLD}${creature.name}${RESET}  ${DIM}${creature.speciesId}${RESET}  Lv ${creature.generation}`);
+      const creatureScore = calculateCreatureScore(creature.speciesId, creature.slots);
+      lines.push(`  ${BOLD}${creature.name}${RESET}  ${DIM}${creature.speciesId}${RESET}  Lv ${creature.generation}  ⭐ ${creatureScore}`);
       for (const line of renderCreatureSideBySide(creature.slots, creature.speciesId)) {
         lines.push(line);
       }
