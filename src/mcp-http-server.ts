@@ -40,11 +40,9 @@ function createServer(): McpServer {
   const appMeta = { ui: { resourceUri: appUri }, "ui/resourceUri": appUri };
 
   registerTools(server, {
-    appMeta: {
-      ...appMeta,
-      ui: { ...appMeta.ui, csp: { connectDomains: [`http://localhost:${PORT}`] } },
-    },
+    appMeta,
     onOutput: (content) => { latestOutput = content; },
+    renderHtml: buildHtml,
   });
 
   return server;

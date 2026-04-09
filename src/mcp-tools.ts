@@ -29,6 +29,8 @@ export interface RegisterToolsOptions {
   appMeta?: Record<string, unknown>;
   /** Callback to capture rendered output (used by HTTP server for resource) */
   onOutput?: (content: string) => void;
+  /** If provided, render ANSI to HTML and include as embedded resource in result */
+  renderHtml?: (ansiContent: string) => string;
 }
 
 const displayPath = path.join(os.tmpdir(), "compi_display.txt");
@@ -40,10 +42,18 @@ function makeText(content: string, options: RegisterToolsOptions) {
   if (options.onOutput) {
     options.onOutput(content);
   }
+  // If renderHtml is provided, return HTML for the iframe instead of raw ANSI
+  if (options.renderHtml) {
+    const html = options.renderHtml(content);
+    return { content: [
+      { type: "text" as const, text: content },
+      { type: "resource" as any, resource: { uri: `ui://compi/result-${Date.now()}.html`, mimeType: "text/html;profile=mcp-app", text: html } },
+    ] };
+  }
   return { content: [{ type: "text" as const, text: content }] };
 }
 
-type ToolHandler<T> = (args: T) => Promise<{ content: { type: "text"; text: string }[] }>;
+type ToolHandler<T> = (args: T) => Promise<{ content: any[] }>;
 
 function addTool<T extends z.ZodRawShape>(
   server: McpServer,
