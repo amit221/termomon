@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html><head><meta charset="UTF-8"><style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{background:#1a1a2e;color:#e0e0e0;font-family:'Cascadia Code','Fira Code',Consolas,monospace;font-size:14px;padding:16px;line-height:1.5}
+body{background:#000;color:#e0e0e0;font-family:'Cascadia Code','Fira Code',Consolas,monospace;font-size:14px;padding:16px;line-height:1.5}
 pre{white-space:pre-wrap;word-wrap:break-word}
 </style></head><body><pre id="o">Loading...</pre><script>
 var C={'30':'#1a1a2e','31':'#ff1744','32':'#00e676','33':'#ffea00',
@@ -43,10 +43,24 @@ function a2h(t) {
   return h;
 }
 
+// Poll the HTTP server for the latest tool output
+function poll() {
+  fetch('http://localhost:3456/api/latest-output')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.text) {
+        document.getElementById('o').innerHTML = a2h(data.text);
+      } else {
+        setTimeout(poll, 300);
+      }
+    })
+    .catch(function() { setTimeout(poll, 500); });
+}
+
+// Also handle postMessage in case the host does push results
 window.addEventListener('message', function(ev) {
   var m = ev.data;
   if (!m || !m.jsonrpc) return;
-
   if (m.method === 'ui/initialize') {
     window.parent.postMessage({
       jsonrpc: '2.0', id: m.id,
@@ -54,7 +68,6 @@ window.addEventListener('message', function(ev) {
     }, '*');
     return;
   }
-
   if (m.method === 'ui/notifications/tool-result' || m.method === 'ui/toolResult') {
     var c = m.params && (m.params.content || (m.params.result && m.params.result.content));
     if (c) {
@@ -65,14 +78,12 @@ window.addEventListener('message', function(ev) {
         }
       }
     }
-    if (m.id) {
-      window.parent.postMessage({ jsonrpc: '2.0', id: m.id, result: {} }, '*');
-    }
+    if (m.id) window.parent.postMessage({ jsonrpc: '2.0', id: m.id, result: {} }, '*');
     return;
   }
-
-  if (m.id) {
-    window.parent.postMessage({ jsonrpc: '2.0', id: m.id, result: {} }, '*');
-  }
+  if (m.id) window.parent.postMessage({ jsonrpc: '2.0', id: m.id, result: {} }, '*');
 });
+
+// Start polling after a short delay (give the tool time to run)
+setTimeout(poll, 200);
 </script></body></html>

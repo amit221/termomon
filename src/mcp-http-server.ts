@@ -32,7 +32,10 @@ function createServer(): McpServer {
   const appMeta = { ui: { resourceUri: appUri }, "ui/resourceUri": appUri };
 
   registerTools(server, {
-    appMeta,
+    appMeta: {
+      ...appMeta,
+      ui: { ...appMeta.ui, csp: { connectDomains: [`http://localhost:${PORT}`] } },
+    },
     onOutput: (content) => { latestOutput = content; },
   });
 
@@ -44,6 +47,11 @@ function createServer(): McpServer {
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+// API endpoint for the MCP App iframe to fetch latest output
+app.get("/api/latest-output", (_req: express.Request, res: express.Response) => {
+  res.json({ text: latestOutput });
+});
 
 app.all("/mcp", async (req: express.Request, res: express.Response) => {
   const server = createServer();
