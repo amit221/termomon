@@ -147,7 +147,7 @@ function renderCreatureSideBySide(slots: CreatureSlot[], speciesId?: string): st
       const variant = speciesId ? getTraitDefinition(speciesId, s.variantId) : getVariantById(s.variantId);
       const name = variant?.name ?? s.variantId;
       const slotColor = COLOR_ANSI[s.color ?? "white"] || WHITE;
-      const score = speciesId ? Math.round(calculateSlotScore(speciesId, s)) : 0;
+      const score = speciesId ? Math.round(calculateSlotScore(speciesId, s)) : 50;
       traitLines.push(`${DIM}${slotId.padEnd(5)}${RESET} ${slotColor}${name}${RESET} ${DIM}[${score}]${RESET}`);
     } else {
       traitLines.push(`${DIM}${slotId.padEnd(5)}${RESET} ${DIM}—${RESET}`);
@@ -259,13 +259,15 @@ export class SimpleTextRenderer implements Renderer {
     lines.push(`  ${DIM}Both parents will be consumed.${RESET}`);
     lines.push("");
 
-    lines.push(`  ${BOLD}Parent A: ${parentA.name}${RESET}`);
+    const scoreA = calculateCreatureScore(parentA.speciesId, parentA.slots);
+    lines.push(`  ${BOLD}Parent A: ${parentA.name}${RESET}  ⭐ ${scoreA}`);
     for (const line of renderCreatureSideBySide(parentA.slots, parentA.speciesId)) {
       lines.push(line);
     }
     lines.push("");
 
-    lines.push(`  ${BOLD}Parent B: ${parentB.name}${RESET}`);
+    const scoreB = calculateCreatureScore(parentB.speciesId, parentB.slots);
+    lines.push(`  ${BOLD}Parent B: ${parentB.name}${RESET}  ⭐ ${scoreB}`);
     for (const line of renderCreatureSideBySide(parentB.slots, parentB.speciesId)) {
       lines.push(line);
     }
