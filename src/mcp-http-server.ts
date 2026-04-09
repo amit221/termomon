@@ -9,8 +9,9 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import express from "express";
 import cors from "cors";
+import * as fs from "fs";
+import * as path from "path";
 import { registerTools } from "./mcp-tools";
-import { buildAppHtml } from "./renderers/ansi-to-html";
 
 const PORT = parseInt(process.env.COMPI_PORT || "3456", 10);
 
@@ -18,15 +19,25 @@ const appUri = "ui://compi/display.html";
 const APP_MIME = "text/html;profile=mcp-app";
 let latestOutput = "";
 
+// Load the polling HTML template (has client-side ANSI→HTML + fetch from /api/latest-output)
+let appHtml = "";
+try {
+  appHtml = fs.readFileSync(path.resolve(__dirname, "mcp-app.html"), "utf-8");
+} catch {
+  try {
+    appHtml = fs.readFileSync(path.resolve(__dirname, "..", "src", "mcp-app.html"), "utf-8");
+  } catch {}
+}
+
 function createServer(): McpServer {
   const server = new McpServer({
     name: "compi",
     version: "0.3.0",
   });
 
-  // MCP App resource — serves pre-rendered HTML with ANSI converted to colored spans
+  // MCP App resource — serves HTML with polling JS that fetches colored output
   server.registerResource(appUri, appUri, { mimeType: APP_MIME }, async () => ({
-    contents: [{ uri: appUri, mimeType: APP_MIME, text: buildAppHtml(latestOutput) }],
+    contents: [{ uri: appUri, mimeType: APP_MIME, text: appHtml }],
   }));
 
   const appMeta = { ui: { resourceUri: appUri }, "ui/resourceUri": appUri };
