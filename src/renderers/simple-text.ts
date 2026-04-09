@@ -2,18 +2,18 @@ import {
   Renderer,
   ScanResult,
   CatchResult,
-  MergeResult,
-  MergePreview,
+  BreedPreview,
+  BreedResult,
   StatusResult,
   Notification,
   CollectionCreature,
   CreatureSlot,
-  Rarity,
   SlotId,
-  SlotUpgradeChance,
 } from "../types";
 import { MAX_ENERGY } from "../engine/energy";
 import { getVariantById } from "../config/traits";
+import { getSpeciesById, getTraitDefinition } from "../config/species";
+import { calculateSlotScore, calculateCreatureScore } from "../engine/rarity";
 
 const stringWidth = require("string-width") as (str: string) => number;
 
@@ -25,21 +25,18 @@ const WHITE = "\x1b[97m";
 const BLUE = "\x1b[34m";
 const GREEN = "\x1b[32m";
 const YELLOW = "\x1b[33m";
+const RED = "\x1b[31m";
 
-const ENERGY_ICON = `${YELLOW}⚡${RESET}`;
-
-const RARITY_COLOR: Record<Rarity, string> = {
-  common: "\x1b[90m",
-  uncommon: "\x1b[97m",
-  rare: "\x1b[36m",
-  epic: "\x1b[35m",
-  legendary: "\x1b[33m",
-  mythic: "\x1b[31m",
+const COLOR_ANSI: Record<string, string> = {
+  grey: "\x1b[90m",
+  white: "\x1b[97m",
+  cyan: "\x1b[36m",
+  magenta: "\x1b[35m",
+  yellow: "\x1b[33m",
+  red: "\x1b[31m",
 };
 
-function col(text: string, rarity: Rarity): string {
-  return `${RARITY_COLOR[rarity]}${text}${RESET}`;
-}
+const ENERGY_ICON = `${YELLOW}⚡${RESET}`;
 
 // --- Creature art ---
 
@@ -51,46 +48,64 @@ function centerLine(rawText: string, coloredText: string): string {
   return " ".repeat(Math.max(0, left)) + coloredText;
 }
 
-function renderCreatureLines(slots: CreatureSlot[]): string[] {
-  const bySlot: Partial<Record<SlotId, CreatureSlot>> = {};
+function renderCreatureLines(slots: CreatureSlot[], speciesId?: string): string[] {
+  // Build slot-to-art map using species-aware lookup
+  const slotArt: Record<string, string> = {};
   for (const s of slots) {
-    bySlot[s.slotId] = s;
+    const trait = speciesId
+      ? getTraitDefinition(speciesId, s.variantId)
+      : getVariantById(s.variantId);
+    slotArt[s.slotId] = trait?.art ?? "???";
   }
 
-  const eyesSlot = bySlot["eyes"];
-  const mouthSlot = bySlot["mouth"];
-  const bodySlot = bySlot["body"];
-  const tailSlot = bySlot["tail"];
+  // Build slot-to-color map
+  const slotColor: Record<string, string> = {};
+  for (const s of slots) {
+    slotColor[s.slotId] = COLOR_ANSI[s.color ?? "white"] || WHITE;
+  }
 
-  const eyesArt = eyesSlot ? (getVariantById(eyesSlot.variantId)?.art ?? "o.o") : "o.o";
-  const mouthArt = mouthSlot ? (getVariantById(mouthSlot.variantId)?.art ?? " - ") : " - ";
-  const bodyArt = bodySlot ? (getVariantById(bodySlot.variantId)?.art ?? " ░░ ") : " ░░ ";
-  const tailArt = tailSlot ? (getVariantById(tailSlot.variantId)?.art ?? "~") : "~";
+  const species = speciesId ? getSpeciesById(speciesId) : undefined;
 
-  const eyesRarity = eyesSlot?.rarity ?? "common";
-  const mouthRarity = mouthSlot?.rarity ?? "common";
-  const bodyRarity = bodySlot?.rarity ?? "common";
-  const tailRarity = tailSlot?.rarity ?? "common";
+  if (species?.art) {
+    // Use species art template with placeholder replacement
+    // Color the entire line with the slot color so frame characters match
+    return species.art.map((line) => {
+      let result = line;
+      const replacements: [string, string, string][] = [
+        ["EE", slotArt["eyes"] ?? "", slotColor["eyes"] ?? WHITE],
+        ["MM", slotArt["mouth"] ?? "", slotColor["mouth"] ?? WHITE],
+        ["BB", slotArt["body"] ?? "", slotColor["body"] ?? WHITE],
+        ["TT", slotArt["tail"] ?? "", slotColor["tail"] ?? WHITE],
+      ];
+      let lineColor: string | null = null;
+      for (const [placeholder, art, color] of replacements) {
+        if (result.includes(placeholder)) {
+          result = result.replace(placeholder, art);
+          lineColor = color;
+        }
+      }
+      if (lineColor) {
+        return "      " + lineColor + result + RESET;
+      }
+      return "      " + result;
+    });
+  }
 
-  // Line 1: eyes centered in W=13
-  const eyesRaw = eyesArt;
-  const eyesColored = col(eyesArt, eyesRarity);
-  const eyesLine = "      " + centerLine(eyesRaw, eyesColored);
+  // Fallback: original hardcoded layout (for backward compat)
+  const eyesArt = slotArt["eyes"] ?? "o.o";
+  const mouthArt = slotArt["mouth"] ?? " - ";
+  const bodyArt = slotArt["body"] ?? " ░░ ";
+  const tailArt = slotArt["tail"] ?? "~";
 
-  // Line 2: (mouth) centered in W=13
-  const mouthRaw = `(${mouthArt})`;
-  const mouthColored = col("(", mouthRarity) + col(mouthArt, mouthRarity) + col(")", mouthRarity);
-  const mouthLine = "      " + centerLine(mouthRaw, mouthColored);
+  const eyesC = slotColor["eyes"] ?? WHITE;
+  const mouthC = slotColor["mouth"] ?? WHITE;
+  const bodyC = slotColor["body"] ?? WHITE;
+  const tailC = slotColor["tail"] ?? WHITE;
 
-  // Line 3: ╱body╲ centered in W=13
-  const bodyRaw = `╱${bodyArt}╲`;
-  const bodyColored = col("╱", bodyRarity) + col(bodyArt, bodyRarity) + col("╲", bodyRarity);
-  const bodyLine = "      " + centerLine(bodyRaw, bodyColored);
-
-  // Line 4: tail centered in W=13
-  const tailRaw = tailArt;
-  const tailColored = col(tailArt, tailRarity);
-  const tailLine = "      " + centerLine(tailRaw, tailColored);
+  const eyesLine = "      " + centerLine(eyesArt, `${eyesC}${eyesArt}${RESET}`);
+  const mouthLine = "      " + centerLine(`(${mouthArt})`, `${mouthC}(${mouthArt})${RESET}`);
+  const bodyLine = "      " + centerLine(`╱${bodyArt}╲`, `${bodyC}╱${bodyArt}╲${RESET}`);
+  const tailLine = "      " + centerLine(tailArt, `${tailC}${tailArt}${RESET}`);
 
   return [eyesLine, mouthLine, bodyLine, tailLine];
 }
@@ -109,12 +124,6 @@ function xpBar(xp: number, nextXp: number): string {
   return `${GREEN}${bar}${RESET} ${xp}/${nextXp}`;
 }
 
-function upgradeBar(chance: number, rarity: Rarity): string {
-  const filled = Math.round(chance * 10);
-  const bar = "▸".repeat(filled) + "░".repeat(10 - filled);
-  return `${RARITY_COLOR[rarity]}${bar}${RESET}`;
-}
-
 // --- Divider ---
 
 function divider(): string {
@@ -131,25 +140,30 @@ function padArtLine(line: string, targetWidth: number): string {
   return line + " ".repeat(pad);
 }
 
-function renderCreatureSideBySide(slots: CreatureSlot[]): string[] {
-  const artLines = renderCreatureLines(slots);
+function renderCreatureSideBySide(slots: CreatureSlot[], speciesId?: string): string[] {
+  const artLines = renderCreatureLines(slots, speciesId);
   const order: SlotId[] = ["eyes", "mouth", "body", "tail"];
   const traitLines: string[] = [];
 
   for (const slotId of order) {
     const s = slots.find((sl) => sl.slotId === slotId);
     if (s) {
-      const variant = getVariantById(s.variantId);
+      const variant = speciesId ? getTraitDefinition(speciesId, s.variantId) : getVariantById(s.variantId);
       const name = variant?.name ?? s.variantId;
-      traitLines.push(`${DIM}${slotId.padEnd(5)}${RESET} ${col(name, s.rarity)} ${DIM}(${s.rarity})${RESET}`);
+      const slotColor = COLOR_ANSI[s.color ?? "white"] || WHITE;
+      const score = speciesId ? Math.round(calculateSlotScore(speciesId, s)) : 50;
+      traitLines.push(`${DIM}${slotId.padEnd(5)}${RESET} ${slotColor}${name}${RESET} ${DIM}[${score}]${RESET}`);
     } else {
       traitLines.push(`${DIM}${slotId.padEnd(5)}${RESET} ${DIM}—${RESET}`);
     }
   }
 
   const lines: string[] = [];
-  for (let i = 0; i < 4; i++) {
-    lines.push(padArtLine(artLines[i], ART_PAD) + traitLines[i]);
+  const maxLines = Math.max(artLines.length, traitLines.length);
+  for (let i = 0; i < maxLines; i++) {
+    const artLine = artLines[i] ?? "";
+    const traitLine = traitLines[i] ?? "";
+    lines.push(padArtLine(artLine, ART_PAD) + traitLine);
   }
   return lines;
 }
@@ -164,7 +178,7 @@ function horizontalTraitLine(slots: CreatureSlot[]): string {
     if (s) {
       const variant = getVariantById(s.variantId);
       const art = variant?.art ?? "?";
-      parts.push(col(art.padEnd(6), s.rarity));
+      parts.push(`${WHITE}${art.padEnd(6)}${RESET}`);
     }
   }
   return `      ${parts.join(" ")}`;
@@ -185,9 +199,10 @@ export class SimpleTextRenderer implements Renderer {
       const c = entry.creature;
       const rate = Math.round(entry.catchRate * 100);
       const statsIndent = " ".repeat(ART_PAD);
-      lines.push(`  ${DIM}[${entry.index + 1}]${RESET} ${BOLD}${c.name}${RESET}`);
+      const creatureScore = calculateCreatureScore(c.speciesId, c.slots);
+      lines.push(`  ${DIM}[${entry.index + 1}]${RESET} ${BOLD}${c.name}${RESET} ${DIM}(${c.speciesId})${RESET}  ⭐ ${creatureScore}`);
       lines.push(`${statsIndent}${DIM}Rate:${RESET} ${rate}%  ${DIM}Cost:${RESET} ${entry.energyCost}${ENERGY_ICON}`);
-      for (const line of renderCreatureSideBySide(c.slots)) {
+      for (const line of renderCreatureSideBySide(c.slots, c.speciesId)) {
         lines.push(line);
       }
       lines.push("");
@@ -206,8 +221,9 @@ export class SimpleTextRenderer implements Renderer {
     if (result.success) {
       lines.push(`  ${GREEN}${BOLD}✦ CAUGHT! ✦${RESET}`);
       lines.push("");
-      lines.push(`  ${BOLD}${c.name}${RESET} joined your collection!`);
-      for (const line of renderCreatureSideBySide(c.slots)) {
+      const creatureScore = calculateCreatureScore(c.speciesId, c.slots);
+      lines.push(`  ${BOLD}${c.name}${RESET} joined your collection!  ⭐ ${creatureScore}`);
+      for (const line of renderCreatureSideBySide(c.slots, c.speciesId)) {
         lines.push(line);
       }
       lines.push("");
@@ -215,7 +231,7 @@ export class SimpleTextRenderer implements Renderer {
       lines.push("");
       lines.push(divider());
     } else if (result.fled) {
-      lines.push(`  ${RARITY_COLOR["mythic"]}${BOLD}✦ FLED ✦${RESET}`);
+      lines.push(`  ${RED}${BOLD}✦ FLED ✦${RESET}`);
       lines.push("");
       lines.push(`  ${BOLD}${c.name}${RESET} fled into the void!`);
       lines.push(`  ${DIM}The creature is gone.${RESET}`);
@@ -224,10 +240,10 @@ export class SimpleTextRenderer implements Renderer {
       lines.push("");
       lines.push(divider());
     } else {
-      lines.push(`  ${RARITY_COLOR["legendary"]}${BOLD}✦ ESCAPED ✦${RESET}`);
+      lines.push(`  ${YELLOW}${BOLD}✦ ESCAPED ✦${RESET}`);
       lines.push("");
       lines.push(`  ${BOLD}${c.name}${RESET} slipped away!`);
-      for (const line of renderCreatureSideBySide(c.slots)) {
+      for (const line of renderCreatureSideBySide(c.slots, c.speciesId)) {
         lines.push(line);
       }
       lines.push("");
@@ -239,61 +255,66 @@ export class SimpleTextRenderer implements Renderer {
     return lines.join("\n");
   }
 
-  renderMergePreview(preview: MergePreview): string {
-    const { target, food, slotChances } = preview;
+  renderBreedPreview(preview: BreedPreview): string {
+    const { parentA, parentB, slotInheritance, energyCost } = preview;
     const lines: string[] = [];
 
-    lines.push(`  Feed ${BOLD}${food.name}${RESET} ${DIM}(Lv ${food.generation})${RESET} into ${BOLD}${target.name}${RESET} ${DIM}(Lv ${target.generation})${RESET}?`);
-    lines.push(`  ${DIM}${food.name} will be consumed.${RESET}`);
+    lines.push(`  Breed ${BOLD}${parentA.name}${RESET} ${DIM}(Lv ${parentA.generation})${RESET} + ${BOLD}${parentB.name}${RESET} ${DIM}(Lv ${parentB.generation})${RESET}?`);
+    lines.push(`  ${DIM}Both parents will be consumed.${RESET}`);
     lines.push("");
 
-    lines.push(`  ${BOLD}Target: ${target.name}${RESET}`);
-    for (const line of renderCreatureSideBySide(target.slots)) {
+    const scoreA = calculateCreatureScore(parentA.speciesId, parentA.slots);
+    lines.push(`  ${BOLD}Parent A: ${parentA.name}${RESET}  ⭐ ${scoreA}`);
+    for (const line of renderCreatureSideBySide(parentA.slots, parentA.speciesId)) {
       lines.push(line);
     }
     lines.push("");
 
-    lines.push(`  ${BOLD}Food: ${food.name}${RESET}`);
-    for (const line of renderCreatureSideBySide(food.slots)) {
+    const scoreB = calculateCreatureScore(parentB.speciesId, parentB.slots);
+    lines.push(`  ${BOLD}Parent B: ${parentB.name}${RESET}  ⭐ ${scoreB}`);
+    for (const line of renderCreatureSideBySide(parentB.slots, parentB.speciesId)) {
       lines.push(line);
     }
     lines.push("");
 
-    lines.push(`  ${BOLD}Upgrade chances:${RESET}`);
-    // Sort by chance descending
-    const sorted = [...slotChances].sort((a, b) => b.chance - a.chance);
-    for (const sc of sorted) {
-      const slotLabel = sc.slotId.padEnd(5);
-      const bar = upgradeBar(sc.chance, sc.currentRarity);
-      const pct = `${Math.round(sc.chance * 100)}%`.padStart(3);
-      const arrow = `${col(sc.currentRarity, sc.currentRarity)} → ${col(sc.nextRarity, sc.nextRarity)}`;
-      lines.push(`    ${col(slotLabel, sc.currentRarity)}  ${bar} ${pct}  ${DIM}${sc.currentRarity} → ${sc.nextRarity}${RESET}`);
+    lines.push(`  ${BOLD}Inheritance odds:${RESET}`);
+    for (const si of slotInheritance) {
+      const slotLabel = si.slotId.padEnd(5);
+      const pctA = `${Math.round(si.parentAChance * 100)}%`;
+      const pctB = `${Math.round(si.parentBChance * 100)}%`;
+      lines.push(`    ${WHITE}${slotLabel}${RESET}  ${DIM}A:${RESET} ${pctA}  ${DIM}B:${RESET} ${pctB}`);
     }
     lines.push("");
+    lines.push(`  ${DIM}Energy cost: ${energyCost}${RESET}${ENERGY_ICON}`);
     lines.push(divider());
-    lines.push(`  ${DIM}/merge confirm to proceed${RESET}`);
+    lines.push(`  ${DIM}/breed confirm to proceed${RESET}`);
 
     return lines.join("\n");
   }
 
-  renderMergeResult(result: MergeResult): string {
-    const { target, food, upgradedSlot, previousRarity, newRarity, graftedVariantName } = result;
+  renderBreedResult(result: BreedResult): string {
+    const { child, parentA, parentB, inheritedFrom } = result;
     const lines: string[] = [];
 
-    lines.push(`  ${GREEN}${BOLD}✦ MERGE SUCCESS ✦${RESET}`);
+    lines.push(`  ${GREEN}${BOLD}✦ BREED SUCCESS ✦${RESET}`);
     lines.push("");
 
-    lines.push(`  ${BOLD}${target.name}${RESET} — ${upgradedSlot} upgraded!`);
-    lines.push(`    ${col(previousRarity, previousRarity)} → ${col(newRarity, newRarity)}`);
-    lines.push(`    ${DIM}→ ${graftedVariantName} (grafted)${RESET}`);
-    lines.push("");
-
-    for (const line of renderCreatureSideBySide(target.slots)) {
+    const childScore = calculateCreatureScore(child.speciesId, child.slots);
+    lines.push(`  ${BOLD}${child.name}${RESET} was born!  ⭐ ${childScore}`);
+    for (const line of renderCreatureSideBySide(child.slots, child.speciesId)) {
       lines.push(line);
     }
     lines.push("");
 
-    lines.push(`  ${DIM}${food.name} was consumed.${RESET}`);
+    lines.push(`  ${DIM}Inherited from:${RESET}`);
+    for (const slot of child.slots) {
+      const from = inheritedFrom[slot.slotId];
+      const parentName = from === "A" ? parentA.name : parentB.name;
+      lines.push(`    ${DIM}${slot.slotId}${RESET} → ${from} (${parentName})`);
+    }
+    lines.push("");
+
+    lines.push(`  ${DIM}Both parents consumed.${RESET}`);
     lines.push("");
     lines.push(divider());
 
@@ -311,8 +332,33 @@ export class SimpleTextRenderer implements Renderer {
     lines.push("");
 
     for (const creature of collection) {
-      lines.push(`  ${BOLD}${creature.name}${RESET}  Lv ${creature.generation}`);
-      for (const line of renderCreatureSideBySide(creature.slots)) {
+      const creatureScore = calculateCreatureScore(creature.speciesId, creature.slots);
+      lines.push(`  ${BOLD}${creature.name}${RESET}  ${DIM}${creature.speciesId}${RESET}  Lv ${creature.generation}  ⭐ ${creatureScore}`);
+      for (const line of renderCreatureSideBySide(creature.slots, creature.speciesId)) {
+        lines.push(line);
+      }
+      lines.push("");
+    }
+
+    lines.push(divider());
+
+    return lines.join("\n");
+  }
+
+  renderArchive(archive: CollectionCreature[]): string {
+    const lines: string[] = [];
+
+    if (archive.length === 0) {
+      return "  No creatures in your archive yet.";
+    }
+
+    lines.push(`  ${DIM}Archive (${archive.length})${RESET}`);
+    lines.push("");
+
+    for (const creature of archive) {
+      const creatureScore = calculateCreatureScore(creature.speciesId, creature.slots);
+      lines.push(`  ${BOLD}${creature.name}${RESET}  ${DIM}${creature.speciesId}${RESET}  Lv ${creature.generation}  ⭐ ${creatureScore}`);
+      for (const line of renderCreatureSideBySide(creature.slots, creature.speciesId)) {
         lines.push(line);
       }
       lines.push("");
@@ -341,6 +387,7 @@ export class SimpleTextRenderer implements Renderer {
     lines.push(`  Catches:    ${p.totalCatches}`);
     lines.push(`  Merges:     ${p.totalMerges}`);
     lines.push(`  Collection: ${result.collectionCount} creatures`);
+    lines.push(`  Archive:    ${result.archiveCount} creatures`);
     lines.push(`  Streak:     ${p.currentStreak} days ${DIM}(best: ${p.longestStreak})${RESET}`);
     lines.push(`  Nearby:     ${result.nearbyCount} creatures`);
     lines.push(`  Ticks:      ${p.totalTicks.toLocaleString()}`);
