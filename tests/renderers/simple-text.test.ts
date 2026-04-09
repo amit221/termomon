@@ -343,9 +343,8 @@ describe("renderStatus", () => {
 // --- species-specific art ---
 
 describe("species-specific art", () => {
-  test("renderScan uses species art template framing", () => {
-    // Compi's art template is ["  ~(EE)~", "    MM", "   BB", "   TT"]
-    // So rendered output should contain ~( framing from the template
+  test("renderScan uses fallback art for species without art template", () => {
+    // Compi has no art template, so it uses the fallback layout with ( ) and ╱ ╲
     const result: ScanResult = {
       energy: 6,
       batch: null,
@@ -354,8 +353,8 @@ describe("species-specific art", () => {
       ],
     };
     const out = renderer.renderScan(result);
-    expect(out).toContain("~(");
-    expect(out).toContain(")~");
+    expect(out).toContain("╱");
+    expect(out).toContain("╲");
   });
 });
 

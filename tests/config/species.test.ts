@@ -28,7 +28,7 @@ describe("loadSpecies", () => {
     expect(compi.name).toBe("Compi");
     expect(compi.description).toBeTruthy();
     expect(compi.spawnWeight).toBe(10);
-    expect(compi.art).toHaveLength(4);
+    // compi uses fallback art (no art field)
     for (const slotId of SLOT_IDS) {
       expect(compi.traitPools[slotId]).toBeDefined();
       expect(compi.traitPools[slotId]!.length).toBe(19);
