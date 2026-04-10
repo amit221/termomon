@@ -54,6 +54,8 @@ Each creature is built from **4 trait slots** (eyes, mouth, body, tail) with ind
 
 ## Installation
 
+### Claude Code
+
 ```bash
 /plugin marketplace add amit221/compi
 /plugin install compi@compi
@@ -65,33 +67,50 @@ Then enable auto-update so you always get the latest version:
 3. Select **compi**
 4. Enable **auto-update**
 
-## Playing
+**Optional: add a dedicated `compi` alias**
 
-**Option 1: Dedicated Compi session** (recommended for best experience)
-
-Add this alias to your shell profile (`~/.bashrc`, `~/.zshrc`, or `~/.profile`):
+For the best experience, add a shell alias that launches a lightweight Compi-only session (Haiku model, Compi tools + file/CLI access):
 
 ```bash
 alias compi='claude --model haiku --verbose --allowedTools "mcp__plugin_compi_compi__*" "Read" "Write" "Edit" "Bash"'
 ```
 
-**PowerShell** users — add this to your profile (`$PROFILE`):
+Add it to your shell profile (`~/.bashrc`, `~/.zshrc`, or `~/.profile`). **PowerShell** users — add this to your profile (`$PROFILE`) instead:
 
 ```powershell
 function compi { & claude.cmd --model haiku --verbose --allowedTools "mcp__plugin_compi_compi__*" "Read" "Write" "Edit" "Bash" @args }
 ```
 
-Then just run:
+Then just run `compi` to start a dedicated session.
 
-```bash
-compi
+### Cursor
+
+> Requires **Cursor 2.5 or later** (plugins support was added in 2.5).
+
+Compi isn't on the official Cursor Marketplace yet, but Cursor's `/add-plugin` command can install any plugin directly from a GitHub repository. In an Agent chat, type:
+
+```
+/add-plugin compi@https://github.com/amit221/compi
 ```
 
-This launches a lightweight session using Haiku (fast + cheap) with Compi tools, file access, and CLI enabled.
+> `/add-plugin` won't appear in autocomplete — type the full command.
+
+Then **restart Cursor** and verify it shows up under **Settings → Plugins**.
+
+On Cursor, Compi runs as an HTTP MCP server on `localhost:3456` (auto-started by the `sessionStart` hook) and renders output as an HTML panel via MCP Apps. The slash commands (`/scan`, `/catch`, `/collection`, …) work the same as in Claude Code.
+
+To change the port, set `COMPI_PORT` in your environment before Cursor launches and update the `url` in `.cursor-plugin/plugin.json` to match.
+
+## Playing
+
+**Option 1: Dedicated Compi session** (recommended for best experience)
+
+- **Claude Code** — run the `compi` alias you set up above to open a lightweight Haiku-powered session focused on the game.
+- **Cursor** — open a new chat dedicated to Compi and use the slash commands directly. Keeping it separate from your coding chats prevents the HTML panel output from cluttering your working context.
 
 **Option 2: Play alongside your work**
 
-Compi runs in the background of any Claude Code session. Creatures spawn as you work — you'll see notifications and can interact with `/scan`, `/catch`, `/merge` at any time without interrupting your workflow.
+Compi runs in the background of any Claude Code or Cursor session. Creatures spawn as you work — you'll see notifications and can interact with `/scan`, `/catch`, `/merge` at any time without interrupting your workflow.
 
 ## Commands
 
@@ -105,47 +124,35 @@ Compi runs in the background of any Claude Code session. Creatures spawn as you 
 | `/status` | `compi status` | Player profile, stats, and progress |
 | `/settings` | `compi settings` | Configure notifications and preferences |
 
-## Rarity Tiers
-
-| Tier | Color | Spawn Rate | Catch Cost | Base Catch Rate |
-|------|-------|------------|------------|-----------------|
-| Common | Gray | 30% | 1 energy | 80% |
-| Uncommon | White | 25% | 1 energy | 75% |
-| Rare | Cyan | 20% | 2 energy | 70% |
-| Epic | Magenta | 13% | 3 energy | 62% |
-| Legendary | Yellow | 8% | 4 energy | 52% |
-| Mythic | Red | 4% | 5 energy | 40% |
-
-Each failed catch in a batch adds a 10% penalty to your next attempt — choose wisely.
-
 ## Contributing
 
-Compi is open source and contributions are welcome! Whether it's new trait variants, balance tweaks, bug fixes, or platform adapters — open a PR or start a discussion.
+Compi is open source and contributions are welcome! Found a bug, have an idea for a new trait variant, or want to suggest a balance tweak? **[Open an issue](https://github.com/amit221/compi/issues/new)** — that's the best place to start a conversation before sending a PR.
 
-```bash
-git clone https://github.com/amit221/compi.git
-cd compi
-npm install
-npm test             # 71 tests across 7 suites
-npm run build        # TypeScript → dist/
-npm run dev          # Watch mode
-```
+## Stay in the loop
 
-## Development
-
-```bash
-npm install          # Install dependencies
-npm test             # Run 71 tests across 7 suites
-npm run build        # Compile TypeScript → dist/
-npm run dev          # Watch mode (tsc --watch)
-```
+- **Twitter/X:** follow [@compi_game](https://twitter.com/compi_game) for update announcements, new creatures, and release notes
+- **Reddit:** join the community at [r/compi](https://reddit.com/r/compi) to share rare catches, swap strategies, and talk merge combos
+- **GitHub:** [watch the repo](https://github.com/amit221/compi) to get notified on releases
 
 <div align="center">
 
 ---
 
-MIT License
+```
+   ╭─────────────────────────────╮
+   │  gotta catch 'em while you  │
+   │          commit             │
+   ╰─────────────────────────────╯
+```
 
-If you enjoy Compi, consider giving it a star — it helps others discover it.
+### Enjoying Compi? Help it grow.
+
+[![Star on GitHub](https://img.shields.io/github/stars/amit221/compi?style=for-the-badge&logo=github&color=yellow&label=Star)](https://github.com/amit221/compi)
+[![Follow on X](https://img.shields.io/badge/Follow-%40compi__game-black?style=for-the-badge&logo=x)](https://twitter.com/compi_game)
+[![Join Reddit](https://img.shields.io/badge/Join-r%2Fcompi-FF4500?style=for-the-badge&logo=reddit&logoColor=white)](https://reddit.com/r/compi)
+
+**⭐ Star** the repo so others can find it &nbsp;·&nbsp; **🐦 Follow** for new creatures and releases &nbsp;·&nbsp; **💬 Join** the community to show off rare catches
+
+<sub>Built with ❤️ for the terminal. MIT licensed. No telemetry, no background processes, no bullshit.</sub>
 
 </div>

@@ -13,7 +13,7 @@ import {
 import { MAX_ENERGY } from "../engine/energy";
 import { getVariantById } from "../config/traits";
 import { getSpeciesById, getTraitDefinition } from "../config/species";
-import { calculateSlotScore, calculateCreatureScore } from "../engine/rarity";
+import { calculateSlotScore, calculateCreatureScore, calculateTraitRarityScore } from "../engine/rarity";
 
 const stringWidth = require("string-width") as (str: string) => number;
 
@@ -30,13 +30,29 @@ const RED = "\x1b[31m";
 const COLOR_ANSI: Record<string, string> = {
   grey: "\x1b[90m",
   white: "\x1b[97m",
+  green: "\x1b[32m",
   cyan: "\x1b[36m",
+  blue: "\x1b[34m",
   magenta: "\x1b[35m",
   yellow: "\x1b[33m",
   red: "\x1b[31m",
 };
 
 const ENERGY_ICON = `${YELLOW}⚡${RESET}`;
+
+// --- Rarity to color mapping ---
+
+function calculateRarityColor(rarityScore: number): string {
+  // Maps 1-100 rarity score to 8 color tiers
+  if (rarityScore <= 12.5) return COLOR_ANSI.grey;
+  if (rarityScore <= 25) return COLOR_ANSI.white;
+  if (rarityScore <= 37.5) return COLOR_ANSI.green;
+  if (rarityScore <= 50) return COLOR_ANSI.cyan;
+  if (rarityScore <= 62.5) return COLOR_ANSI.blue;
+  if (rarityScore <= 75) return COLOR_ANSI.magenta;
+  if (rarityScore <= 87.5) return COLOR_ANSI.yellow;
+  return COLOR_ANSI.red;
+}
 
 // --- Creature art ---
 
@@ -58,10 +74,11 @@ function renderCreatureLines(slots: CreatureSlot[], speciesId?: string): string[
     slotArt[s.slotId] = trait?.art ?? "???";
   }
 
-  // Build slot-to-color map
+  // Build slot-to-color map (based on rarity, not slot color)
   const slotColor: Record<string, string> = {};
   for (const s of slots) {
-    slotColor[s.slotId] = COLOR_ANSI[s.color ?? "white"] || WHITE;
+    const rarityScore = speciesId ? calculateTraitRarityScore(speciesId, s.slotId, s.variantId) : 50;
+    slotColor[s.slotId] = calculateRarityColor(rarityScore);
   }
 
   const species = speciesId ? getSpeciesById(speciesId) : undefined;
@@ -150,9 +167,10 @@ function renderCreatureSideBySide(slots: CreatureSlot[], speciesId?: string): st
     if (s) {
       const variant = speciesId ? getTraitDefinition(speciesId, s.variantId) : getVariantById(s.variantId);
       const name = variant?.name ?? s.variantId;
-      const slotColor = COLOR_ANSI[s.color ?? "white"] || WHITE;
+      const rarityScore = speciesId ? calculateTraitRarityScore(speciesId, s.slotId, s.variantId) : 50;
+      const rarityColor = calculateRarityColor(rarityScore);
       const score = speciesId ? Math.round(calculateSlotScore(speciesId, s)) : 50;
-      traitLines.push(`${DIM}${slotId.padEnd(5)}${RESET} ${slotColor}${name}${RESET} ${DIM}[${score}]${RESET}`);
+      traitLines.push(`${DIM}${slotId.padEnd(5)}${RESET} ${rarityColor}${name}${RESET} ${DIM}[${score}]${RESET}`);
     } else {
       traitLines.push(`${DIM}${slotId.padEnd(5)}${RESET} ${DIM}—${RESET}`);
     }
