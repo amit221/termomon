@@ -9,6 +9,8 @@ import {
   CollectionCreature,
   CreatureSlot,
   SlotId,
+  BreedableEntry,
+  BreedPartnersView,
 } from "../types";
 import { MAX_ENERGY } from "../engine/energy";
 import { getVariantById } from "../config/traits";
@@ -281,22 +283,22 @@ export class SimpleTextRenderer implements Renderer {
   }
 
   renderBreedPreview(preview: BreedPreview): string {
-    const { parentA, parentB, slotInheritance, energyCost } = preview;
+    const { parentA, parentB, parentAIndex, parentBIndex, slotInheritance, energyCost } = preview;
     const lines: string[] = [];
 
-    lines.push(`  Breed ${BOLD}${parentA.name}${RESET} ${DIM}(Lv ${parentA.generation})${RESET} + ${BOLD}${parentB.name}${RESET} ${DIM}(Lv ${parentB.generation})${RESET}?`);
+    lines.push(`  Breed ${BOLD}#${parentAIndex} ${parentA.name}${RESET} ${DIM}(Lv ${parentA.generation})${RESET} + ${BOLD}#${parentBIndex} ${parentB.name}${RESET} ${DIM}(Lv ${parentB.generation})${RESET}?`);
     lines.push(`  ${DIM}Both parents will be consumed.${RESET}`);
     lines.push("");
 
     const scoreA = calculateCreatureScore(parentA.speciesId, parentA.slots);
-    lines.push(`  ${BOLD}Parent A: ${parentA.name}${RESET}  ⭐ ${scoreA}`);
+    lines.push(`  ${BOLD}Parent A: #${parentAIndex} ${parentA.name}${RESET}  ⭐ ${scoreA}`);
     for (const line of renderCreatureSideBySide(parentA.slots, parentA.speciesId)) {
       lines.push(line);
     }
     lines.push("");
 
     const scoreB = calculateCreatureScore(parentB.speciesId, parentB.slots);
-    lines.push(`  ${BOLD}Parent B: ${parentB.name}${RESET}  ⭐ ${scoreB}`);
+    lines.push(`  ${BOLD}Parent B: #${parentBIndex} ${parentB.name}${RESET}  ⭐ ${scoreB}`);
     for (const line of renderCreatureSideBySide(parentB.slots, parentB.speciesId)) {
       lines.push(line);
     }
@@ -312,7 +314,7 @@ export class SimpleTextRenderer implements Renderer {
     lines.push("");
     lines.push(`  ${DIM}Energy cost: ${energyCost}${RESET}${ENERGY_ICON}`);
     lines.push(divider());
-    lines.push(`  ${DIM}/breed confirm to proceed${RESET}`);
+    lines.push(`  ${DIM}Run /breed ${parentAIndex} ${parentBIndex} --confirm to proceed${RESET}`);
 
     return lines.join("\n");
   }
@@ -346,6 +348,32 @@ export class SimpleTextRenderer implements Renderer {
     return lines.join("\n");
   }
 
+  renderBreedableList(entries: BreedableEntry[]): string {
+    const lines: string[] = [];
+
+    if (entries.length === 0) {
+      return "  No breedable pairs yet — you need 2+ creatures of the same species.\n  Use /scan and /catch to find more.";
+    }
+
+    lines.push(`  ${DIM}Breedable creatures (${entries.length})${RESET}`);
+    lines.push(`  ${DIM}Run /breed N to see partners for creature #N${RESET}`);
+    lines.push("");
+
+    for (const entry of entries) {
+      const creature = entry.creature;
+      const score = calculateCreatureScore(creature.speciesId, creature.slots);
+      const num = `${entry.creatureIndex}.`;
+      const partnerWord = entry.partnerCount === 1 ? "partner" : "partners";
+      lines.push(
+        `  ${BOLD}${num}${RESET} ${BOLD}${creature.name}${RESET}  ${DIM}${creature.speciesId}${RESET}  Lv ${creature.generation}  ⭐ ${score}  ${DIM}(${entry.partnerCount} ${partnerWord})${RESET}`
+      );
+    }
+
+    lines.push("");
+    lines.push(divider());
+    return lines.join("\n");
+  }
+
   renderCollection(collection: CollectionCreature[]): string {
     const lines: string[] = [];
 
@@ -356,14 +384,15 @@ export class SimpleTextRenderer implements Renderer {
     lines.push(`  ${DIM}Your creatures (${collection.length})${RESET}`);
     lines.push("");
 
-    for (const creature of collection) {
+    collection.forEach((creature, i) => {
       const creatureScore = calculateCreatureScore(creature.speciesId, creature.slots);
-      lines.push(`  ${BOLD}${creature.name}${RESET}  ${DIM}${creature.speciesId}${RESET}  Lv ${creature.generation}  ⭐ ${creatureScore}`);
+      const num = `${i + 1}.`;
+      lines.push(`  ${BOLD}${num}${RESET} ${BOLD}${creature.name}${RESET}  ${DIM}${creature.speciesId}${RESET}  Lv ${creature.generation}  ⭐ ${creatureScore}`);
       for (const line of renderCreatureSideBySide(creature.slots, creature.speciesId)) {
         lines.push(line);
       }
       lines.push("");
-    }
+    });
 
     lines.push(divider());
 
@@ -423,5 +452,37 @@ export class SimpleTextRenderer implements Renderer {
 
   renderNotification(notification: Notification): string {
     return notification.message;
+  }
+
+  renderBreedPartners(view: BreedPartnersView): string {
+    const lines: string[] = [];
+    const { creatureIndex, creature, partners } = view;
+    const score = calculateCreatureScore(creature.speciesId, creature.slots);
+
+    lines.push(`  ${DIM}Selected:${RESET} ${BOLD}#${creatureIndex} ${creature.name}${RESET}  ${DIM}${creature.speciesId}${RESET}  Lv ${creature.generation}  ⭐ ${score}`);
+    for (const line of renderCreatureSideBySide(creature.slots, creature.speciesId)) {
+      lines.push(line);
+    }
+    lines.push("");
+
+    if (partners.length === 0) {
+      lines.push(`  ${DIM}${creature.name} has no same-species partners.${RESET}`);
+      lines.push(`  ${DIM}Run /breed to see all breedable creatures.${RESET}`);
+      lines.push(divider());
+      return lines.join("\n");
+    }
+
+    lines.push(`  ${BOLD}Compatible partners (${partners.length}):${RESET}`);
+    for (const p of partners) {
+      const pScore = calculateCreatureScore(p.creature.speciesId, p.creature.slots);
+      const num = `${p.partnerIndex}.`;
+      lines.push(
+        `    ${BOLD}${num}${RESET} ${BOLD}${p.creature.name}${RESET}  Lv ${p.creature.generation}  ⭐ ${pScore}  ${DIM}(cost ${p.energyCost})${RESET}${ENERGY_ICON}`
+      );
+    }
+    lines.push("");
+    lines.push(`  ${DIM}Run /breed ${creatureIndex} N to preview breeding with partner #N${RESET}`);
+    lines.push(divider());
+    return lines.join("\n");
   }
 }
