@@ -5,3 +5,4 @@ coverage/
 .compi/
 .superpowers/
 .playwright-mcp/
+.worktrees/
