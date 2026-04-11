@@ -354,12 +354,12 @@ export class SimpleTextRenderer implements Renderer {
       const slotLabel = si.slotId.padEnd(5);
       const pctA = `${Math.round(si.parentAChance * 100)}%`;
       const pctB = `${Math.round(si.parentBChance * 100)}%`;
-      const scoreA = Math.round(calculateTraitRarityScore(parentA.speciesId, si.slotId, si.parentAVariant.id));
-      const scoreB = Math.round(calculateTraitRarityScore(parentB.speciesId, si.slotId, si.parentBVariant.id));
-      const colorA = calculateRarityColor(scoreA);
-      const colorB = calculateRarityColor(scoreB);
+      const traitScoreA = Math.round(calculateTraitRarityScore(parentA.speciesId, si.slotId, si.parentAVariant.id));
+      const traitScoreB = Math.round(calculateTraitRarityScore(parentB.speciesId, si.slotId, si.parentBVariant.id));
+      const colorA = calculateRarityColor(traitScoreA);
+      const colorB = calculateRarityColor(traitScoreB);
       lines.push(
-        `    ${WHITE}${slotLabel}${RESET}  ${DIM}A:${RESET} ${colorA}${si.parentAVariant.name} [${scoreA}]${RESET} ${pctA}  ${DIM}B:${RESET} ${colorB}${si.parentBVariant.name} [${scoreB}]${RESET} ${pctB}`
+        `    ${WHITE}${slotLabel}${RESET}  ${DIM}A:${RESET} ${colorA}${si.parentAVariant.name} [${traitScoreA}]${RESET} ${pctA}  ${DIM}B:${RESET} ${colorB}${si.parentBVariant.name} [${traitScoreB}]${RESET} ${pctB}`
       );
     }
     lines.push("");
