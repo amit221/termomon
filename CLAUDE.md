@@ -48,3 +48,16 @@ Key design rules:
 ## Testing
 
 Tests mirror the `src/` structure under `tests/`. Jest uses `ts-jest` preset, test root is `tests/`, pattern is `**/*.test.ts`.
+
+## Commit Messages
+
+All commits MUST follow [Conventional Commits](https://www.conventionalcommits.org/):
+
+- `feat:` — new feature (triggers minor version bump)
+- `fix:` — bug fix (triggers patch version bump)
+- `chore:`, `docs:`, `refactor:`, `test:`, `style:`, `ci:`, `build:`, `perf:` — no version bump
+- Breaking changes: add `!` after the type (e.g. `feat!: ...`) or include `BREAKING CHANGE:` in the commit body (triggers major version bump)
+
+Do **not** use `update:` or `enhance:` — these are not valid Conventional Commits and will be silently ignored by the release pipeline.
+
+Releases are fully automated by `release-please` on push to master. See `docs/superpowers/specs/2026-04-11-release-pipeline-design.md` for the design and `.github/workflows/release.yml` for the workflow.
