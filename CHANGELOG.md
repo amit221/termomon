@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented in this file. This file is maintained automatically by [release-please](https://github.com/googleapis/release-please) based on [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [0.2.1](https://github.com/amit221/compi/compare/v0.2.0...v0.2.1) (2026-04-11)
+
+
+### Bug Fixes
+
+* **release:** build dist/ into release PR so plugin MCP servers work ([8aca4ca](https://github.com/amit221/compi/commit/8aca4ca8766e678b5125f0c2d662c4c3565b972a))
+
 ## [0.2.0](https://github.com/amit221/compi/compare/v0.1.1...v0.2.0) (2026-04-11)
 
 
