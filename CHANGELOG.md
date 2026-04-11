@@ -4,4 +4,4 @@ All notable changes to this project are documented in this file. This file is ma
 
 ## 0.1.0
 
-- Initial release.
+- Initial release. (pipeline bootstrap)
