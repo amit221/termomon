@@ -106,13 +106,41 @@ export function registerTools(server: McpServer, options: RegisterToolsOptions =
     return text(renderer.renderCollection(engine.getState().collection));
   }, meta);
 
-  addTool(server, "breed", "Breed two creatures from your collection", z.object({
-    parentAId: z.string().describe("ID of the first parent creature"),
-    parentBId: z.string().describe("ID of the second parent creature"),
+  addTool(server, "breed", "Breed two creatures from your collection (uses /collection indexes)", z.object({
+    indexA: z.number().optional().describe("1-indexed position of first parent in /collection"),
+    indexB: z.number().optional().describe("1-indexed position of second parent in /collection"),
     confirm: z.boolean().optional().describe("Set to true to execute the breed after previewing"),
-  }), async ({ parentAId, parentBId, confirm }: { parentAId: string; parentBId: string; confirm?: boolean }) => {
+  }), async ({ indexA, indexB, confirm }: { indexA?: number; indexB?: number; confirm?: boolean }) => {
     const { stateManager, engine } = loadEngine();
     const renderer = new SimpleTextRenderer();
+    const collection = engine.getState().collection;
+
+    // List mode: no indexes → show all breedable creatures
+    if (indexA === undefined && indexB === undefined) {
+      const entries = engine.listBreedable();
+      return text(renderer.renderBreedableList(entries));
+    }
+
+    // Partner mode: only indexA → show that creature and its partners
+    if (indexA !== undefined && indexB === undefined) {
+      const view = engine.listBreedPartners(indexA);
+      return text(renderer.renderBreedPartners(view));
+    }
+
+    // Preview / execute mode: both indexes → resolve to IDs and call engine
+    if (indexA === undefined || indexB === undefined) {
+      // Unreachable given above branches, but keeps TS happy.
+      throw new Error("Both indexA and indexB are required to preview or confirm a breed.");
+    }
+    if (indexA < 1 || indexA > collection.length) {
+      throw new Error(`No creature at index ${indexA}. You have ${collection.length} creatures.`);
+    }
+    if (indexB < 1 || indexB > collection.length) {
+      throw new Error(`No creature at index ${indexB}. You have ${collection.length} creatures.`);
+    }
+    const parentAId = collection[indexA - 1].id;
+    const parentBId = collection[indexB - 1].id;
+
     if (confirm) {
       const result = engine.breedExecute(parentAId, parentBId);
       stateManager.save(engine.getState());
