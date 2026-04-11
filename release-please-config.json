@@ -5,6 +5,7 @@
     ".": {
       "package-name": "compi",
       "changelog-path": "CHANGELOG.md",
+      "bootstrap-sha": "0f702f5d4a25158775c6b073167c315fbbf85068",
       "draft": false,
       "prerelease": false,
       "extra-files": [
