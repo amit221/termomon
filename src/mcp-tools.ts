@@ -78,6 +78,71 @@ function addTool<T extends z.ZodRawShape>(
   }
 }
 
+/**
+ * Pure command-layer logic for the `breed` MCP tool. Extracted so the three
+ * modes (list / partner / preview / execute) can be unit-tested without
+ * constructing a real MCP server.
+ *
+ * Returns the rendered output and a flag indicating whether state mutated
+ * (so the caller can decide whether to persist).
+ */
+export function runBreedCommand(
+  engine: GameEngine,
+  renderer: SimpleTextRenderer,
+  args: { indexA?: number; indexB?: number; confirm?: boolean }
+): { output: string; mutated: boolean } {
+  const { indexA, indexB, confirm } = args;
+  const collection = engine.getState().collection;
+
+  // List mode: no indexes → show all breedable creatures
+  if (indexA === undefined && indexB === undefined) {
+    return {
+      output: renderer.renderBreedableList(engine.listBreedable()),
+      mutated: false,
+    };
+  }
+
+  // Partner mode: only indexA → show that creature and its partners
+  if (indexA !== undefined && indexB === undefined) {
+    return {
+      output: renderer.renderBreedPartners(engine.listBreedPartners(indexA)),
+      mutated: false,
+    };
+  }
+
+  // Error case: only indexB supplied without indexA
+  if (indexA === undefined && indexB !== undefined) {
+    throw new Error(
+      "indexA is required. Run /breed to see breedable creatures, or /breed N to pick a first parent."
+    );
+  }
+
+  // Both indexes present: preview or execute
+  if (indexA === undefined || indexB === undefined) {
+    // Truly unreachable after the branches above, but keeps TS's narrowing happy.
+    throw new Error("Both indexA and indexB are required to preview or confirm a breed.");
+  }
+  if (indexA < 1 || indexA > collection.length) {
+    throw new Error(
+      `No creature at index ${indexA}. You have ${collection.length} creatures.`
+    );
+  }
+  if (indexB < 1 || indexB > collection.length) {
+    throw new Error(
+      `No creature at index ${indexB}. You have ${collection.length} creatures.`
+    );
+  }
+  const parentAId = collection[indexA - 1].id;
+  const parentBId = collection[indexB - 1].id;
+
+  if (confirm) {
+    const result = engine.breedExecute(parentAId, parentBId);
+    return { output: renderer.renderBreedResult(result), mutated: true };
+  }
+  const preview = engine.breedPreview(parentAId, parentBId);
+  return { output: renderer.renderBreedPreview(preview), mutated: false };
+}
+
 export function registerTools(server: McpServer, options: RegisterToolsOptions = {}): void {
   const text = (content: string) => makeText(content, options);
   const meta = options.appMeta;
@@ -113,42 +178,9 @@ export function registerTools(server: McpServer, options: RegisterToolsOptions =
   }), async ({ indexA, indexB, confirm }: { indexA?: number; indexB?: number; confirm?: boolean }) => {
     const { stateManager, engine } = loadEngine();
     const renderer = new SimpleTextRenderer();
-    const collection = engine.getState().collection;
-
-    // List mode: no indexes → show all breedable creatures
-    if (indexA === undefined && indexB === undefined) {
-      const entries = engine.listBreedable();
-      return text(renderer.renderBreedableList(entries));
-    }
-
-    // Partner mode: only indexA → show that creature and its partners
-    if (indexA !== undefined && indexB === undefined) {
-      const view = engine.listBreedPartners(indexA);
-      return text(renderer.renderBreedPartners(view));
-    }
-
-    // Preview / execute mode: both indexes → resolve to IDs and call engine
-    if (indexA === undefined || indexB === undefined) {
-      // Unreachable given above branches, but keeps TS happy.
-      throw new Error("Both indexA and indexB are required to preview or confirm a breed.");
-    }
-    if (indexA < 1 || indexA > collection.length) {
-      throw new Error(`No creature at index ${indexA}. You have ${collection.length} creatures.`);
-    }
-    if (indexB < 1 || indexB > collection.length) {
-      throw new Error(`No creature at index ${indexB}. You have ${collection.length} creatures.`);
-    }
-    const parentAId = collection[indexA - 1].id;
-    const parentBId = collection[indexB - 1].id;
-
-    if (confirm) {
-      const result = engine.breedExecute(parentAId, parentBId);
-      stateManager.save(engine.getState());
-      return text(renderer.renderBreedResult(result));
-    } else {
-      const preview = engine.breedPreview(parentAId, parentBId);
-      return text(renderer.renderBreedPreview(preview));
-    }
+    const result = runBreedCommand(engine, renderer, { indexA, indexB, confirm });
+    if (result.mutated) stateManager.save(engine.getState());
+    return text(result.output);
   }, meta);
 
   addTool(server, "archive", "View archive or archive a creature", z.object({
