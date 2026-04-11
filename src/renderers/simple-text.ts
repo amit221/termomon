@@ -356,14 +356,15 @@ export class SimpleTextRenderer implements Renderer {
     lines.push(`  ${DIM}Your creatures (${collection.length})${RESET}`);
     lines.push("");
 
-    for (const creature of collection) {
+    collection.forEach((creature, i) => {
       const creatureScore = calculateCreatureScore(creature.speciesId, creature.slots);
-      lines.push(`  ${BOLD}${creature.name}${RESET}  ${DIM}${creature.speciesId}${RESET}  Lv ${creature.generation}  ⭐ ${creatureScore}`);
+      const num = `${i + 1}.`;
+      lines.push(`  ${BOLD}${num}${RESET} ${BOLD}${creature.name}${RESET}  ${DIM}${creature.speciesId}${RESET}  Lv ${creature.generation}  ⭐ ${creatureScore}`);
       for (const line of renderCreatureSideBySide(creature.slots, creature.speciesId)) {
         lines.push(line);
       }
       lines.push("");
-    }
+    });
 
     lines.push(divider());
 
