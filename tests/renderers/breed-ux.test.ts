@@ -83,3 +83,43 @@ describe("renderBreedableList", () => {
     expect(out).toMatch(/No breedable pairs/i);
   });
 });
+
+describe("renderBreedPartners", () => {
+  it("shows the selected creature and its partners with index and cost", () => {
+    const renderer = new SimpleTextRenderer();
+    const view: BreedPartnersView = {
+      creatureIndex: 3,
+      creature: makeCreature("a", "compi", "Bolt", V),
+      partners: [
+        {
+          partnerIndex: 7,
+          creature: makeCreature("b", "compi", "Spark", V),
+          energyCost: 4,
+        },
+        {
+          partnerIndex: 12,
+          creature: makeCreature("c", "compi", "Zap", V),
+          energyCost: 5,
+        },
+      ],
+    };
+    const out = stripAnsi(renderer.renderBreedPartners(view));
+    expect(out).toMatch(/#3/);
+    expect(out).toMatch(/Bolt/);
+    expect(out).toMatch(/\b7\.\s+Spark\b/);
+    expect(out).toMatch(/cost 4/);
+    expect(out).toMatch(/\b12\.\s+Zap\b/);
+    expect(out).toMatch(/cost 5/);
+  });
+
+  it("shows an empty-state message when no partners", () => {
+    const renderer = new SimpleTextRenderer();
+    const view: BreedPartnersView = {
+      creatureIndex: 1,
+      creature: makeCreature("a", "compi", "Lonely", V),
+      partners: [],
+    };
+    const out = stripAnsi(renderer.renderBreedPartners(view));
+    expect(out).toMatch(/no same-species partners/i);
+  });
+});

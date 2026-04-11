@@ -455,7 +455,35 @@ export class SimpleTextRenderer implements Renderer {
     return notification.message;
   }
 
-  renderBreedPartners(_view: BreedPartnersView): string {
-    return "  (not yet implemented)";
+  renderBreedPartners(view: BreedPartnersView): string {
+    const lines: string[] = [];
+    const { creatureIndex, creature, partners } = view;
+    const score = calculateCreatureScore(creature.speciesId, creature.slots);
+
+    lines.push(`  ${DIM}Selected:${RESET} ${BOLD}#${creatureIndex} ${creature.name}${RESET}  ${DIM}${creature.speciesId}${RESET}  Lv ${creature.generation}  ⭐ ${score}`);
+    for (const line of renderCreatureSideBySide(creature.slots, creature.speciesId)) {
+      lines.push(line);
+    }
+    lines.push("");
+
+    if (partners.length === 0) {
+      lines.push(`  ${DIM}${creature.name} has no same-species partners.${RESET}`);
+      lines.push(`  ${DIM}Run /breed to see all breedable creatures.${RESET}`);
+      lines.push(divider());
+      return lines.join("\n");
+    }
+
+    lines.push(`  ${BOLD}Compatible partners (${partners.length}):${RESET}`);
+    for (const p of partners) {
+      const pScore = calculateCreatureScore(p.creature.speciesId, p.creature.slots);
+      const num = `${p.partnerIndex}.`;
+      lines.push(
+        `    ${BOLD}${num}${RESET} ${BOLD}${p.creature.name}${RESET}  Lv ${p.creature.generation}  ⭐ ${pScore}  ${DIM}(cost ${p.energyCost})${RESET}${ENERGY_ICON}`
+      );
+    }
+    lines.push("");
+    lines.push(`  ${DIM}Run /breed ${creatureIndex} N to preview breeding with partner #N${RESET}`);
+    lines.push(divider());
+    return lines.join("\n");
   }
 }
