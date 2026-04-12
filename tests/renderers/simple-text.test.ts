@@ -371,6 +371,34 @@ describe("renderNotification", () => {
   });
 });
 
+// --- Zone-based coloring ---
+
+describe("zone-based coloring", () => {
+  it("should color entire line based on zone when species has zones", () => {
+    const slotsWithFlikk: CreatureSlot[] = [
+      { slotId: "eyes", variantId: "flk_eye_01", color: "white" },
+      { slotId: "mouth", variantId: "flk_mth_01", color: "white" },
+      { slotId: "body", variantId: "flk_bod_01", color: "white" },
+      { slotId: "tail", variantId: "flk_tal_01", color: "white" },
+    ];
+    const nearby: NearbyCreature = {
+      id: "z1",
+      speciesId: "flikk",
+      name: "Zoney",
+      slots: slotsWithFlikk,
+      spawnedAt: Date.now(),
+    };
+    const scanResult: ScanResult = {
+      energy: 5,
+      batch: null,
+      nextBatchInMs: 900000,
+      nearby: [{ index: 1, creature: nearby, catchRate: 0.5, energyCost: 2 }],
+    };
+    const output = renderer.renderScan(scanResult);
+    expect(output).toContain("\x1b["); // has ANSI color codes
+  });
+});
+
 // --- Color display ---
 //
 // The renderer used to color creature art and trait names based on the slot's

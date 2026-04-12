@@ -87,20 +87,34 @@ function renderCreatureLines(slots: CreatureSlot[], speciesId?: string): string[
   const species = speciesId ? getSpeciesById(speciesId) : undefined;
 
   if (species?.art) {
-    // Use species art template with placeholder replacement
-    // Color the entire line with the slot color so frame characters match
-    return species.art.map((line) => {
+    return species.art.map((line, lineIndex) => {
       let result = line;
-      const replacements: [string, string, string][] = [
+      const replacements: [string, string][] = [
+        ["EE", slotArt["eyes"] ?? ""],
+        ["MM", slotArt["mouth"] ?? ""],
+        ["BB", slotArt["body"] ?? ""],
+        ["TT", slotArt["tail"] ?? ""],
+      ];
+      for (const [placeholder, art] of replacements) {
+        result = result.replace(placeholder, art);
+      }
+
+      // Zone-based coloring: color entire line based on zone assignment
+      if (species.zones && species.zones[lineIndex]) {
+        const zoneSlot = species.zones[lineIndex];
+        const color = slotColor[zoneSlot] ?? WHITE;
+        return "      " + color + result + RESET;
+      }
+
+      // Fallback for species without zones: use old per-placeholder coloring
+      let lineColor: string | null = null;
+      for (const [placeholder, , color] of [
         ["EE", slotArt["eyes"] ?? "", slotColor["eyes"] ?? WHITE],
         ["MM", slotArt["mouth"] ?? "", slotColor["mouth"] ?? WHITE],
         ["BB", slotArt["body"] ?? "", slotColor["body"] ?? WHITE],
         ["TT", slotArt["tail"] ?? "", slotColor["tail"] ?? WHITE],
-      ];
-      let lineColor: string | null = null;
-      for (const [placeholder, art, color] of replacements) {
-        if (result.includes(placeholder)) {
-          result = result.replace(placeholder, art);
+      ] as [string, string, string][]) {
+        if (line.includes(placeholder)) {
           lineColor = color;
         }
       }
