@@ -12,6 +12,26 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+          target-branch: master
+
+      # Auto-merge the release PR so no manual step is needed
+      - name: Auto-merge release PR
+        if: ${{ steps.release.outputs.pr }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_NUMBER=$(echo '${{ steps.release.outputs.pr }}' | jq -r '.number')
+          gh pr merge "$PR_NUMBER" --repo "${{ github.repository }}" --squash
+
+      # Re-invoke release-please after merge to create the tag + GitHub release.
+      # Needed because the GITHUB_TOKEN merge above does not trigger a new
+      # push event, so release-please wouldn't otherwise see the merged PR.
+      - uses: googleapis/release-please-action@v4
+        if: ${{ steps.release.outputs.pr }}
         with:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
