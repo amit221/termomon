@@ -4,6 +4,7 @@
   "description": "A rendering error that became sentient. Parts flicker, repeat, or seem corrupted.",
   "spawnWeight": 8,
   "art": [" ▐░░░▌", " ▐EE▌", " ▐ MM ▌", " ▐BB▌", "  TT"],
+  "zones": ["body", "eyes", "mouth", "body", "tail"],
   "traitPools": {
     "eyes": [
       { "id": "glc_eye_01", "name": "Static", "art": "·.·", "spawnRate": 0.10 },

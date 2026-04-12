@@ -4,6 +4,7 @@
   "description": "A twitchy, buzzing creature that seems to vibrate in place. Always mid-movement.",
   "spawnWeight": 11,
   "art": ["  \\ _ /", " ( EE )", " ( MM )", "  ~BB~", "   \\/"],
+  "zones": ["tail", "eyes", "mouth", "body", "tail"],
   "traitPools": {
     "eyes": [
       { "id": "flk_eye_01", "name": "Blink", "art": "•.•", "spawnRate": 0.12 },

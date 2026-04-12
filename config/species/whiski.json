@@ -4,6 +4,7 @@
   "description": "A rare, elusive cat. Quiet and always just out of reach.",
   "spawnWeight": 5,
   "art": [" /\\_/\\", "( EE )", " > MM <", "  TT"],
+  "zones": ["eyes", "eyes", "mouth", "tail"],
   "traitPools": {
     "eyes": [
       { "id": "wsk_eye_01", "name": "Peer", "art": "·.·", "spawnRate": 0.11 },

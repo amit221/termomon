@@ -3,6 +3,8 @@
   "name": "Compi",
   "description": "A small digital axolotl that thrives in terminal environments.",
   "spawnWeight": 10,
+  "art": ["  EE", " (MM)", " ╱BB╲", "  TT"],
+  "zones": ["eyes", "mouth", "body", "tail"],
   "traitPools": {
     "eyes": [
       { "id": "eye_c01", "name": "Pebble Gaze", "art": "○.○", "spawnRate": 0.12 },
