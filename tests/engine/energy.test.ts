@@ -1,4 +1,4 @@
-import { processEnergyGain, spendEnergy } from "../../src/engine/energy";
+import { processEnergyGain, spendEnergy, processSessionEnergyBonus } from "../../src/engine/energy";
 import { GameState } from "../../src/types";
 
 function makeState(overrides: Partial<GameState> = {}): GameState {
@@ -68,5 +68,41 @@ describe("spendEnergy", () => {
   test("throws if insufficient energy", () => {
     const state = makeState({ energy: 2 });
     expect(() => spendEnergy(state, 5)).toThrow();
+  });
+});
+
+describe("processSessionEnergyBonus", () => {
+  test("grants session bonus energy", () => {
+    const state = makeState({ energy: 10 });
+    const gained = processSessionEnergyBonus(state, "session-new");
+    expect(gained).toBe(3);
+    expect(state.energy).toBe(13);
+  });
+
+  test("does not exceed max energy", () => {
+    const state = makeState({ energy: 29 });
+    const gained = processSessionEnergyBonus(state, "session-new");
+    expect(state.energy).toBe(30); // capped at max
+    expect(gained).toBe(1);
+  });
+
+  test("no bonus if same session", () => {
+    const state = makeState({ energy: 10, currentSessionId: "session-1" });
+    const gained = processSessionEnergyBonus(state, "session-1");
+    expect(gained).toBe(0);
+    expect(state.energy).toBe(10);
+  });
+
+  test("resets session upgrade count on new session", () => {
+    const state = makeState({ energy: 10, sessionUpgradeCount: 5, currentSessionId: "session-1" });
+    processSessionEnergyBonus(state, "session-2");
+    expect(state.sessionUpgradeCount).toBe(0);
+    expect(state.currentSessionId).toBe("session-2");
+  });
+
+  test("updates currentSessionId on new session", () => {
+    const state = makeState({ energy: 10, currentSessionId: "session-old" });
+    processSessionEnergyBonus(state, "session-new");
+    expect(state.currentSessionId).toBe("session-new");
   });
 });

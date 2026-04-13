@@ -23,4 +23,25 @@ export function spendEnergy(state: GameState, amount: number): void {
   state.energy -= amount;
 }
 
-export { MAX_ENERGY, ENERGY_GAIN_INTERVAL_MS };
+const SESSION_ENERGY_BONUS = 3;
+
+/**
+ * Grant session-based energy bonus when a new session starts.
+ * Tracks session ID to avoid double-granting.
+ * Returns the amount of energy gained.
+ */
+export function processSessionEnergyBonus(state: GameState, sessionId: string): number {
+  if (!sessionId || state.currentSessionId === sessionId) {
+    return 0;
+  }
+
+  state.currentSessionId = sessionId;
+  state.sessionUpgradeCount = 0; // Reset session upgrade count on new session
+
+  const maxGain = MAX_ENERGY - state.energy;
+  const gained = Math.min(SESSION_ENERGY_BONUS, maxGain);
+  state.energy += gained;
+  return gained;
+}
+
+export { MAX_ENERGY, ENERGY_GAIN_INTERVAL_MS, SESSION_ENERGY_BONUS };
