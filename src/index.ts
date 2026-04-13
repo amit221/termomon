@@ -7,5 +7,6 @@ export { loadSpecies, getSpeciesById, getAllSpecies, pickSpecies, pickTraitForSl
 export { previewBreed, executeBreed, calculateInheritance, listBreedable, listPartnersFor } from "./engine/breed";
 export { archiveCreature, releaseCreature, isCollectionFull } from "./engine/archive";
 export { calculateTraitRarityScore, calculateColorRarityScore, calculateSlotScore, calculateCreatureScore } from "./engine/rarity";
+export { recordDiscovery, isSpeciesDiscovered, getDiscoveryCount } from "./engine/discovery";
 export { logger } from "./logger";
 export * from "./types";
