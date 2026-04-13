@@ -401,4 +401,9 @@ export interface Renderer {
   renderStatus(result: StatusResult): string;
   renderNotification(notification: Notification): string;
   renderBreedTable(table: BreedTable): string;
+  renderUpgradeResult(result: UpgradeResult): string;
+  renderQuestStart(result: QuestStartResult): string;
+  renderQuestComplete(result: QuestCompleteResult): string;
+  renderLevelUp(result: LevelUpResult): string;
+  renderDiscovery(result: DiscoveryResult): string;
 }

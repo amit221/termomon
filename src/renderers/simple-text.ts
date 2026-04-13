@@ -12,6 +12,11 @@ import {
   BreedTable,
   BreedTableSpecies,
   BreedTableRow,
+  UpgradeResult,
+  QuestStartResult,
+  QuestCompleteResult,
+  LevelUpResult,
+  DiscoveryResult,
 } from "../types";
 import { MAX_ENERGY } from "../engine/energy";
 import { getVariantById } from "../config/traits";
@@ -524,5 +529,89 @@ export class SimpleTextRenderer implements Renderer {
     }
 
     return `  ${num}  ${BOLD}${nameCell}${RESET}  ${lv}   ` + cells.join("   ");
+  }
+
+  renderUpgradeResult(result: UpgradeResult): string {
+    const lines: string[] = [];
+    const slotLabel = result.slotId.padEnd(5);
+
+    // Rank-to-color: higher rank = rarer color
+    const rankColors = [
+      COLOR_ANSI.grey,   // rank 0→1
+      COLOR_ANSI.white,  // rank 1→2
+      COLOR_ANSI.green,  // rank 2→3
+      COLOR_ANSI.cyan,   // rank 3→4
+      COLOR_ANSI.blue,   // rank 4→5
+      COLOR_ANSI.magenta, // rank 5→6
+      COLOR_ANSI.yellow, // rank 6→7
+      COLOR_ANSI.red,    // rank 7→8
+    ];
+    const fromColor = rankColors[result.fromRank] ?? COLOR_ANSI.grey;
+    const toColor = rankColors[result.toRank] ?? COLOR_ANSI.red;
+
+    lines.push(`  ${GREEN}${BOLD}✦ UPGRADE ✦${RESET}`);
+    lines.push("");
+    lines.push(`  ${DIM}Slot:${RESET}  ${WHITE}${slotLabel}${RESET}`);
+    lines.push(`  ${DIM}Rank:${RESET}  ${fromColor}★${result.fromRank}${RESET} → ${toColor}★${result.toRank}${RESET}`);
+    lines.push(`  ${DIM}Cost:${RESET}  ${YELLOW}${result.goldCost} gold${RESET}`);
+    lines.push("");
+    lines.push(divider());
+    return lines.join("\n");
+  }
+
+  renderQuestStart(result: QuestStartResult): string {
+    const lines: string[] = [];
+    const q = result.quest;
+
+    lines.push(`  ${BLUE}${BOLD}✦ QUEST STARTED ✦${RESET}`);
+    lines.push("");
+    lines.push(`  ${DIM}Team:${RESET}      ${result.creaturesLocked.length} creature(s)`);
+    lines.push(`  ${DIM}Power:${RESET}     ${q.teamPower}`);
+    lines.push(`  ${DIM}Duration:${RESET}  ${q.sessionsRemaining} session(s)`);
+    lines.push("");
+    lines.push(`  ${DIM}Creatures are away on the quest.${RESET}`);
+    lines.push(`  ${DIM}Use /quest check once complete to collect rewards.${RESET}`);
+    lines.push("");
+    lines.push(divider());
+    return lines.join("\n");
+  }
+
+  renderQuestComplete(result: QuestCompleteResult): string {
+    const lines: string[] = [];
+
+    lines.push(`  ${YELLOW}${BOLD}✦ QUEST COMPLETE ✦${RESET}`);
+    lines.push("");
+    lines.push(`  ${YELLOW}+${result.goldEarned} gold${RESET}  ${GREEN}+${result.xpEarned} XP${RESET}`);
+    lines.push("");
+    lines.push(`  ${DIM}${result.creaturesReturned.length} creature(s) returned safely.${RESET}`);
+    lines.push("");
+    lines.push(divider());
+    return lines.join("\n");
+  }
+
+  renderLevelUp(result: LevelUpResult): string {
+    const lines: string[] = [];
+
+    lines.push(`  ${YELLOW}${BOLD}✦ LEVEL UP ✦${RESET}`);
+    lines.push("");
+    lines.push(`  ${DIM}Level:${RESET} ${result.oldLevel} → ${BOLD}${result.newLevel}${RESET}`);
+    lines.push("");
+    lines.push(divider());
+    return lines.join("\n");
+  }
+
+  renderDiscovery(result: DiscoveryResult): string {
+    const lines: string[] = [];
+
+    if (result.isNew) {
+      lines.push(`  ${YELLOW}${BOLD}✦ NEW SPECIES DISCOVERED ✦${RESET}`);
+      lines.push("");
+      lines.push(`  ${BOLD}${result.speciesId}${RESET} added to your Compidex!`);
+      lines.push(`  ${GREEN}+${result.bonusXp} bonus XP${RESET}`);
+      lines.push(`  ${DIM}Total discovered: ${result.totalDiscovered}${RESET}`);
+      lines.push("");
+      lines.push(divider());
+    }
+    return lines.join("\n");
   }
 }
