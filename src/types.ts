@@ -280,6 +280,9 @@ export interface StatusResult {
   energy: number;
   nearbyCount: number;
   batchAttemptsRemaining: number;
+  gold: number;
+  discoveredCount: number;
+  activeQuest: ActiveQuest | null;
 }
 
 export interface TickResult {

@@ -338,6 +338,9 @@ describe("renderStatus", () => {
       energy: 5,
       nearbyCount: 0,
       batchAttemptsRemaining: 0,
+      gold: 0,
+      discoveredCount: 0,
+      activeQuest: null,
     });
     expect(out).toContain("Archive");
     expect(out).toContain("5 creatures");

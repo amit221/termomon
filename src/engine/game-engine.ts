@@ -1,11 +1,16 @@
-import { GameState, Tick, TickResult, ScanResult, ScanEntry, CatchResult, BreedPreview, BreedResult, ArchiveResult, StatusResult, Notification, BreedTable } from "../types";
+import { GameState, Tick, TickResult, ScanResult, ScanEntry, CatchResult, BreedPreview, BreedResult, ArchiveResult, StatusResult, Notification, BreedTable, UpgradeResult, QuestStartResult, QuestCompleteResult, SlotId } from "../types";
 import { processNewTick } from "./ticks";
 import { spawnBatch, cleanupBatch } from "./batch";
 import { attemptCatch, calculateCatchRate, calculateEnergyCost } from "./catch";
-import { processEnergyGain } from "./energy";
+import { processEnergyGain, processSessionEnergyBonus } from "./energy";
 import { previewBreed, executeBreed, buildBreedTable } from "./breed";
 import { archiveCreature, releaseCreature, isCollectionFull } from "./archive";
 import { SPAWN_INTERVAL_MS } from "../config/constants";
+import { performUpgrade } from "./upgrade";
+import { startQuest, checkQuest } from "./quest";
+import { recordDiscovery } from "./discovery";
+import { grantXp } from "./progression";
+import { loadConfig } from "../config/loader";
 
 export class GameEngine {
   private state: GameState;
@@ -19,9 +24,24 @@ export class GameEngine {
 
     processNewTick(this.state, tick);
 
+    // Grant session energy bonus if this tick carries a new session ID
+    const sessionId = tick.sessionId ?? String(tick.timestamp);
+    processSessionEnergyBonus(this.state, sessionId);
+
     const energyGained = processEnergyGain(this.state, tick.timestamp);
 
     const despawned = cleanupBatch(this.state, tick.timestamp);
+
+    // Advance the active quest (once per session)
+    if (this.state.activeQuest) {
+      const questResult = checkQuest(this.state);
+      if (questResult) {
+        notifications.push({
+          message: `Quest complete! Earned ${questResult.goldEarned} gold.`,
+          level: "moderate",
+        });
+      }
+    }
 
     let spawned = false;
     const timeSinceLastSpawn = tick.timestamp - this.state.lastSpawnAt;
@@ -58,7 +78,13 @@ export class GameEngine {
     if (isCollectionFull(this.state)) {
       throw new Error("Collection is full (15 creatures). Archive or release a creature first.");
     }
-    return attemptCatch(this.state, nearbyIndex, rng);
+    const result = attemptCatch(this.state, nearbyIndex, rng);
+    if (result.success) {
+      const config = loadConfig();
+      grantXp(this.state, config.leveling.xpPerCatch);
+      recordDiscovery(this.state, result.creature.speciesId);
+    }
+    return result;
   }
 
   breedPreview(parentAId: string, parentBId: string): BreedPreview {
@@ -89,7 +115,30 @@ export class GameEngine {
       energy: this.state.energy,
       nearbyCount: this.state.nearby.length,
       batchAttemptsRemaining: this.state.batch?.attemptsRemaining ?? 0,
+      gold: this.state.gold,
+      discoveredCount: this.state.discoveredSpecies.length,
+      activeQuest: this.state.activeQuest,
     };
+  }
+
+  upgrade(creatureId: string, slotId: SlotId): UpgradeResult {
+    return performUpgrade(this.state, creatureId, slotId);
+  }
+
+  questStart(creatureIds: string[]): QuestStartResult {
+    return startQuest(this.state, creatureIds);
+  }
+
+  questCheck(): QuestCompleteResult | null {
+    return checkQuest(this.state);
+  }
+
+  getGold(): number {
+    return this.state.gold;
+  }
+
+  getDiscoveredSpecies(): string[] {
+    return [...this.state.discoveredSpecies];
   }
 
   getState(): GameState {
