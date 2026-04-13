@@ -351,6 +351,38 @@ export interface BalanceConfig {
     milestones: MilestoneConfig[];
   };
   messages: Record<string, Record<string, string>>;
+  upgrade: {
+    costs: number[];
+    maxRank: number;
+    sessionCap: number;
+  };
+  quest: {
+    maxTeamSize: number;
+    lockDurationSessions: number;
+    rewardMultiplier: number;
+    rewardFloor: number;
+    xpReward: number;
+  };
+  mergeGold: {
+    baseCost: number;
+    rankMultiplier: number;
+    downgradeChance: number;
+  };
+  leveling: {
+    thresholds: number[];
+    traitRankCaps: number[];
+    xpPerCatch: number;
+    xpPerUpgrade: number;
+    xpPerMerge: number;
+    xpPerQuest: number;
+    xpDiscoveryBonus: number;
+  };
+  discovery: {
+    speciesUnlockLevels: Record<string, number>;
+  };
+  economy: {
+    startingGold: number;
+  };
 }
 
 // --- Renderer Interface ---
