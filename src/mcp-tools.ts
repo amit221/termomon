@@ -232,4 +232,40 @@ export function registerTools(server: McpServer, options: RegisterToolsOptions =
     const settings = gameState.settings;
     return text(`SETTINGS\n\nNotifications: ${settings.notificationLevel}`);
   }, meta);
+
+  addTool(server, "upgrade", "Upgrade a creature's trait slot", z.object({
+    creatureId: z.string().describe("ID of the creature to upgrade"),
+    slotId: z.enum(["eyes", "mouth", "body", "tail"]).describe("Trait slot to upgrade"),
+  }), async ({ creatureId, slotId }: { creatureId: string; slotId: "eyes" | "mouth" | "body" | "tail" }) => {
+    const { stateManager, engine } = loadEngine();
+    const renderer = new SimpleTextRenderer();
+    const result = engine.upgrade(creatureId, slotId);
+    stateManager.save(engine.getState());
+    return text(renderer.renderUpgradeResult(result));
+  }, meta);
+
+  addTool(server, "quest_start", "Send creatures on a quest", z.object({
+    creatureIds: z.array(z.string()).min(1).max(3).describe("IDs of creatures to send (1-3)"),
+  }), async ({ creatureIds }: { creatureIds: string[] }) => {
+    const { stateManager, engine } = loadEngine();
+    const renderer = new SimpleTextRenderer();
+    const result = engine.questStart(creatureIds);
+    stateManager.save(engine.getState());
+    return text(renderer.renderQuestStart(result));
+  }, meta);
+
+  addTool(server, "quest_check", "Check if active quest is complete and collect rewards", z.object({}), async () => {
+    const { stateManager, engine } = loadEngine();
+    const renderer = new SimpleTextRenderer();
+    const result = engine.questCheck();
+    stateManager.save(engine.getState());
+    if (result) {
+      return text(renderer.renderQuestComplete(result));
+    }
+    const activeQuest = engine.getState().activeQuest;
+    if (activeQuest) {
+      return text(`Quest in progress. ${activeQuest.sessionsRemaining} session(s) remaining.`);
+    }
+    return text("No active quest. Use quest_start to begin one.");
+  }, meta);
 }
