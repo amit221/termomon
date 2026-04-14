@@ -3,7 +3,7 @@ export { StateManager } from "./state/state-manager";
 export { SimpleTextRenderer } from "./renderers/simple-text";
 export { getVariantById, loadCreatureName } from "./config/traits";
 export { loadConfig, formatMessage } from "./config/loader";
-export { loadSpecies, getSpeciesById, getAllSpecies, pickSpecies, pickTraitForSlot, getTraitDefinition } from "./config/species";
+export { loadSpecies, getSpeciesById, getAllSpecies, pickSpecies, pickTraitForSlot, getTraitDefinition, getTraitRank } from "./config/species";
 export { previewBreed, executeBreed, calculateInheritance, listBreedable, listPartnersFor } from "./engine/breed";
 export { archiveCreature, releaseCreature, isCollectionFull } from "./engine/archive";
 export { calculateTraitRarityScore, calculateColorRarityScore, calculateSlotScore, calculateCreatureScore } from "./engine/rarity";

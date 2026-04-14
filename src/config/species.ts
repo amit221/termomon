@@ -102,6 +102,25 @@ export function getTraitDefinition(
   return variantMap.get(variantId);
 }
 
+/**
+ * Returns the rank (0-based index) of a trait variant within its species+slot pool.
+ * Pools are ordered by spawnRate descending, so rank 0 = most common.
+ * Returns -1 if species, slot, or variant is not found.
+ */
+export function getTraitRank(
+  speciesId: string,
+  slotId: SlotId,
+  variantId: string
+): number {
+  ensureLoaded();
+  const species = _speciesById.get(speciesId);
+  if (!species) return -1;
+  const pool = species.traitPools[slotId];
+  if (!pool) return -1;
+  const index = pool.findIndex((t) => t.id === variantId);
+  return index;
+}
+
 export function _resetSpeciesCache(): void {
   _speciesCache = null;
   _speciesById = new Map();

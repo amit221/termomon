@@ -5,6 +5,7 @@ import {
   pickSpecies,
   pickTraitForSlot,
   getTraitDefinition,
+  getTraitRank,
   _resetSpeciesCache,
 } from "../../src/config/species";
 import { SpeciesDefinition, SlotId, SLOT_IDS } from "../../src/types";
@@ -167,6 +168,28 @@ describe("getTraitDefinition", () => {
 
   it("returns undefined for unknown variant", () => {
     expect(getTraitDefinition("compi", "eye_x99")).toBeUndefined();
+  });
+});
+
+describe("getTraitRank", () => {
+  it("returns 0 for the first (most common) trait in pool", () => {
+    expect(getTraitRank("compi", "eyes", "eye_c01")).toBe(0);
+  });
+
+  it("returns last index for the rarest trait", () => {
+    expect(getTraitRank("compi", "eyes", "eye_m02")).toBe(18);
+  });
+
+  it("returns correct middle rank", () => {
+    expect(getTraitRank("compi", "eyes", "eye_u01")).toBe(5);
+  });
+
+  it("returns -1 for unknown variant", () => {
+    expect(getTraitRank("compi", "eyes", "eye_x99")).toBe(-1);
+  });
+
+  it("returns -1 for unknown species", () => {
+    expect(getTraitRank("unknown", "eyes", "eye_c01")).toBe(-1);
   });
 });
 
