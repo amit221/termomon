@@ -1,5 +1,5 @@
 import { GameState, NearbyCreature, CatchResult, CreatureSlot, CollectionCreature } from "../types";
-import { getTraitDefinition, getTraitRank, getSpeciesById } from "../config/species";
+import { getTraitRank, getSpeciesById } from "../config/species";
 import { loadConfig } from "../config/loader";
 import { spendEnergy } from "./energy";
 
