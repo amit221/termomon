@@ -88,7 +88,10 @@ export class GameEngine {
     if (result.success) {
       const config = loadConfig();
       grantXp(this.state, config.leveling.xpPerCatch);
-      recordDiscovery(this.state, result.creature.speciesId);
+      const discovery = recordDiscovery(this.state, result.creature.speciesId);
+      if (discovery.isNew) {
+        result.discovery = discovery;
+      }
     }
     return result;
   }

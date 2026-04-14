@@ -271,6 +271,9 @@ export class SimpleTextRenderer implements Renderer {
         lines.push(line);
       }
       lines.push("");
+      if (result.discovery?.isNew) {
+        lines.push(`  ${YELLOW}${BOLD}✦ NEW SPECIES: ${result.discovery.speciesId} ✦${RESET}  ${GREEN}+${result.discovery.bonusXp} bonus XP${RESET}`);
+      }
       lines.push(`  ${DIM}+${result.xpEarned} XP   -${result.energySpent}${RESET}${ENERGY_ICON}`);
       lines.push("");
       lines.push(divider());
@@ -384,7 +387,13 @@ export class SimpleTextRenderer implements Renderer {
     collection.forEach((creature, i) => {
       const creatureScore = calculateCreatureScore(creature.speciesId, creature.slots);
       const num = `${i + 1}.`;
-      lines.push(`  ${BOLD}${num}${RESET} ${BOLD}${creature.name}${RESET}  ${DIM}${creature.speciesId}${RESET}  Lv ${creature.generation}  ⭐ ${creatureScore}`);
+      // Compute total trait rank (sum of _rN suffixes across all slots)
+      const totalRank = creature.slots.reduce((sum, s) => {
+        const m = s.variantId.match(/_r(\d+)$/);
+        return sum + (m ? parseInt(m[1], 10) : 0);
+      }, 0);
+      const rankLabel = totalRank > 0 ? `  ${YELLOW}★${totalRank}${RESET}` : "";
+      lines.push(`  ${BOLD}${num}${RESET} ${BOLD}${creature.name}${RESET}  ${DIM}${creature.speciesId}${RESET}  Lv ${creature.generation}  ⭐ ${creatureScore}${rankLabel}`);
       for (const line of renderCreatureSideBySide(creature.slots, creature.speciesId)) {
         lines.push(line);
       }
@@ -434,14 +443,25 @@ export class SimpleTextRenderer implements Renderer {
     lines.push(`  Level: ${p.level}`);
     lines.push(`  XP:    ${xpBar(p.xp, nextXp)}`);
     lines.push(`  ${ENERGY_ICON} ${GREEN}${"█".repeat(Math.min(10, Math.round((result.energy / MAX_ENERGY) * 10)))}${"░".repeat(10 - Math.min(10, Math.round((result.energy / MAX_ENERGY) * 10)))}${RESET} ${result.energy}/${MAX_ENERGY}`);
+    lines.push(`  ${YELLOW}Gold:${RESET}  ${result.gold}`);
     lines.push("");
     lines.push(`  Catches:    ${p.totalCatches}`);
     lines.push(`  Merges:     ${p.totalMerges}`);
+    lines.push(`  Upgrades:   ${p.totalUpgrades}`);
+    lines.push(`  Quests:     ${p.totalQuests}`);
     lines.push(`  Collection: ${result.collectionCount} creatures`);
     lines.push(`  Archive:    ${result.archiveCount} creatures`);
+    lines.push(`  Discovered: ${result.discoveredCount} species`);
     lines.push(`  Streak:     ${p.currentStreak} days ${DIM}(best: ${p.longestStreak})${RESET}`);
     lines.push(`  Nearby:     ${result.nearbyCount} creatures`);
     lines.push(`  Ticks:      ${p.totalTicks.toLocaleString()}`);
+
+    if (result.activeQuest) {
+      const q = result.activeQuest;
+      lines.push("");
+      lines.push(`  ${BLUE}${BOLD}Active Quest${RESET}  ${DIM}${q.sessionsRemaining} session(s) remaining  power ${q.teamPower}${RESET}`);
+    }
+
     lines.push(divider());
 
     return lines.join("\n");

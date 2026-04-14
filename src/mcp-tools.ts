@@ -13,6 +13,7 @@ import { GameEngine } from "./engine/game-engine";
 import { SimpleTextRenderer } from "./renderers/simple-text";
 import { MAX_ENERGY } from "./engine/energy";
 import { AdvisorContext } from "./types";
+import { getProgressInfo } from "./engine/advisor";
 
 const statePath =
   process.env.COMPI_STATE_PATH ||
@@ -45,6 +46,16 @@ const displayPath = path.join(os.tmpdir(), "compi_display.txt");
 function appendAdvisorContext(displayContent: string, advisorCtx: AdvisorContext): string {
   const json = JSON.stringify(advisorCtx, null, 2);
   return `${displayContent}\n\n<advisor_context>\n${json}\n</advisor_context>`;
+}
+
+/**
+ * Prepend the status bar (gold, energy, collection, XP%, level, team power)
+ * to any rendered screen output. Called by every MCP tool so players always
+ * see their current game state at the top of every response.
+ */
+function prependStatusBar(engine: GameEngine, renderer: SimpleTextRenderer, content: string): string {
+  const progress = getProgressInfo(engine.getState());
+  return renderer.renderStatusBar(progress) + "\n\n" + content;
 }
 
 function makeText(content: string, options: RegisterToolsOptions) {
@@ -158,7 +169,7 @@ export function registerTools(server: McpServer, options: RegisterToolsOptions =
     const renderer = new SimpleTextRenderer();
     const result = engine.scan();
     stateManager.save(engine.getState());
-    return text(renderer.renderScan(result));
+    return text(prependStatusBar(engine, renderer, renderer.renderScan(result)));
   }, meta);
 
   addTool(server, "catch", "Attempt to catch a nearby creature", z.object({
@@ -169,13 +180,13 @@ export function registerTools(server: McpServer, options: RegisterToolsOptions =
     const result = engine.catch(index - 1);
     stateManager.save(engine.getState());
     const advisorCtx = engine.getAdvisorContext("catch", result);
-    return text(appendAdvisorContext(renderer.renderCatch(result), advisorCtx));
+    return text(prependStatusBar(engine, renderer, appendAdvisorContext(renderer.renderCatch(result), advisorCtx)));
   }, meta);
 
   addTool(server, "collection", "Browse caught creatures", z.object({}), async () => {
     const { engine } = loadEngine();
     const renderer = new SimpleTextRenderer();
-    return text(renderer.renderCollection(engine.getState().collection));
+    return text(prependStatusBar(engine, renderer, renderer.renderCollection(engine.getState().collection)));
   }, meta);
 
   addTool(server, "breed", "Breed two creatures from your collection (uses /collection indexes)", z.object({
@@ -189,9 +200,9 @@ export function registerTools(server: McpServer, options: RegisterToolsOptions =
     if (result.mutated) {
       stateManager.save(engine.getState());
       const advisorCtx = engine.getAdvisorContext("breed", result);
-      return text(appendAdvisorContext(result.output, advisorCtx));
+      return text(prependStatusBar(engine, renderer, appendAdvisorContext(result.output, advisorCtx)));
     }
-    return text(result.output);
+    return text(prependStatusBar(engine, renderer, result.output));
   }, meta);
 
   addTool(server, "archive", "View archive or archive a creature", z.object({
@@ -202,9 +213,9 @@ export function registerTools(server: McpServer, options: RegisterToolsOptions =
     if (id) {
       const result = engine.archive(id);
       stateManager.save(engine.getState());
-      return text(`Archived ${result.creature.name}.`);
+      return text(prependStatusBar(engine, renderer, `Archived ${result.creature.name}.`));
     } else {
-      return text(renderer.renderArchive(engine.getState().archive));
+      return text(prependStatusBar(engine, renderer, renderer.renderArchive(engine.getState().archive)));
     }
   }, meta);
 
@@ -212,23 +223,24 @@ export function registerTools(server: McpServer, options: RegisterToolsOptions =
     id: z.string().describe("Creature ID to release"),
   }), async ({ id }: { id: string }) => {
     const { stateManager, engine } = loadEngine();
+    const renderer = new SimpleTextRenderer();
     engine.release(id);
     stateManager.save(engine.getState());
-    return text(`Released creature ${id}.`);
+    return text(prependStatusBar(engine, renderer, `Released creature ${id}.`));
   }, meta);
 
   addTool(server, "energy", "Show current energy level", z.object({}), async () => {
     const { engine } = loadEngine();
     const renderer = new SimpleTextRenderer();
     const state = engine.getState();
-    return text(renderer.renderEnergy(state.energy, MAX_ENERGY));
+    return text(prependStatusBar(engine, renderer, renderer.renderEnergy(state.energy, MAX_ENERGY)));
   }, meta);
 
   addTool(server, "status", "View player profile and game stats", z.object({}), async () => {
     const { engine } = loadEngine();
     const renderer = new SimpleTextRenderer();
     const result = engine.status();
-    return text(renderer.renderStatus(result));
+    return text(prependStatusBar(engine, renderer, renderer.renderStatus(result)));
   }, meta);
 
   addTool(server, "settings", "View or change game settings", z.object({
@@ -257,7 +269,7 @@ export function registerTools(server: McpServer, options: RegisterToolsOptions =
     const result = engine.upgrade(creatureId, slotId);
     stateManager.save(engine.getState());
     const advisorCtx = engine.getAdvisorContext("upgrade", result);
-    return text(appendAdvisorContext(renderer.renderUpgradeResult(result), advisorCtx));
+    return text(prependStatusBar(engine, renderer, appendAdvisorContext(renderer.renderUpgradeResult(result), advisorCtx)));
   }, meta);
 
   addTool(server, "quest_start", "Send creatures on a quest", z.object({
@@ -268,7 +280,7 @@ export function registerTools(server: McpServer, options: RegisterToolsOptions =
     const result = engine.questStart(creatureIds);
     stateManager.save(engine.getState());
     const advisorCtx = engine.getAdvisorContext("quest", result);
-    return text(appendAdvisorContext(renderer.renderQuestStart(result), advisorCtx));
+    return text(prependStatusBar(engine, renderer, appendAdvisorContext(renderer.renderQuestStart(result), advisorCtx)));
   }, meta);
 
   addTool(server, "quest_check", "Check if active quest is complete and collect rewards", z.object({}), async () => {
@@ -278,12 +290,12 @@ export function registerTools(server: McpServer, options: RegisterToolsOptions =
     stateManager.save(engine.getState());
     if (result) {
       const advisorCtx = engine.getAdvisorContext("quest_complete", result);
-      return text(appendAdvisorContext(renderer.renderQuestComplete(result), advisorCtx));
+      return text(prependStatusBar(engine, renderer, appendAdvisorContext(renderer.renderQuestComplete(result), advisorCtx)));
     }
     const activeQuest = engine.getState().activeQuest;
     if (activeQuest) {
-      return text(`Quest in progress. ${activeQuest.sessionsRemaining} session(s) remaining.`);
+      return text(prependStatusBar(engine, renderer, `Quest in progress. ${activeQuest.sessionsRemaining} session(s) remaining.`));
     }
-    return text("No active quest. Use quest_start to begin one.");
+    return text(prependStatusBar(engine, renderer, "No active quest. Use quest_start to begin one."));
   }, meta);
 }

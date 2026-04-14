@@ -249,6 +249,8 @@ export interface CatchResult {
   xpEarned: number;
   attemptsRemaining: number;
   failPenalty: number;
+  /** Set when the catch succeeded and the species was newly discovered. */
+  discovery?: DiscoveryResult;
 }
 
 export interface SlotInheritance {
