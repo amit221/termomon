@@ -30,13 +30,13 @@ export function pickBatchSize(rng: () => number): number {
   return 5;
 }
 
-export function generateCreatureSlots(speciesId: string, rng: () => number): CreatureSlot[] {
+export function generateCreatureSlots(speciesId: string, playerLevel: number, rng: () => number): CreatureSlot[] {
   const species = getSpeciesById(speciesId);
   if (!species) throw new Error(`Unknown species: ${speciesId}`);
 
   const speciesSlots = Object.keys(species.traitPools) as SlotId[];
   return speciesSlots.map((slotId: SlotId) => {
-    const trait = pickTraitForSlot(species, slotId, rng);
+    const trait = pickTraitForSlot(species, slotId, playerLevel, rng);
     const color = pickColor(rng);
     return { slotId, variantId: trait.id, color };
   });
@@ -59,7 +59,7 @@ export function spawnBatch(state: GameState, now: number, rng: () => number): Ne
       id: generateId(),
       speciesId: species.id,
       name: loadCreatureName(rng),
-      slots: generateCreatureSlots(species.id, rng),
+      slots: generateCreatureSlots(species.id, state.profile.level, rng),
       spawnedAt: now,
     };
     spawned.push(creature);

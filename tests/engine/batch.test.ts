@@ -43,17 +43,17 @@ describe("pickBatchSize", () => {
 
 describe("generateCreatureSlots", () => {
   test("generates exactly 4 slots", () => {
-    const slots = generateCreatureSlots("compi", () => 0.5);
+    const slots = generateCreatureSlots("compi", 1, () => 0.5);
     expect(slots).toHaveLength(4);
   });
 
   test("slot IDs are eyes, mouth, body, tail in order", () => {
-    const slots = generateCreatureSlots("compi", () => 0.5);
+    const slots = generateCreatureSlots("compi", 1, () => 0.5);
     expect(slots.map(s => s.slotId)).toEqual(SLOT_IDS);
   });
 
   test("each slot has a variantId string", () => {
-    const slots = generateCreatureSlots("compi", () => 0.5);
+    const slots = generateCreatureSlots("compi", 1, () => 0.5);
     for (const s of slots) {
       expect(typeof s.variantId).toBe("string");
       expect(s.variantId.length).toBeGreaterThan(0);
@@ -61,21 +61,31 @@ describe("generateCreatureSlots", () => {
   });
 
   test("slots do not have a rarity field", () => {
-    const slots = generateCreatureSlots("compi", () => 0.5);
+    const slots = generateCreatureSlots("compi", 1, () => 0.5);
     for (const s of slots) {
       expect(s).not.toHaveProperty("rarity");
     }
   });
 
   test("each slot has a color field", () => {
-    const slots = generateCreatureSlots("compi", () => 0.5);
+    const slots = generateCreatureSlots("compi", 1, () => 0.5);
     for (const s of slots) {
       expect(CREATURE_COLORS).toContain(s.color);
     }
   });
 
   test("throws for unknown species", () => {
-    expect(() => generateCreatureSlots("nonexistent", () => 0.5)).toThrow("Unknown species: nonexistent");
+    expect(() => generateCreatureSlots("nonexistent", 1, () => 0.5)).toThrow("Unknown species: nonexistent");
+  });
+
+  test("level 1 spawns only produce rank 0-1 traits", () => {
+    for (let i = 0; i < 50; i++) {
+      const slots = generateCreatureSlots("compi", 1, () => i / 50);
+      for (const s of slots) {
+        // Rank 0-1 traits end with _c01 or _c02 for all slots
+        expect(s.variantId).toMatch(/_(c01|c02)$/);
+      }
+    }
   });
 });
 
