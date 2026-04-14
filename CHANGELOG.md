@@ -2,6 +2,18 @@
 
 All notable changes to this project are documented in this file. This file is maintained automatically by [release-please](https://github.com/googleapis/release-please) based on [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [0.4.0](https://github.com/amit221/compi/compare/v0.3.0...v0.4.0) (2026-04-14)
+
+
+### Features
+
+* add getTraitRank to look up trait index in species pool ([906847d](https://github.com/amit221/compi/commit/906847d3fe4f7be9a64a91bfedd07667a3ae234a))
+* flat energy cost (1) and flat XP per catch per spec ([019c358](https://github.com/amit221/compi/commit/019c358f4f1b3d42db43f07cb50d48e232621d14))
+* rank-based catch rate formula per spec ([e7a5d22](https://github.com/amit221/compi/commit/e7a5d22f46977ae603c2f6a6bd3ab46e9a8285da))
+* rank-based energy cost scaling (1-5) based on avg trait rank ([228eacd](https://github.com/amit221/compi/commit/228eacdcd44fba6e618513c29f40d4fcd870508f))
+* rank-based trait selection with level cap and triangular distribution ([0215ac6](https://github.com/amit221/compi/commit/0215ac67222167c249462b547e42b2aa3da1a683))
+* thread playerLevel through spawn pipeline for rank-capped traits ([130c7d5](https://github.com/amit221/compi/commit/130c7d51a2fe0cac4d0092e153d365880309b85b))
+
 ## [0.3.0](https://github.com/amit221/compi/compare/v0.2.4...v0.3.0) (2026-04-14)
 
 
