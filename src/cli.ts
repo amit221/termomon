@@ -6,6 +6,7 @@ import { GameEngine } from "./engine/game-engine";
 import { SimpleTextRenderer } from "./renderers/simple-text";
 import { logger } from "./logger";
 import { MAX_ENERGY } from "./engine/energy";
+import { ActionMenuEntry } from "./types";
 
 const statePath =
   process.env.COMPI_STATE_PATH ||
@@ -30,6 +31,29 @@ function output(data: unknown, text: string): void {
 
 function save(): void {
   stateManager.save(engine.getState());
+}
+
+/**
+ * Print the compact status bar and (in advisor mode) the action menu after a
+ * state-changing command. Only shown in non-JSON mode.
+ */
+function printAdvisorOutput(actionType: string, result: unknown): void {
+  if (jsonMode) return;
+  const ctx = engine.getAdvisorContext(actionType, result);
+  console.log("");
+  console.log(renderer.renderStatusBar(ctx.progress));
+  if (ctx.mode === "advisor" && ctx.suggestedActions.length > 0) {
+    const entries: ActionMenuEntry[] = ctx.suggestedActions.map((a) => ({
+      number: a.priority,
+      label: a.label,
+      cost: a.cost.gold
+        ? `${a.cost.gold}g`
+        : a.cost.energy
+        ? `${a.cost.energy}⚡`
+        : undefined,
+    }));
+    console.log(renderer.renderActionMenu(entries));
+  }
 }
 
 try {
@@ -63,6 +87,7 @@ try {
       const result = engine.catch(index);
       save();
       output(result, renderer.renderCatch(result));
+      printAdvisorOutput("catch", result);
       break;
     }
 
@@ -85,6 +110,7 @@ try {
         const result = engine.breedExecute(parentAId, parentBId);
         save();
         output(result, renderer.renderBreedResult(result));
+        printAdvisorOutput("breed", result);
       } else {
         const preview = engine.breedPreview(parentAId, parentBId);
         output(preview, renderer.renderBreedPreview(preview));
@@ -165,6 +191,7 @@ try {
       const result = engine.upgrade(creatureId, slotId);
       save();
       output(result, renderer.renderUpgradeResult(result));
+      printAdvisorOutput("upgrade", result);
       break;
     }
 
@@ -179,11 +206,13 @@ try {
         const result = engine.questStart(creatureIds);
         save();
         output(result, renderer.renderQuestStart(result));
+        printAdvisorOutput("quest", result);
       } else if (subCmd === "check") {
         const result = engine.questCheck();
         save();
         if (result) {
           output(result, renderer.renderQuestComplete(result));
+          printAdvisorOutput("quest_complete", result);
         } else {
           const activeQuest = engine.getState().activeQuest;
           if (activeQuest) {
