@@ -204,6 +204,8 @@ export interface ProgressInfo {
   collectionSize: number;
   collectionMax: number;
   gold: number;
+  energy: number;
+  energyMax: number;
   discoveredCount: number;
   totalSpecies: number;
 }

@@ -12,6 +12,7 @@ import {
 } from "../types";
 import { loadConfig } from "../config/loader";
 import { getXpForNextLevel } from "./progression";
+import { MAX_ENERGY } from "./energy";
 
 /**
  * Rarity tier boundaries by rank. Matches the spec:
@@ -170,6 +171,8 @@ export function getProgressInfo(state: GameState): ProgressInfo {
     collectionSize: state.collection.filter((c) => !c.archived).length,
     collectionMax: MAX_COLLECTION_SIZE,
     gold: state.gold,
+    energy: state.energy,
+    energyMax: MAX_ENERGY,
     discoveredCount: state.discoveredSpecies.length,
     totalSpecies,
   };

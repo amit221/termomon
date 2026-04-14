@@ -641,12 +641,12 @@ export class SimpleTextRenderer implements Renderer {
    * Compact one-line status bar: gold, energy, collection size, XP%, level, team power.
    */
   renderStatusBar(progress: ProgressInfo): string {
-    const goldPart = `${YELLOW}${progress.gold}g${RESET}`;
-    const energyPart = `${ENERGY_ICON}${GREEN}${progress.collectionSize > 0 ? "" : ""}${RESET}`;
-    const collectionPart = `${DIM}${progress.collectionSize}/${progress.collectionMax}${RESET}`;
-    const xpPart = `${GREEN}${progress.xpPercent}%xp${RESET}`;
-    const levelPart = `${BOLD}Lv${progress.level}${RESET}`;
-    const powerPart = `${DIM}⚔${progress.teamPower}${RESET}`;
+    const goldPart = `${YELLOW}🪙 ${progress.gold}g${RESET}`;
+    const energyPart = `${ENERGY_ICON} ${GREEN}${progress.energy}/${progress.energyMax}${RESET}`;
+    const collectionPart = `📦 ${DIM}${progress.collectionSize}/${progress.collectionMax}${RESET}`;
+    const xpPart = `⭐ ${GREEN}${progress.xpPercent}% XP${RESET}`;
+    const levelPart = `${BOLD}Lv.${progress.level}${RESET}`;
+    const powerPart = `⚔ ${DIM}${progress.teamPower} power${RESET}`;
     return `  ${levelPart}  ${goldPart}  ${energyPart}  ${collectionPart}  ${xpPart}  ${powerPart}`;
   }
 
