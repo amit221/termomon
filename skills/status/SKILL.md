@@ -10,5 +10,4 @@ description: View your player profile and game stats
    _t="$(node -p "require('os').tmpdir()")" && cat "$_t/compi_display.txt" && rm -f "$_t/compi_display.txt"
    ```
 
-After both steps, respond with ONLY:
-"Press Ctrl+O to expand the output above."
+After both steps, add a single narrator line that gives a flavourful read on the player's current standing — for example, comment on their streak, level, or activity. Keep it to one short sentence. Then add: "Press Ctrl+O to expand the output above."

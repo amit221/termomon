@@ -25,9 +25,16 @@ _t="$(node -p "require('os').tmpdir()")" && cat "$_t/compi_display.txt" && rm -f
 
 Then respond based on which mode was used:
 
-- Start mode: "Press Ctrl+O to expand the output above. Your creatures are on their quest!"
-- Check mode (complete): "Press Ctrl+O to expand the output above and see your rewards."
+- Start mode:
+  - Read the `advisor_context` JSON block at the end of the tool response.
+  - Narrate the quest departure in 1-2 sentences (e.g. "Your crew heads out into the unknown — come back with gold!").
+  - Show the top suggested actions from `advisor_context.suggestedActions` (up to 3) as a short numbered list.
+  - End with: "Press Ctrl+O to expand the output above. Your creatures are on their quest!"
+- Check mode (complete):
+  - Read the `advisor_context` JSON block at the end of the tool response.
+  - Narrate the return in 1-2 sentences (e.g. celebrate the gold and XP earned).
+  - End with: "Press Ctrl+O to expand the output above and see your rewards."
 - Check mode (in progress): Report the in-progress message as-is.
 - Error mode: Report the error message as-is.
 
-Do not describe the tool output in your own words.
+Keep narrator commentary to 1-2 sentences. Do not describe the full tool output in your own words.

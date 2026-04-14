@@ -17,9 +17,12 @@ Usage: `/upgrade <creatureId> <slotId>`
    _t="$(node -p "require('os').tmpdir()")" && cat "$_t/compi_display.txt" && rm -f "$_t/compi_display.txt"
    ```
 
-After both steps, respond with ONLY:
-"Press Ctrl+O to expand the output above and see the result."
+After both steps:
+- Read the `advisor_context` JSON block at the end of the tool response.
+- Narrate the upgrade in 1-2 sentences with game personality (e.g. comment on the new rank, whether it crossed a tier boundary, or hype the creature's improvement).
+- If `advisor_context.mode` is `"advisor"`, show the top suggested actions from `advisor_context.suggestedActions` (up to 3) as a short numbered list with their labels.
+- End with: "Press Ctrl+O to expand the output above and see the result."
 
 If the tool returns an error (e.g., not enough gold, max rank reached, session cap), report the error message as-is.
 
-Do NOT describe the upgrade result in your own words.
+Keep narrator commentary to 1-2 sentences. Do NOT describe the upgrade result in detail.
