@@ -167,6 +167,59 @@ export interface DiscoveryResult {
   totalDiscovered: number;
 }
 
+// --- Advisor ---
+
+export type AdvisorMode = "autopilot" | "advisor";
+
+export interface SuggestedAction {
+  type: "catch" | "upgrade" | "merge" | "quest" | "scan" | "release" | "collection";
+  label: string;
+  cost: { gold?: number; energy?: number };
+  priority: number;
+  reasoning: string;
+  target?: {
+    creatureIndex?: number;
+    nearbyIndex?: number;
+    slotId?: SlotId;
+    partnerIndex?: number;
+  };
+}
+
+export interface ProgressInfo {
+  level: number;
+  xp: number;
+  xpToNextLevel: number;
+  xpPercent: number;
+  nextSpeciesUnlock: { species: string; level: number } | null;
+  bestTrait: { creatureName: string; slot: SlotId; rank: number; tierName: string } | null;
+  nearestTierThreshold: {
+    creatureName: string;
+    slot: SlotId;
+    currentRank: number;
+    targetRank: number;
+    method: "upgrade" | "merge";
+  } | null;
+  teamPower: number;
+  nextPowerMilestone: number;
+  collectionSize: number;
+  collectionMax: number;
+  gold: number;
+  discoveredCount: number;
+  totalSpecies: number;
+}
+
+export interface AdvisorContext {
+  mode: AdvisorMode;
+  suggestedActions: SuggestedAction[];
+  progress: ProgressInfo;
+}
+
+export interface ActionMenuEntry {
+  number: number;
+  label: string;
+  cost?: string;
+}
+
 // --- Engine Results ---
 
 export interface Notification {
