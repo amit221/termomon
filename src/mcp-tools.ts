@@ -12,6 +12,7 @@ import { StateManager } from "./state/state-manager";
 import { GameEngine } from "./engine/game-engine";
 import { SimpleTextRenderer } from "./renderers/simple-text";
 import { MAX_ENERGY } from "./engine/energy";
+import { AdvisorContext } from "./types";
 
 const statePath =
   process.env.COMPI_STATE_PATH ||
@@ -36,6 +37,15 @@ export interface RegisterToolsOptions {
 }
 
 const displayPath = path.join(os.tmpdir(), "compi_display.txt");
+
+/**
+ * Append advisor context as a structured JSON block after the ANSI display text.
+ * Claude reads this block for narrator commentary and next-action suggestions.
+ */
+function appendAdvisorContext(displayContent: string, advisorCtx: AdvisorContext): string {
+  const json = JSON.stringify(advisorCtx, null, 2);
+  return `${displayContent}\n\n<advisor_context>\n${json}\n</advisor_context>`;
+}
 
 function makeText(content: string, options: RegisterToolsOptions) {
   if (options.writeDisplayFile) {
@@ -158,7 +168,8 @@ export function registerTools(server: McpServer, options: RegisterToolsOptions =
     const renderer = new SimpleTextRenderer();
     const result = engine.catch(index - 1);
     stateManager.save(engine.getState());
-    return text(renderer.renderCatch(result));
+    const advisorCtx = engine.getAdvisorContext("catch", result);
+    return text(appendAdvisorContext(renderer.renderCatch(result), advisorCtx));
   }, meta);
 
   addTool(server, "collection", "Browse caught creatures", z.object({}), async () => {
@@ -175,7 +186,11 @@ export function registerTools(server: McpServer, options: RegisterToolsOptions =
     const { stateManager, engine } = loadEngine();
     const renderer = new SimpleTextRenderer();
     const result = runBreedCommand(engine, renderer, { indexA, indexB, confirm });
-    if (result.mutated) stateManager.save(engine.getState());
+    if (result.mutated) {
+      stateManager.save(engine.getState());
+      const advisorCtx = engine.getAdvisorContext("breed", result);
+      return text(appendAdvisorContext(result.output, advisorCtx));
+    }
     return text(result.output);
   }, meta);
 
@@ -241,7 +256,8 @@ export function registerTools(server: McpServer, options: RegisterToolsOptions =
     const renderer = new SimpleTextRenderer();
     const result = engine.upgrade(creatureId, slotId);
     stateManager.save(engine.getState());
-    return text(renderer.renderUpgradeResult(result));
+    const advisorCtx = engine.getAdvisorContext("upgrade", result);
+    return text(appendAdvisorContext(renderer.renderUpgradeResult(result), advisorCtx));
   }, meta);
 
   addTool(server, "quest_start", "Send creatures on a quest", z.object({
@@ -251,7 +267,8 @@ export function registerTools(server: McpServer, options: RegisterToolsOptions =
     const renderer = new SimpleTextRenderer();
     const result = engine.questStart(creatureIds);
     stateManager.save(engine.getState());
-    return text(renderer.renderQuestStart(result));
+    const advisorCtx = engine.getAdvisorContext("quest", result);
+    return text(appendAdvisorContext(renderer.renderQuestStart(result), advisorCtx));
   }, meta);
 
   addTool(server, "quest_check", "Check if active quest is complete and collect rewards", z.object({}), async () => {
@@ -260,7 +277,8 @@ export function registerTools(server: McpServer, options: RegisterToolsOptions =
     const result = engine.questCheck();
     stateManager.save(engine.getState());
     if (result) {
-      return text(renderer.renderQuestComplete(result));
+      const advisorCtx = engine.getAdvisorContext("quest_complete", result);
+      return text(appendAdvisorContext(renderer.renderQuestComplete(result), advisorCtx));
     }
     const activeQuest = engine.getState().activeQuest;
     if (activeQuest) {
