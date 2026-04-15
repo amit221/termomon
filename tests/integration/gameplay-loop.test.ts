@@ -53,6 +53,7 @@ function makeCreature(id: string, speciesId: string, traits: Record<string, stri
       slotId,
       variantId: traits[slotId],
       color: "white" as const,
+      rarity: 0,
     })),
     caughtAt: Date.now(),
     generation: 0,

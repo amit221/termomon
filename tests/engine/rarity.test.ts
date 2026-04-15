@@ -144,7 +144,7 @@ describe("calculateSlotScore", () => {
         { id: "rare_eyes",   spawnRate: 0.05 },
       ])
     );
-    const slot: CreatureSlot = { slotId: "eyes", variantId: "rare_eyes", color: "red" };
+    const slot: CreatureSlot = { slotId: "eyes", variantId: "rare_eyes", color: "red", rarity: 7 };
     expect(calculateSlotScore("test_species", slot)).toBe(100);
   });
 
@@ -155,7 +155,7 @@ describe("calculateSlotScore", () => {
         { id: "rare_eyes",   spawnRate: 0.05 },
       ])
     );
-    const slot: CreatureSlot = { slotId: "eyes", variantId: "common_eyes", color: "grey" };
+    const slot: CreatureSlot = { slotId: "eyes", variantId: "common_eyes", color: "grey", rarity: 0 };
     expect(calculateSlotScore("test_species", slot)).toBe(1);
   });
 
@@ -167,7 +167,7 @@ describe("calculateSlotScore", () => {
         { id: "rare_eyes",   spawnRate: 0.05 },
       ])
     );
-    const slot: CreatureSlot = { slotId: "eyes", variantId: "rare_eyes", color: "grey" };
+    const slot: CreatureSlot = { slotId: "eyes", variantId: "rare_eyes", color: "grey", rarity: 0 };
     expect(calculateSlotScore("test_species", slot)).toBeCloseTo(80.2, 1);
   });
 });
@@ -188,7 +188,7 @@ describe("calculateCreatureScore", () => {
         { id: "rare_eyes",   spawnRate: 0.05 },
       ])
     );
-    const slot: CreatureSlot = { slotId: "eyes", variantId: "rare_eyes", color: "red" };
+    const slot: CreatureSlot = { slotId: "eyes", variantId: "rare_eyes", color: "red", rarity: 7 };
     expect(calculateCreatureScore("test_species", [slot, slot])).toBe(100);
   });
 
@@ -199,7 +199,7 @@ describe("calculateCreatureScore", () => {
         { id: "rare_eyes",   spawnRate: 0.05 },
       ])
     );
-    const slot: CreatureSlot = { slotId: "eyes", variantId: "common_eyes", color: "grey" };
+    const slot: CreatureSlot = { slotId: "eyes", variantId: "common_eyes", color: "grey", rarity: 0 };
     expect(calculateCreatureScore("test_species", [slot, slot])).toBe(1);
   });
 
@@ -210,8 +210,8 @@ describe("calculateCreatureScore", () => {
         { id: "rare_eyes",   spawnRate: 0.05 },
       ])
     );
-    const rareSlot:   CreatureSlot = { slotId: "eyes", variantId: "rare_eyes",   color: "red" };
-    const commonSlot: CreatureSlot = { slotId: "eyes", variantId: "common_eyes", color: "grey" };
+    const rareSlot:   CreatureSlot = { slotId: "eyes", variantId: "rare_eyes",   color: "red",  rarity: 7 };
+    const commonSlot: CreatureSlot = { slotId: "eyes", variantId: "common_eyes", color: "grey", rarity: 0 };
     // average(100, 1) = 50.5 → rounds to 51
     expect(calculateCreatureScore("test_species", [rareSlot, commonSlot])).toBe(51);
   });

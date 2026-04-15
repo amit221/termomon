@@ -27,14 +27,14 @@
     "failPenaltyPerMiss": 0.10,
     "maxTraitSpawnRate": 0.12,
     "difficultyScale": 0.50,
-    "xpBase": 20,
+    "xpBase": 10,
     "xpRarityMultiplier": 5
   },
   "energy": {
     "gainIntervalMs": 1800000,
     "maxEnergy": 30,
-    "startingEnergy": 5,
-    "sessionBonus": 3,
+    "startingEnergy": 15,
+    "sessionBonus": 5,
     "costPerRarity": {
       "common": 1,
       "uncommon": 1,
@@ -177,7 +177,7 @@
     "traitRankCaps": [1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8],
     "xpPerCatch": 10,
     "xpPerMerge": 25,
-    "xpPerHybrid": 40,
+    "xpPerHybrid": 50,
     "xpDiscoveryBonus": 20,
     "rarityBreedCaps": [1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8]
   },

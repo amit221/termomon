@@ -396,13 +396,7 @@ export class SimpleTextRenderer implements Renderer {
     collection.forEach((creature, i) => {
       const creatureScore = calculateCreatureScore(creature.speciesId, creature.slots);
       const num = `${i + 1}.`;
-      // Compute total trait rank (sum of _rN suffixes across all slots)
-      const totalRank = creature.slots.reduce((sum, s) => {
-        const m = s.variantId.match(/_r(\d+)$/);
-        return sum + (m ? parseInt(m[1], 10) : 0);
-      }, 0);
-      const rankLabel = totalRank > 0 ? `  ${YELLOW}★${totalRank}${RESET}` : "";
-      lines.push(`  ${BOLD}${num}${RESET} ${BOLD}${creature.name}${RESET}  ${DIM}${creature.speciesId}${RESET}  Lv ${creature.generation}  ⭐ ${creatureScore}${rankLabel}`);
+      lines.push(`  ${BOLD}${num}${RESET} ${BOLD}${creature.name}${RESET}  ${DIM}${creature.speciesId}${RESET}  Lv ${creature.generation}  ⭐ ${creatureScore}`);
       for (const line of renderCreatureSideBySide(creature.slots, creature.speciesId)) {
         lines.push(line);
       }

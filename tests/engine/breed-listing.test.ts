@@ -10,7 +10,7 @@ import {
 } from "../../src/types";
 
 function makeSlot(slotId: SlotId, variantId: string): CreatureSlot {
-  return { slotId, variantId, color: "white" };
+  return { slotId, variantId, color: "white", rarity: 0 };
 }
 
 function makeCreature(

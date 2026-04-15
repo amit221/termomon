@@ -17,7 +17,7 @@ import * as speciesModule from "../../src/config/species";
 // --- Helpers ---
 
 function makeSlot(slotId: SlotId, variantId: string, color: string = "white"): CreatureSlot {
-  return { slotId, variantId, color: color as any };
+  return { slotId, variantId, color: color as any, rarity: 0 };
 }
 
 function makeCreature(
@@ -567,6 +567,7 @@ function makeRankedCreature(
       slotId,
       variantId: `trait_${slotId}_r${ranks[i] ?? 0}`,
       color: "white" as any,
+      rarity: 0,
     })),
     caughtAt: Date.now(),
     generation: 0,

@@ -25,7 +25,7 @@ export interface CreatureSlot {
   variantId: string;
   color: CreatureColor;
   /** 0-7 rarity index. 0=common(grey), 7=mythic(red). Added in v6. */
-  rarity?: number;
+  rarity: number;
 }
 
 // --- Colors ---

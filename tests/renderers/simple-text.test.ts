@@ -19,6 +19,7 @@ function makeSlots(color: string = "white"): CreatureSlot[] {
     slotId,
     variantId: variantIds[i],
     color: color as any,
+    rarity: 0,
   }));
 }
 
@@ -381,10 +382,10 @@ describe("renderNotification", () => {
 describe("zone-based coloring", () => {
   it("should color entire line based on zone when species has zones", () => {
     const slotsWithFlikk: CreatureSlot[] = [
-      { slotId: "eyes", variantId: "flk_eye_01", color: "white" },
-      { slotId: "mouth", variantId: "flk_mth_01", color: "white" },
-      { slotId: "body", variantId: "flk_bod_01", color: "white" },
-      { slotId: "tail", variantId: "flk_tal_01", color: "white" },
+      { slotId: "eyes", variantId: "flk_eye_01", color: "white", rarity: 0 },
+      { slotId: "mouth", variantId: "flk_mth_01", color: "white", rarity: 0 },
+      { slotId: "body", variantId: "flk_bod_01", color: "white", rarity: 0 },
+      { slotId: "tail", variantId: "flk_tal_01", color: "white", rarity: 0 },
     ];
     const nearby: NearbyCreature = {
       id: "z1",

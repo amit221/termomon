@@ -86,6 +86,7 @@ function makeCreature(
       slotId,
       variantId: `trait_${slotId}_r${ranks[i] ?? 0}`,
       color: "white" as const,
+      rarity: 0,
     })),
     caughtAt: Date.now(),
     generation: 0,
@@ -103,6 +104,7 @@ function makeNearby(id: string, speciesId: string): NearbyCreature {
       slotId,
       variantId: `trait_${slotId}_r1`,
       color: "white" as const,
+      rarity: 0,
     })),
     spawnedAt: Date.now(),
   };

@@ -79,8 +79,8 @@ describe("processSessionEnergyBonus", () => {
   test("grants session bonus energy", () => {
     const state = makeState({ energy: 10 });
     const gained = processSessionEnergyBonus(state, "session-new");
-    expect(gained).toBe(3);
-    expect(state.energy).toBe(13);
+    expect(gained).toBe(5);
+    expect(state.energy).toBe(15);
   });
 
   test("does not exceed max energy", () => {
