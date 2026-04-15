@@ -2,18 +2,13 @@ import {
   GameState,
   CompanionOverview,
   NearbyHighlight,
-  UpgradeOpportunity,
   BreedablePair,
-  SlotId,
 } from "../types";
 import { getProgressInfo, getSuggestedActions } from "./advisor";
 import { calculateCatchRate, calculateEnergyCost } from "./catch";
 import { calculateSlotScore } from "./rarity";
-import { loadConfig } from "../config/loader";
-import { extractRank, getTierName, getNextTierBoundary } from "./tiers";
 
 export function getCompanionOverview(state: GameState): CompanionOverview {
-  const config = loadConfig();
   const progress = getProgressInfo(state);
   const suggestedActions = getSuggestedActions("companion", null, state);
 
@@ -35,11 +30,10 @@ export function getCompanionOverview(state: GameState): CompanionOverview {
 
   // --- Breedable pairs ---
   const breedablePairs: BreedablePair[] = [];
-  const questCreatureIds = state.activeQuest?.creatureIds ?? [];
   const speciesGroups: Record<string, number[]> = {};
   for (let i = 0; i < state.collection.length; i++) {
     const c = state.collection[i];
-    if (c.archived || questCreatureIds.includes(c.id)) continue;
+    if (c.archived) continue;
     if (!speciesGroups[c.speciesId]) speciesGroups[c.speciesId] = [];
     speciesGroups[c.speciesId].push(i);
   }
@@ -56,55 +50,10 @@ export function getCompanionOverview(state: GameState): CompanionOverview {
     });
   }
 
-  // --- Upgrade opportunities ---
-  const upgradeOpportunities: UpgradeOpportunity[] = [];
-  if (state.sessionUpgradeCount < config.upgrade.sessionCap) {
-    for (const creature of state.collection) {
-      if (creature.archived || questCreatureIds.includes(creature.id)) continue;
-      for (const slot of creature.slots) {
-        const rank = extractRank(slot.variantId);
-        if (rank >= config.upgrade.maxRank) continue;
-        const cost = config.upgrade.costs[rank];
-        if (cost === undefined || state.gold < cost) continue;
-        const nextBoundary = getNextTierBoundary(rank);
-        const nearTier = nextBoundary !== null && nextBoundary - rank === 1;
-        upgradeOpportunities.push({
-          creatureId: creature.id,
-          creatureName: creature.name,
-          slotId: slot.slotId as SlotId,
-          currentRank: rank,
-          goldCost: cost,
-          nearTier,
-          tierName: getTierName(rank),
-        });
-      }
-    }
-  }
-  upgradeOpportunities.sort((a, b) => {
-    if (a.nearTier !== b.nearTier) return a.nearTier ? -1 : 1;
-    return a.goldCost - b.goldCost;
-  });
-
-  // --- Quest status ---
-  const availableCreatures = state.collection.filter(
-    (c) => !c.archived && !questCreatureIds.includes(c.id)
-  );
-  let questStatus: CompanionOverview["questStatus"];
-  if (state.activeQuest) {
-    questStatus = state.activeQuest.sessionsRemaining <= 0 ? "complete" : "in_progress";
-  } else if (availableCreatures.length > 0) {
-    questStatus = "available";
-  } else {
-    questStatus = "no_creatures";
-  }
-
   return {
     progress,
     nearbyHighlights,
     breedablePairs,
-    upgradeOpportunities: upgradeOpportunities.slice(0, 5),
-    questStatus,
-    questSessionsRemaining: state.activeQuest?.sessionsRemaining ?? null,
     suggestedActions,
   };
 }

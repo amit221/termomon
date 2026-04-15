@@ -1,4 +1,4 @@
-import { GameState, Tick, TickResult, ScanResult, ScanEntry, CatchResult, BreedPreview, BreedResult, ArchiveResult, StatusResult, Notification, BreedTable, UpgradeResult, QuestStartResult, QuestCompleteResult, SlotId, AdvisorContext } from "../types";
+import { GameState, Tick, TickResult, ScanResult, ScanEntry, CatchResult, BreedPreview, BreedResult, ArchiveResult, StatusResult, Notification, BreedTable, AdvisorContext } from "../types";
 import { processNewTick } from "./ticks";
 import { spawnBatch, cleanupBatch } from "./batch";
 import { attemptCatch, calculateCatchRate, calculateEnergyCost } from "./catch";
@@ -6,8 +6,6 @@ import { processEnergyGain, processSessionEnergyBonus } from "./energy";
 import { previewBreed, executeBreed, buildBreedTable } from "./breed";
 import { archiveCreature, releaseCreature, isCollectionFull } from "./archive";
 import { SPAWN_INTERVAL_MS } from "../config/constants";
-import { performUpgrade } from "./upgrade";
-import { startQuest, checkQuest } from "./quest";
 import { recordDiscovery } from "./discovery";
 import { grantXp } from "./progression";
 import { loadConfig } from "../config/loader";
@@ -26,28 +24,12 @@ export class GameEngine {
     processNewTick(this.state, tick);
 
     // Grant session energy bonus if this tick carries a new session ID.
-    // Capture the previous session ID before processSessionEnergyBonus updates it,
-    // so we know whether this tick represents a new session.
     const sessionId = tick.sessionId ?? String(tick.timestamp);
-    const isNewSession = this.state.currentSessionId !== sessionId;
     processSessionEnergyBonus(this.state, sessionId);
 
     const energyGained = processEnergyGain(this.state, tick.timestamp);
 
     const despawned = cleanupBatch(this.state, tick.timestamp);
-
-    // Advance the active quest once per new session only.
-    // checkQuest decrements the session counter, so calling it on every tick
-    // within the same session would let a 2-session quest complete in one session.
-    if (this.state.activeQuest && isNewSession) {
-      const questResult = checkQuest(this.state);
-      if (questResult) {
-        notifications.push({
-          message: `Quest complete! Earned ${questResult.goldEarned} gold.`,
-          level: "moderate",
-        });
-      }
-    }
 
     let spawned = false;
     const timeSinceLastSpawn = tick.timestamp - this.state.lastSpawnAt;
@@ -124,26 +106,9 @@ export class GameEngine {
       energy: this.state.energy,
       nearbyCount: this.state.nearby.length,
       batchAttemptsRemaining: this.state.batch?.attemptsRemaining ?? 0,
-      gold: this.state.gold,
       discoveredCount: this.state.discoveredSpecies.length,
-      activeQuest: this.state.activeQuest,
+      speciesProgress: this.state.speciesProgress,
     };
-  }
-
-  upgrade(creatureId: string, slotId: SlotId): UpgradeResult {
-    return performUpgrade(this.state, creatureId, slotId);
-  }
-
-  questStart(creatureIds: string[]): QuestStartResult {
-    return startQuest(this.state, creatureIds);
-  }
-
-  questCheck(): QuestCompleteResult | null {
-    return checkQuest(this.state);
-  }
-
-  getGold(): number {
-    return this.state.gold;
   }
 
   getDiscoveredSpecies(): string[] {

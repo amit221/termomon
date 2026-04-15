@@ -46,9 +46,7 @@ function printAdvisorOutput(actionType: string, result: unknown): void {
     const entries: ActionMenuEntry[] = ctx.suggestedActions.map((a) => ({
       number: a.priority,
       label: a.label,
-      cost: a.cost.gold
-        ? `${a.cost.gold}g`
-        : a.cost.energy
+      cost: a.cost.energy
         ? `${a.cost.energy}⚡`
         : undefined,
     }));
@@ -193,78 +191,6 @@ try {
       break;
     }
 
-    case "upgrade": {
-      const creatureIndex = parseInt(args[1], 10);
-      const slotId = args[2] as import("./types").SlotId;
-      if (isNaN(creatureIndex) || !slotId) {
-        console.error("Usage: compi upgrade <creatureIndex> <slotId>");
-        console.error("  creatureIndex: 1-indexed position in your collection");
-        console.error("  slotId: eyes | mouth | body | tail");
-        process.exit(1);
-      }
-      const collection = engine.getState().collection;
-      if (creatureIndex < 1 || creatureIndex > collection.length) {
-        console.error(`No creature at index ${creatureIndex}. You have ${collection.length} creatures.`);
-        process.exit(1);
-      }
-      const creatureId = collection[creatureIndex - 1].id;
-      const result = engine.upgrade(creatureId, slotId);
-      save();
-      output(result, renderer.renderUpgradeResult(result));
-      printAdvisorOutput("upgrade", result);
-      break;
-    }
-
-    case "quest": {
-      const subCmd = args[1];
-      if (subCmd === "start") {
-        const rawArgs = args.slice(2).filter(a => !a.startsWith("--"));
-        if (rawArgs.length === 0) {
-          console.error("Usage: compi quest start <index1> [index2] [index3]");
-          process.exit(1);
-        }
-        // Support both indexes (numbers) and creature IDs (strings)
-        const collection = engine.getState().collection;
-        const creatureIds = rawArgs.map(a => {
-          const idx = parseInt(a, 10);
-          if (!isNaN(idx) && idx >= 1 && idx <= collection.length) {
-            return collection[idx - 1].id;
-          }
-          return a;
-        });
-        const result = engine.questStart(creatureIds);
-        save();
-        output(result, renderer.renderQuestStart(result));
-        printAdvisorOutput("quest", result);
-      } else if (subCmd === "check") {
-        const result = engine.questCheck();
-        save();
-        if (result) {
-          output(result, renderer.renderQuestComplete(result));
-          printAdvisorOutput("quest_complete", result);
-        } else {
-          const activeQuest = engine.getState().activeQuest;
-          if (activeQuest) {
-            output(activeQuest, `Quest in progress. ${activeQuest.sessionsRemaining} sessions remaining.`);
-          } else {
-            output(null, "No active quest. Use: compi quest start <creatureId1> [creatureId2] [creatureId3]");
-          }
-        }
-      } else {
-        console.error("Usage:");
-        console.error("  compi quest start <creatureId1> [creatureId2] [creatureId3]");
-        console.error("  compi quest check");
-        process.exit(1);
-      }
-      break;
-    }
-
-    case "gold": {
-      const gold = engine.getGold();
-      output({ gold }, `Gold: ${gold} 🪙`);
-      break;
-    }
-
     default:
       console.log("Compi — Terminal Creature Collection Game\n");
       console.log("Commands:");
@@ -278,10 +204,6 @@ try {
       console.log("  energy                  Show current energy");
       console.log("  status                  Your profile");
       console.log("  settings [key] [value]  View/change settings");
-      console.log("  upgrade <index> <slot>  Upgrade a creature's trait (slot: eyes/mouth/body/tail)");
-      console.log("  quest start <n...>      Send creatures on a quest (by index)");
-      console.log("  quest check             Check if active quest is complete");
-      console.log("  gold                    Show current gold balance");
       console.log("\nAdd --json for machine-readable output.");
       break;
   }

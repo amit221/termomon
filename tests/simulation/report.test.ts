@@ -31,14 +31,12 @@ describe("report formatter", () => {
     const output = formatBalanceReport({
       totalRuns: 50,
       stats: {
-        goldAtLevel: new Map(),
         ticksToLevel: new Map(),
         catchRateByTier: new Map(),
         energyDepleted: 0,
         collectionFullCount: 0,
         speciesDiscoveryTicks: [],
-        xpSources: { catches: 10, upgrades: 5, quests: 3, discoveries: 2 },
-        questRewards: [],
+        xpSources: { catches: 10, discoveries: 2 },
         breedGenerations: [],
         upgradeRankReached: new Map(),
       },

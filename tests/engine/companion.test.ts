@@ -3,7 +3,7 @@ import { GameState } from "../../src/types";
 
 function makeState(overrides: Partial<GameState> = {}): GameState {
   return {
-    version: 5,
+    version: 6,
     profile: {
       level: 3,
       xp: 20,
@@ -13,8 +13,6 @@ function makeState(overrides: Partial<GameState> = {}): GameState {
       currentStreak: 2,
       longestStreak: 3,
       lastActiveDate: "2026-04-14",
-      totalUpgrades: 1,
-      totalQuests: 0,
     },
     collection: [],
     archive: [],
@@ -26,11 +24,12 @@ function makeState(overrides: Partial<GameState> = {}): GameState {
     recentTicks: [],
     claimedMilestones: [],
     settings: { notificationLevel: "moderate" },
-    gold: 10,
     discoveredSpecies: ["compi"],
-    activeQuest: null,
-    sessionUpgradeCount: 0,
     currentSessionId: "s1",
+    speciesProgress: {},
+    personalSpecies: [],
+    sessionBreedCount: 0,
+    breedCooldowns: {},
     ...overrides,
   };
 }
@@ -43,8 +42,6 @@ describe("getCompanionOverview", () => {
     expect(overview.progress.level).toBe(3);
     expect(overview.nearbyHighlights).toEqual([]);
     expect(overview.breedablePairs).toEqual([]);
-    expect(overview.upgradeOpportunities).toEqual([]);
-    expect(overview.questStatus).toBe("no_creatures");
     expect(overview.suggestedActions.length).toBeGreaterThan(0);
   });
 
@@ -113,21 +110,5 @@ describe("getCompanionOverview", () => {
     const overview = getCompanionOverview(state);
     expect(overview.breedablePairs).toHaveLength(1);
     expect(overview.breedablePairs[0].speciesId).toBe("compi");
-    expect(overview.questStatus).toBe("available");
-  });
-
-  it("reports quest in progress", () => {
-    const state = makeState({
-      activeQuest: {
-        id: "q1",
-        creatureIds: ["c1"],
-        startedAtSession: 1,
-        sessionsRemaining: 1,
-        teamPower: 10,
-      },
-    });
-    const overview = getCompanionOverview(state);
-    expect(overview.questStatus).toBe("in_progress");
-    expect(overview.questSessionsRemaining).toBe(1);
   });
 });

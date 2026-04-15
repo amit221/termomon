@@ -1,4 +1,4 @@
-import { GameState, CollectionCreature, SlotId, MAX_COLLECTION_SIZE } from "../types";
+import { GameState, CollectionCreature, MAX_COLLECTION_SIZE } from "../types";
 import { GameEngine } from "../engine/game-engine";
 import { loadConfig } from "../config/loader";
 import { SimulationConfig, SimulationResult, SimAction, StrategyName, ActionType } from "./types";
@@ -17,41 +17,11 @@ function findBreedPairs(state: GameState): Array<[CollectionCreature, Collection
   }
   const pairs: Array<[CollectionCreature, CollectionCreature]> = [];
   for (const group of bySpecies.values()) {
-    // Filter out creatures on quest
-    const available = group.filter(
-      (c) => !state.activeQuest || !state.activeQuest.creatureIds.includes(c.id)
-    );
-    if (available.length >= 2) {
-      pairs.push([available[0], available[1]]);
+    if (group.length >= 2) {
+      pairs.push([group[0], group[1]]);
     }
   }
   return pairs;
-}
-
-// --- Upgrade candidates helper ---
-
-function findUpgradeCandidates(
-  state: GameState
-): Array<{ creature: CollectionCreature; slotId: SlotId; rank: number }> {
-  const config = loadConfig();
-  const maxRank = config.upgrade.maxRank;
-  const candidates: Array<{ creature: CollectionCreature; slotId: SlotId; rank: number }> = [];
-
-  for (const creature of state.collection) {
-    if (creature.archived) continue;
-    if (state.activeQuest && state.activeQuest.creatureIds.includes(creature.id)) continue;
-    for (const slot of creature.slots) {
-      const rankMatch = slot.variantId.match(/_r(\d+)$/);
-      const rank = rankMatch ? parseInt(rankMatch[1], 10) : 0;
-      if (rank < maxRank) {
-        const cost = config.upgrade.costs[rank];
-        if (state.gold >= cost && state.sessionUpgradeCount < config.upgrade.sessionCap) {
-          candidates.push({ creature, slotId: slot.slotId, rank });
-        }
-      }
-    }
-  }
-  return candidates;
 }
 
 // --- Strategy types ---
@@ -65,7 +35,7 @@ type StrategyFn = (
 
 // --- Strategy: random ---
 
-function randomStrategy(state: GameState, engine: GameEngine, rng: () => number): StrategyDecision {
+function randomStrategy(state: GameState, _engine: GameEngine, rng: () => number): StrategyDecision {
   const actions: Array<() => StrategyDecision> = [];
 
   // catch
@@ -84,17 +54,6 @@ function randomStrategy(state: GameState, engine: GameEngine, rng: () => number)
     }
   }
 
-  // upgrade
-  const upgradeCandidates = findUpgradeCandidates(state);
-  if (upgradeCandidates.length > 0) {
-    actions.push(() => ({ type: "upgrade" as ActionType, detail: `candidates:${upgradeCandidates.length}` }));
-  }
-
-  // quest_start
-  if (!state.activeQuest && state.collection.length > 0) {
-    actions.push(() => ({ type: "quest_start" as ActionType, detail: "send_quest" }));
-  }
-
   // archive (if collection getting full)
   if (state.collection.length >= MAX_COLLECTION_SIZE) {
     actions.push(() => ({ type: "archive" as ActionType, detail: "collection_full" }));
@@ -111,21 +70,15 @@ function randomStrategy(state: GameState, engine: GameEngine, rng: () => number)
 
 // --- Strategy: greedy ---
 
-function greedyStrategy(state: GameState, engine: GameEngine, _rng: () => number): StrategyDecision {
-  // Priority: catch > upgrade > breed > quest > archive
+function greedyStrategy(state: GameState, _engine: GameEngine, _rng: () => number): StrategyDecision {
+  // Priority: catch > breed > archive
 
   // 1. catch
   if (state.nearby.length > 0 && state.collection.length < MAX_COLLECTION_SIZE) {
     return { type: "catch", detail: `nearby:${state.nearby.length}` };
   }
 
-  // 2. upgrade
-  const upgradeCandidates = findUpgradeCandidates(state);
-  if (upgradeCandidates.length > 0) {
-    return { type: "upgrade", detail: `candidates:${upgradeCandidates.length}` };
-  }
-
-  // 3. breed
+  // 2. breed
   if (state.collection.length < MAX_COLLECTION_SIZE) {
     const pairs = findBreedPairs(state);
     if (pairs.length > 0) {
@@ -133,24 +86,19 @@ function greedyStrategy(state: GameState, engine: GameEngine, _rng: () => number
     }
   }
 
-  // 4. quest
-  if (!state.activeQuest && state.collection.length > 0) {
-    return { type: "quest_start", detail: "send_quest" };
-  }
-
-  // 5. archive if full
+  // 3. archive if full
   if (state.collection.length >= MAX_COLLECTION_SIZE) {
     return { type: "archive", detail: "collection_full" };
   }
 
-  // 6. scan to get creatures
+  // 4. scan to get creatures
   return { type: "scan", detail: "look_around" };
 }
 
 // --- Strategy: passive ---
 
-function passiveStrategy(state: GameState, engine: GameEngine, _rng: () => number): StrategyDecision {
-  // Only catches, never breeds/upgrades/quests
+function passiveStrategy(state: GameState, _engine: GameEngine, _rng: () => number): StrategyDecision {
+  // Only catches, never breeds
   if (state.nearby.length > 0 && state.collection.length < MAX_COLLECTION_SIZE) {
     return { type: "catch", detail: `nearby:${state.nearby.length}` };
   }
@@ -196,7 +144,6 @@ export class GameSimulator {
 
       // Change session every 10 ticks
       if (tick % 10 === 0) {
-        state.sessionUpgradeCount = 0;
         state.currentSessionId = `sim-session-${Math.floor(tick / 10)}`;
       }
 
@@ -285,52 +232,6 @@ export class GameSimulator {
             tick,
             type,
             detail: `child:${breedResult.child.id} species:${breedResult.child.speciesId} gen:${breedResult.child.generation}`,
-            success: true,
-          };
-        }
-
-        case "upgrade": {
-          const candidates = findUpgradeCandidates(state);
-          if (candidates.length === 0) {
-            return { tick, type, detail: "no_candidates", success: false };
-          }
-          const candIdx = Math.floor(rng() * candidates.length);
-          const { creature, slotId, rank } = candidates[candIdx];
-          const upgradeResult = engine.upgrade(creature.id, slotId);
-          return {
-            tick,
-            type,
-            detail: `creature:${creature.id} slot:${slotId} rank:${rank}->${upgradeResult.toRank}`,
-            success: true,
-          };
-        }
-
-        case "quest_start": {
-          if (state.activeQuest) {
-            return { tick, type, detail: "already_on_quest", success: false };
-          }
-          const available = state.collection.filter((c) => !c.archived);
-          if (available.length === 0) {
-            return { tick, type, detail: "no_creatures", success: false };
-          }
-          const config = loadConfig();
-          const teamSize = Math.min(available.length, config.quest.maxTeamSize);
-          const team = available.slice(0, teamSize).map((c) => c.id);
-          engine.questStart(team);
-          return {
-            tick,
-            type,
-            detail: `team_size:${teamSize}`,
-            success: true,
-          };
-        }
-
-        case "quest_check": {
-          const questResult = engine.questCheck();
-          return {
-            tick,
-            type,
-            detail: questResult ? `completed gold:${questResult.goldEarned}` : "in_progress",
             success: true,
           };
         }

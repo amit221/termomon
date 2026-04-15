@@ -4,36 +4,14 @@ import {
   SuggestedAction,
   AdvisorMode,
   AdvisorContext,
-  SlotId,
   CollectionCreature,
   CatchResult,
-  UpgradeResult,
   MAX_COLLECTION_SIZE,
 } from "../types";
 import { loadConfig } from "../config/loader";
 import { getXpForNextLevel } from "./progression";
 import { MAX_ENERGY } from "./energy";
 import { extractRank, getTierName, getNextTierBoundary } from "./tiers";
-
-/** Power milestones the advisor tracks. */
-const POWER_MILESTONES = [25, 50, 100, 150, 200, 300, 500];
-
-/**
- * Calculate total team power: sum of all trait ranks across non-archived,
- * non-questing collection creatures.
- */
-function calculateTeamPower(state: GameState): number {
-  let total = 0;
-  const questCreatureIds = state.activeQuest?.creatureIds ?? [];
-  for (const creature of state.collection) {
-    if (creature.archived) continue;
-    if (questCreatureIds.includes(creature.id)) continue;
-    for (const slot of creature.slots) {
-      total += extractRank(slot.variantId);
-    }
-  }
-  return total;
-}
 
 /**
  * Compute progress info from the current game state.
@@ -63,41 +41,6 @@ export function getProgressInfo(state: GameState): ProgressInfo {
     }
   }
 
-  // Nearest tier threshold: find the trait closest to a tier boundary that
-  // can be reached via upgrade (1 rank away from a boundary).
-  let nearestTierThreshold: ProgressInfo["nearestTierThreshold"] = null;
-  let minDistance = Infinity;
-  for (const creature of state.collection) {
-    if (creature.archived) continue;
-    for (const slot of creature.slots) {
-      const rank = extractRank(slot.variantId);
-      const nextBoundary = getNextTierBoundary(rank);
-      if (nextBoundary !== null) {
-        const distance = nextBoundary - rank;
-        if (distance < minDistance) {
-          minDistance = distance;
-          nearestTierThreshold = {
-            creatureName: creature.name,
-            slot: slot.slotId,
-            currentRank: rank,
-            targetRank: nextBoundary,
-            method: distance === 1 ? "upgrade" : "merge",
-          };
-        }
-      }
-    }
-  }
-
-  // Team power and next milestone
-  const teamPower = calculateTeamPower(state);
-  let nextPowerMilestone = POWER_MILESTONES[POWER_MILESTONES.length - 1];
-  for (const milestone of POWER_MILESTONES) {
-    if (milestone > teamPower) {
-      nextPowerMilestone = milestone;
-      break;
-    }
-  }
-
   // Next species unlock (from config discovery.speciesUnlockLevels)
   let nextSpeciesUnlock: ProgressInfo["nextSpeciesUnlock"] = null;
   const unlockLevels = config.discovery?.speciesUnlockLevels ?? {};
@@ -124,16 +67,13 @@ export function getProgressInfo(state: GameState): ProgressInfo {
     xpPercent,
     nextSpeciesUnlock,
     bestTrait,
-    nearestTierThreshold,
-    teamPower,
-    nextPowerMilestone,
     collectionSize: state.collection.filter((c) => !c.archived).length,
     collectionMax: MAX_COLLECTION_SIZE,
-    gold: state.gold,
     energy: state.energy,
     energyMax: MAX_ENERGY,
     discoveredCount: state.discoveredSpecies.length,
     totalSpecies,
+    speciesProgress: state.speciesProgress,
   };
 }
 
@@ -143,9 +83,7 @@ export function getProgressInfo(state: GameState): ProgressInfo {
  * Pure function -- reads state, returns action list.
  */
 export function getViableActions(state: GameState): SuggestedAction[] {
-  const config = loadConfig();
   const actions: SuggestedAction[] = [];
-  const questCreatureIds = state.activeQuest?.creatureIds ?? [];
 
   // --- Catch actions (one per nearby creature) ---
   if (state.nearby.length > 0 && state.batch && state.batch.attemptsRemaining > 0) {
@@ -165,45 +103,16 @@ export function getViableActions(state: GameState): SuggestedAction[] {
     }
   }
 
-  // --- Upgrade actions (one per upgradeable trait per creature) ---
-  if (state.sessionUpgradeCount < config.upgrade.sessionCap) {
-    for (let ci = 0; ci < state.collection.length; ci++) {
-      const creature = state.collection[ci];
-      if (creature.archived) continue;
-      if (questCreatureIds.includes(creature.id)) continue;
-      for (const slot of creature.slots) {
-        const rank = extractRank(slot.variantId);
-        if (rank >= config.upgrade.maxRank) continue;
-        const cost = config.upgrade.costs[rank];
-        if (state.gold < cost) continue;
-        const nextBoundary = getNextTierBoundary(rank);
-        const nearTier = nextBoundary !== null && nextBoundary - rank === 1;
-        actions.push({
-          type: "upgrade",
-          label: `Upgrade ${creature.name}'s ${slot.slotId} (rank ${rank} -> ${rank + 1})`,
-          cost: { gold: cost },
-          priority: 0,
-          reasoning: nearTier
-            ? `Pushes ${slot.slotId} into ${getTierName(rank + 1)} tier`
-            : `Increases ${slot.slotId} rank`,
-          target: { creatureIndex: ci + 1, slotId: slot.slotId },
-        });
-      }
-    }
-  }
-
-  // --- Merge actions (one per same-species pair) ---
+  // --- Breed actions (one per same-species pair) ---
   const speciesGroups: Record<string, number[]> = {};
   for (let ci = 0; ci < state.collection.length; ci++) {
     const creature = state.collection[ci];
     if (creature.archived) continue;
-    if (questCreatureIds.includes(creature.id)) continue;
     if (!speciesGroups[creature.speciesId]) speciesGroups[creature.speciesId] = [];
     speciesGroups[creature.speciesId].push(ci);
   }
   for (const [speciesId, indexes] of Object.entries(speciesGroups)) {
     if (indexes.length < 2) continue;
-    // Suggest the best pair: highest power + second highest
     const sorted = [...indexes].sort((a, b) => {
       const powerA = state.collection[a].slots.reduce((s, sl) => s + extractRank(sl.variantId), 0);
       const powerB = state.collection[b].slots.reduce((s, sl) => s + extractRank(sl.variantId), 0);
@@ -211,36 +120,14 @@ export function getViableActions(state: GameState): SuggestedAction[] {
     });
     const ai = sorted[0];
     const bi = sorted[1];
-    const avgRank =
-      state.collection[ai].slots.reduce((s, sl) => s + extractRank(sl.variantId), 0) / 4;
-    const goldCost = config.mergeGold.baseCost + Math.floor(avgRank * config.mergeGold.rankMultiplier);
-    if (state.gold >= goldCost && state.energy >= config.energy.baseMergeCost) {
-      actions.push({
-        type: "merge",
-        label: `Merge ${state.collection[ai].name} + ${state.collection[bi].name}`,
-        cost: { gold: goldCost, energy: config.energy.baseMergeCost },
-        priority: 0,
-        reasoning: `${indexes.length} ${speciesId} available for merge`,
-        target: { creatureIndex: ai + 1, partnerIndex: bi + 1 },
-      });
-    }
-  }
-
-  // --- Quest action ---
-  if (!state.activeQuest) {
-    const availableCreatures = state.collection.filter(
-      (c) => !c.archived && !questCreatureIds.includes(c.id)
-    );
-    if (availableCreatures.length > 0) {
-      const teamSize = Math.min(availableCreatures.length, config.quest.maxTeamSize);
-      actions.push({
-        type: "quest",
-        label: `Send ${teamSize} creature${teamSize > 1 ? "s" : ""} on a quest`,
-        cost: {},
-        priority: 0,
-        reasoning: "Earn gold while you wait",
-      });
-    }
+    actions.push({
+      type: "breed",
+      label: `Breed ${state.collection[ai].name} + ${state.collection[bi].name}`,
+      cost: {},
+      priority: 0,
+      reasoning: `${indexes.length} ${speciesId} available for breeding`,
+      target: { creatureIndex: ai + 1, partnerIndex: bi + 1 },
+    });
   }
 
   // --- Scan action ---
@@ -282,20 +169,12 @@ export function getViableActions(state: GameState): SuggestedAction[] {
 /**
  * Determine whether this moment calls for auto-pilot (just show result)
  * or advisor mode (present options with analysis).
- *
- * Trigger matrix from spec:
- * - ADVISOR: merge available, near tier threshold, new species, low energy with options,
- *   expensive action, level up, collection full
- * - AUTOPILOT: quest return, routine catch (no merge), only one viable action
  */
 export function getAdvisorMode(
   action: string,
   result: unknown,
   state: GameState
 ): AdvisorMode {
-  // Quest return is always autopilot
-  if (action === "quest_complete") return "autopilot";
-
   // New species discovery triggers advisor
   if (action === "catch") {
     const catchResult = result as CatchResult;
@@ -307,7 +186,7 @@ export function getAdvisorMode(
         return "advisor";
       }
 
-      // Merge available: 2+ of same species in collection
+      // Breed available: 2+ of same species in collection
       const sameSpeciesCount = state.collection.filter(
         (c) => c.speciesId === speciesId && !c.archived
       ).length;
@@ -315,21 +194,8 @@ export function getAdvisorMode(
     }
   }
 
-  // Post-upgrade: check if any trait is near a tier threshold
-  if (action === "upgrade") {
-    const upgradeResult = result as UpgradeResult;
-    const creature = state.collection.find((c) => c.id === upgradeResult.creatureId);
-    if (creature) {
-      for (const slot of creature.slots) {
-        const rank = extractRank(slot.variantId);
-        const nextBoundary = getNextTierBoundary(rank);
-        if (nextBoundary !== null && nextBoundary - rank === 1) return "advisor";
-      }
-    }
-  }
-
-  // Post-merge is always advisor (significant moment)
-  if (action === "merge" || action === "breed") return "advisor";
+  // Post-breed is always advisor (significant moment)
+  if (action === "breed") return "advisor";
 
   // Low energy -- always surface advisor so player knows energy is scarce
   if (state.energy <= 2) {
@@ -351,8 +217,6 @@ export function getAdvisorMode(
 /**
  * Rank and filter suggested actions for the current moment.
  * Returns max 5 actions, sorted by priority (1 = highest).
- * The recommended action (advisor's pick) is always priority 1.
- * Collection view is always the last option.
  */
 export function getSuggestedActions(
   action: string,
@@ -392,42 +256,19 @@ export function getSuggestedActions(
 function scoreAction(
   action: SuggestedAction,
   lastAction: string,
-  lastResult: unknown,
+  _lastResult: unknown,
   state: GameState
 ): number {
   let score = 50; // base score
 
-  // Merge is top priority when available (combines creatures for power)
-  if (action.type === "merge") score = 5;
-
-  // Upgrade near tier boundary is very valuable
-  if (action.type === "upgrade") {
-    score = 30;
-    // Check if this upgrade pushes to a new tier
-    if (action.target?.slotId) {
-      const creature = state.collection[(action.target.creatureIndex ?? 1) - 1];
-      if (creature) {
-        const slot = creature.slots.find((s) => s.slotId === action.target!.slotId);
-        if (slot) {
-          const rank = extractRank(slot.variantId);
-          const nextBoundary = getNextTierBoundary(rank);
-          if (nextBoundary !== null && nextBoundary - rank === 1) score = 8;
-        }
-      }
-    }
-  }
+  // Breed is top priority when available
+  if (action.type === "breed") score = 5;
 
   // After scan, catching is the natural next step
   if (action.type === "catch" && lastAction === "scan") score = 5;
 
   // After catch, more catches if batch remains
   if (action.type === "catch" && lastAction === "catch") score = 15;
-
-  // Quest is good when energy is low (passive income)
-  if (action.type === "quest") {
-    score = 35;
-    if (state.energy <= 3) score = 12;
-  }
 
   // Scan when nothing else to do
   if (action.type === "scan") score = 40;

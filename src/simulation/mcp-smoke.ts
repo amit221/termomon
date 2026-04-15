@@ -86,13 +86,6 @@ export class McpSmokeTester {
       })
     );
 
-    // energy
-    results.push(
-      testTool("energy", false, () => {
-        engine.getGold();
-      })
-    );
-
     // scan — first process a tick to trigger spawns, then scan
     results.push(
       testTool("scan", false, () => {
@@ -127,41 +120,13 @@ export class McpSmokeTester {
       }
     }
 
-    // upgrade — if collection has creatures and gold >= 3
-    results.push(
-      testTool("upgrade", false, () => {
-        const creature = state.collection.find((c) => !c.archived);
-        if (creature && state.gold >= 3) {
-          const slot = creature.slots[0];
-          if (slot) {
-            engine.upgrade(creature.id, slot.slotId);
-          }
-        }
-      })
-    );
-
-    // quest_start — if collection >= 1 and no active quest
-    results.push(
-      testTool("quest_start", false, () => {
-        const active = state.collection.filter((c) => !c.archived);
-        if (active.length >= 1 && !state.activeQuest) {
-          engine.questStart([active[0].id]);
-        }
-      })
-    );
-
-    // archive — if collection > 1, archive last (skip if quest-locked)
+    // archive — if collection > 1
     results.push(
       testTool("archive", false, () => {
         const active = state.collection.filter((c) => !c.archived);
         if (active.length > 1) {
           const target = active[active.length - 1];
-          const isQuestLocked =
-            state.activeQuest &&
-            state.activeQuest.creatureIds.includes(target.id);
-          if (!isQuestLocked) {
-            engine.archive(target.id);
-          }
+          engine.archive(target.id);
         }
       })
     );
@@ -179,33 +144,6 @@ export class McpSmokeTester {
     results.push(
       testTool("catch", true, () => {
         engine.catch(-1, rng);
-      })
-    );
-
-    // upgrade with nonexistent id
-    results.push(
-      testTool("upgrade", true, () => {
-        engine.upgrade("nonexistent", "eyes" as SlotId);
-      })
-    );
-
-    // upgrade with invalid slot
-    results.push(
-      testTool("upgrade", true, () => {
-        const creature = state.collection.find((c) => !c.archived);
-        if (creature) {
-          engine.upgrade(creature.id, "invalid" as SlotId);
-        } else {
-          // If no creature, try with nonexistent anyway
-          engine.upgrade("nonexistent", "invalid" as SlotId);
-        }
-      })
-    );
-
-    // quest_start with empty array
-    results.push(
-      testTool("quest_start", true, () => {
-        engine.questStart([]);
       })
     );
 

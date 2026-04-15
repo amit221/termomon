@@ -45,7 +45,7 @@ function makeState(
   energy: number = 20
 ): GameState {
   return {
-    version: 5,
+    version: 6,
     profile: {
       level: 1,
       xp: 0,
@@ -55,8 +55,8 @@ function makeState(
       currentStreak: 0,
       longestStreak: 0,
       lastActiveDate: "",
-      totalUpgrades: 0,
-      totalQuests: 0,
+      
+      
     },
     collection,
     archive: [],
@@ -68,11 +68,15 @@ function makeState(
     recentTicks: [],
     claimedMilestones: [],
     settings: { notificationLevel: "moderate" },
-    gold: 200,
+    
     discoveredSpecies: [],
-    activeQuest: null,
-    sessionUpgradeCount: 0,
+    
+    
     currentSessionId: "",
+    speciesProgress: {},
+    personalSpecies: [],
+    sessionBreedCount: 0,
+    breedCooldowns: {},
   };
 }
 
@@ -113,36 +117,70 @@ const ALL_MYTHIC: [string, string, string, string] = [
   MYTHIC_TAIL,
 ];
 
-// --- calculateInheritance ---
+// --- calculateInheritance (rank-based) ---
 
 describe("calculateInheritance", () => {
-  it("returns 50/50 for two traits with equal spawn rate", () => {
-    // Both common (0.12) → pass chance = 0.50 each → normalized 0.50/0.50
+  let getTraitDefinitionSpy: jest.SpyInstance;
+
+  beforeEach(() => {
+    // Mock trait definitions for rank-encoded variants
+    getTraitDefinitionSpy = jest.spyOn(speciesModule, "getTraitDefinition").mockImplementation(
+      (_speciesId: string, variantId: string) => {
+        // Return a mock trait for any variant id we use in tests
+        if (variantId === "nonexistent") return undefined;
+        return { id: variantId, name: `Trait ${variantId}`, art: "o", spawnRate: 0.12 };
+      }
+    );
+  });
+
+  afterEach(() => {
+    getTraitDefinitionSpy.mockRestore();
+  });
+
+  it("returns 50/50 for two traits with equal rank", () => {
+    // Both rank 0 → diff = 0 → 50/50
     const result = calculateInheritance("compi", "eye_c01", "eye_c02");
-    // eye_c01 = 0.12, eye_c02 = 0.11
-    // A: 0.50 + (0.12-0.12)*0.80 = 0.50
-    // B: 0.50 + (0.12-0.11)*0.80 = 0.508
-    // total = 1.008
-    expect(result.chanceA).toBeCloseTo(0.50 / 1.008, 3);
-    expect(result.chanceB).toBeCloseTo(0.508 / 1.008, 3);
+    expect(result.chanceA).toBeCloseTo(0.5, 3);
+    expect(result.chanceB).toBeCloseTo(0.5, 3);
     expect(result.chanceA + result.chanceB).toBeCloseTo(1.0, 10);
   });
 
-  it("gives rarer trait slightly higher chance", () => {
-    // A: common (0.12), B: rare (0.05)
-    // A pass = 0.50, B pass = 0.50 + (0.12 - 0.05)*0.80 = 0.556
-    const result = calculateInheritance("compi", COMMON_EYES, RARE_EYES);
-    expect(result.chanceB).toBeGreaterThan(result.chanceA);
+  it("gives higher-rank trait ~63% chance with rank diff 2", () => {
+    // A: rank 3, B: rank 1 → diff = 2 → A gets 0.50 + 2*0.065 = 0.63
+    const result = calculateInheritance("compi", "eye_c01_r3", "eye_c01_r1");
+    expect(result.chanceA).toBeCloseTo(0.63, 2);
+    expect(result.chanceB).toBeCloseTo(0.37, 2);
     expect(result.chanceA + result.chanceB).toBeCloseTo(1.0, 10);
   });
 
-  it("clamps mythic trait chance at inheritanceMax", () => {
-    // A: common (0.12), B: mythic (0.003)
-    // A pass = 0.50, B pass = 0.50 + (0.12 - 0.003)*0.80 = 0.5936 → clamped to 0.58
-    const result = calculateInheritance("compi", COMMON_EYES, MYTHIC_EYES);
-    // A raw = 0.50, B raw = 0.58
-    expect(result.chanceA).toBeCloseTo(0.50 / 1.08, 3);
-    expect(result.chanceB).toBeCloseTo(0.58 / 1.08, 3);
+  it("gives higher-rank trait ~76% chance with rank diff 4", () => {
+    // A: rank 0, B: rank 4 → diff = 4 → B gets 0.50 + 4*0.065 = 0.76
+    const result = calculateInheritance("compi", "eye_c01", "eye_c01_r4");
+    expect(result.chanceA).toBeCloseTo(0.24, 2);
+    expect(result.chanceB).toBeCloseTo(0.76, 2);
+  });
+
+  it("caps advantage at maxAdvantage (0.35) for large rank diffs", () => {
+    // A: rank 7, B: rank 0 → diff = 7 → 7*0.065 = 0.455 → capped at 0.35
+    // A gets 0.50 + 0.35 = 0.85
+    const result = calculateInheritance("compi", "eye_c01_r7", "eye_c01");
+    expect(result.chanceA).toBeCloseTo(0.85, 2);
+    expect(result.chanceB).toBeCloseTo(0.15, 2);
+  });
+
+  it("applies synergy boost on top of rank advantage", () => {
+    // Rank diff 1 → base advantage = 0.065, synergy = 1.0 * 0.05 = 0.05
+    // A gets 0.50 + 0.065 + 0.05 = 0.615
+    const result = calculateInheritance("compi", "eye_c01_r2", "eye_c01_r1", 1.0);
+    expect(result.chanceA).toBeCloseTo(0.615, 2);
+    expect(result.chanceB).toBeCloseTo(0.385, 2);
+  });
+
+  it("synergy on equal ranks gives slight edge to trait A", () => {
+    // Same rank → synergy = 0.5 * 0.05 = 0.025
+    const result = calculateInheritance("compi", "eye_c01_r2", "eye_c02_r2", 0.5);
+    expect(result.chanceA).toBeCloseTo(0.525, 3);
+    expect(result.chanceB).toBeCloseTo(0.475, 3);
   });
 
   it("returns 100% for parent A when both have same variant", () => {
@@ -173,8 +211,8 @@ describe("previewBreed", () => {
 
     for (const si of preview.slotInheritance) {
       expect(si.parentAChance + si.parentBChance).toBeCloseTo(1.0, 10);
-      // Rare parent should have higher chance in each slot
-      expect(si.parentBChance).toBeGreaterThan(si.parentAChance);
+      // Both parents have rank-0 traits (no _r suffix), so chances are ~50/50
+      // (slight synergy variation possible but both close to 0.5)
     }
   });
 
@@ -582,11 +620,10 @@ describe("merge gold cost and downgrade", () => {
 
   function makeRankedState(
     collection: CollectionCreature[],
-    energy: number = 20,
-    gold: number = 200
+    energy: number = 20
   ): GameState {
     return {
-      version: 5,
+      version: 6,
       profile: {
         level: 1,
         xp: 0,
@@ -596,8 +633,6 @@ describe("merge gold cost and downgrade", () => {
         currentStreak: 0,
         longestStreak: 0,
         lastActiveDate: "",
-        totalUpgrades: 0,
-        totalQuests: 0,
       },
       collection,
       archive: [],
@@ -609,38 +644,20 @@ describe("merge gold cost and downgrade", () => {
       recentTicks: [],
       claimedMilestones: [],
       settings: { notificationLevel: "moderate" },
-      gold,
       discoveredSpecies: [],
-      activeQuest: null,
-      sessionUpgradeCount: 0,
       currentSessionId: "",
+      speciesProgress: {},
+      personalSpecies: [],
+      sessionBreedCount: 0,
+      breedCooldowns: {},
     };
   }
-
-  test("executeBreed deducts gold cost based on child avg rank", () => {
-    // Two parents with rank-2 traits — child avg rank = 2
-    // gold cost = baseCost(10) + floor(2 * rankMultiplier(5)) = 20
-    const parentA = makeRankedCreature("pA", MOCK_SPECIES_ID, [2, 2, 2, 2]);
-    const parentB = makeRankedCreature("pB", MOCK_SPECIES_ID, [2, 2, 2, 2]);
-    const state = makeRankedState([parentA, parentB], 20, 100);
-    const goldBefore = state.gold;
-    executeBreed(state, "pA", "pB", () => 0);
-    expect(state.gold).toBeLessThan(goldBefore);
-  });
-
-  test("executeBreed throws if not enough gold", () => {
-    // Rank-5 parents: child avg rank ~5, cost = 10 + floor(5*5) = 35
-    const parentA = makeRankedCreature("pA", MOCK_SPECIES_ID, [5, 5, 5, 5]);
-    const parentB = makeRankedCreature("pB", MOCK_SPECIES_ID, [5, 5, 5, 5]);
-    const state = makeRankedState([parentA, parentB], 20, 0);
-    expect(() => executeBreed(state, "pA", "pB", () => 0)).toThrow(/gold/i);
-  });
 
   test("executeBreed applies guaranteed +1 upgrade to one random trait", () => {
     // Rank-3 parents — child inherits rank 3, then one slot gets upgraded to rank 4
     const parentA = makeRankedCreature("pA", MOCK_SPECIES_ID, [3, 3, 3, 3]);
     const parentB = makeRankedCreature("pB", MOCK_SPECIES_ID, [3, 3, 3, 3]);
-    const state = makeRankedState([parentA, parentB], 20, 200);
+    const state = makeRankedState([parentA, parentB], 20);
     // rng sequence: 4 rolls for slot selection (all pick A), 1 roll for upgradeIndex, 1 for downgrade check
     const result = executeBreed(state, "pA", "pB", () => 0);
     const ranks = result.child.slots.map((s) => {
@@ -654,7 +671,7 @@ describe("merge gold cost and downgrade", () => {
     // rng() always returns 0.99 — downgrade check (0.99 < 0.30) is false → no downgrade
     const parentA = makeRankedCreature("pA", MOCK_SPECIES_ID, [3, 3, 3, 3]);
     const parentB = makeRankedCreature("pB", MOCK_SPECIES_ID, [3, 3, 3, 3]);
-    const state = makeRankedState([parentA, parentB], 20, 200);
+    const state = makeRankedState([parentA, parentB], 20);
     const result = executeBreed(state, "pA", "pB", () => 0.99);
     const ranks = result.child.slots.map((s) => {
       const m = s.variantId.match(/_r(\d+)$/);
@@ -674,7 +691,7 @@ describe("merge gold cost and downgrade", () => {
 
     const parentA = makeRankedCreature("pA", MOCK_SPECIES_ID, [3, 3, 3, 3]);
     const parentB = makeRankedCreature("pB", MOCK_SPECIES_ID, [3, 3, 3, 3]);
-    const state = makeRankedState([parentA, parentB], 20, 200);
+    const state = makeRankedState([parentA, parentB], 20);
     const result = executeBreed(state, "pA", "pB", rng);
     const ranks = result.child.slots.map((s) => {
       const m = s.variantId.match(/_r(\d+)$/);
@@ -688,7 +705,7 @@ describe("merge gold cost and downgrade", () => {
   test("executeBreed grants XP after merge", () => {
     const parentA = makeRankedCreature("pA", MOCK_SPECIES_ID, [1, 1, 1, 1]);
     const parentB = makeRankedCreature("pB", MOCK_SPECIES_ID, [1, 1, 1, 1]);
-    const state = makeRankedState([parentA, parentB], 20, 200);
+    const state = makeRankedState([parentA, parentB], 20);
     const xpBefore = state.profile.xp;
     executeBreed(state, "pA", "pB", () => 0);
     // xpPerMerge = 25 from balance.json

@@ -39,15 +39,13 @@ export function formatBalanceReport(report: BalanceReport): string {
   lines.push("");
 
   const xp = report.stats.xpSources;
-  const totalXp = xp.catches + xp.upgrades + xp.quests + xp.discoveries;
+  const totalXp = xp.catches + xp.discoveries;
   lines.push("XP Sources:");
   if (totalXp > 0) {
     lines.push(`  catches:     ${xp.catches} (${((xp.catches / totalXp) * 100).toFixed(1)}%)`);
-    lines.push(`  upgrades:    ${xp.upgrades} (${((xp.upgrades / totalXp) * 100).toFixed(1)}%)`);
-    lines.push(`  quests:      ${xp.quests} (${((xp.quests / totalXp) * 100).toFixed(1)}%)`);
     lines.push(`  discoveries: ${xp.discoveries} (${((xp.discoveries / totalXp) * 100).toFixed(1)}%)`);
   } else {
-    lines.push(`  catches: ${xp.catches} | upgrades: ${xp.upgrades} | quests: ${xp.quests} | discoveries: ${xp.discoveries}`);
+    lines.push(`  catches: ${xp.catches} | discoveries: ${xp.discoveries}`);
   }
 
   return lines.join("\n");

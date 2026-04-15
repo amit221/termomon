@@ -15,11 +15,11 @@ function makeRng(seed: number = 0): () => number {
 // Helper to create a fresh v5 state
 function freshState(): GameState {
   return {
-    version: 5,
+    version: 6,
     profile: {
       level: 1, xp: 0, totalCatches: 0, totalMerges: 0, totalTicks: 0,
       currentStreak: 0, longestStreak: 0, lastActiveDate: "2026-01-01",
-      totalUpgrades: 0, totalQuests: 0,
+      
     },
     collection: [],
     archive: [],
@@ -31,11 +31,15 @@ function freshState(): GameState {
     recentTicks: [],
     claimedMilestones: [],
     settings: { notificationLevel: "moderate" },
-    gold: 10,
+    
     discoveredSpecies: [],
-    activeQuest: null,
-    sessionUpgradeCount: 0,
+    
+    
     currentSessionId: "",
+    speciesProgress: {},
+    personalSpecies: [],
+    sessionBreedCount: 0,
+    breedCooldowns: {},
   };
 }
 

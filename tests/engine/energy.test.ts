@@ -3,8 +3,8 @@ import { GameState } from "../../src/types";
 
 function makeState(overrides: Partial<GameState> = {}): GameState {
   return {
-    version: 5,
-    profile: { level: 1, xp: 0, totalCatches: 0, totalMerges: 0, totalTicks: 0, currentStreak: 0, longestStreak: 0, lastActiveDate: "", totalUpgrades: 0, totalQuests: 0 },
+    version: 6,
+    profile: { level: 1, xp: 0, totalCatches: 0, totalMerges: 0, totalTicks: 0, currentStreak: 0, longestStreak: 0, lastActiveDate: "", },
     collection: [],
     archive: [],
     energy: 10,
@@ -15,11 +15,15 @@ function makeState(overrides: Partial<GameState> = {}): GameState {
     recentTicks: [],
     claimedMilestones: [],
     settings: { notificationLevel: "moderate" },
-    gold: 10,
+    
     discoveredSpecies: [],
-    activeQuest: null,
-    sessionUpgradeCount: 0,
+    
+    
     currentSessionId: "",
+    speciesProgress: {},
+    personalSpecies: [],
+    sessionBreedCount: 0,
+    breedCooldowns: {},
     ...overrides,
   };
 }
@@ -87,21 +91,32 @@ describe("processSessionEnergyBonus", () => {
   });
 
   test("no bonus if same session", () => {
-    const state = makeState({ energy: 10, currentSessionId: "session-1" });
+    const state = makeState({ energy: 10, currentSessionId: "session-1",
+    speciesProgress: {},
+    personalSpecies: [],
+    sessionBreedCount: 0,
+    breedCooldowns: {} });
     const gained = processSessionEnergyBonus(state, "session-1");
     expect(gained).toBe(0);
     expect(state.energy).toBe(10);
   });
 
-  test("resets session upgrade count on new session", () => {
-    const state = makeState({ energy: 10, sessionUpgradeCount: 5, currentSessionId: "session-1" });
+  test("updates currentSessionId on new session (no sessionUpgradeCount)", () => {
+    const state = makeState({ energy: 10, currentSessionId: "session-1",
+    speciesProgress: {},
+    personalSpecies: [],
+    sessionBreedCount: 0,
+    breedCooldowns: {} });
     processSessionEnergyBonus(state, "session-2");
-    expect(state.sessionUpgradeCount).toBe(0);
     expect(state.currentSessionId).toBe("session-2");
   });
 
   test("updates currentSessionId on new session", () => {
-    const state = makeState({ energy: 10, currentSessionId: "session-old" });
+    const state = makeState({ energy: 10, currentSessionId: "session-old",
+    speciesProgress: {},
+    personalSpecies: [],
+    sessionBreedCount: 0,
+    breedCooldowns: {} });
     processSessionEnergyBonus(state, "session-new");
     expect(state.currentSessionId).toBe("session-new");
   });

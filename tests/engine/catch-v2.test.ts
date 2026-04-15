@@ -70,8 +70,8 @@ function makeNearby(id: string, variantIds: string[], speciesId = "compi"): Near
 
 function makeState(overrides: Partial<GameState> = {}): GameState {
   return {
-    version: 5,
-    profile: { level: 1, xp: 0, totalCatches: 0, totalMerges: 0, totalTicks: 0, currentStreak: 0, longestStreak: 0, lastActiveDate: "", totalUpgrades: 0, totalQuests: 0 },
+    version: 6,
+    profile: { level: 1, xp: 0, totalCatches: 0, totalMerges: 0, totalTicks: 0, currentStreak: 0, longestStreak: 0, lastActiveDate: "", },
     collection: [],
     archive: [],
     energy: 10,
@@ -82,11 +82,15 @@ function makeState(overrides: Partial<GameState> = {}): GameState {
     recentTicks: [],
     claimedMilestones: [],
     settings: { notificationLevel: "moderate" },
-    gold: 10,
+    
     discoveredSpecies: [],
-    activeQuest: null,
-    sessionUpgradeCount: 0,
+    
+    
     currentSessionId: "",
+    speciesProgress: {},
+    personalSpecies: [],
+    sessionBreedCount: 0,
+    breedCooldowns: {},
     ...overrides,
   };
 }

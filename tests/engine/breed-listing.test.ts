@@ -33,7 +33,7 @@ function makeCreature(
 
 function makeState(collection: CollectionCreature[], energy = 20): GameState {
   return {
-    version: 5,
+    version: 6,
     profile: {
       level: 1,
       xp: 0,
@@ -43,8 +43,8 @@ function makeState(collection: CollectionCreature[], energy = 20): GameState {
       currentStreak: 0,
       longestStreak: 0,
       lastActiveDate: "",
-      totalUpgrades: 0,
-      totalQuests: 0,
+      
+      
     },
     collection,
     archive: [],
@@ -56,11 +56,15 @@ function makeState(collection: CollectionCreature[], energy = 20): GameState {
     recentTicks: [],
     claimedMilestones: [],
     settings: { notificationLevel: "moderate" },
-    gold: 10,
+    
     discoveredSpecies: [],
-    activeQuest: null,
-    sessionUpgradeCount: 0,
+    
+    
     currentSessionId: "",
+    speciesProgress: {},
+    personalSpecies: [],
+    sessionBreedCount: 0,
+    breedCooldowns: {},
   };
 }
 

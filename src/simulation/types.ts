@@ -6,9 +6,6 @@ export type ActionType =
   | "scan"
   | "catch"
   | "breed"
-  | "upgrade"
-  | "quest_start"
-  | "quest_check"
   | "archive"
   | "release"
   | "idle";
@@ -53,28 +50,24 @@ export const DEFAULT_CONFIG: SimulationConfig = {
 };
 
 export interface BalanceStats {
-  goldAtLevel: Map<number, number[]>;
   ticksToLevel: Map<number, number[]>;
   catchRateByTier: Map<string, { attempts: number; successes: number }>;
   energyDepleted: number;
   collectionFullCount: number;
   speciesDiscoveryTicks: number[];
-  xpSources: { catches: number; upgrades: number; quests: number; discoveries: number };
-  questRewards: number[];
+  xpSources: { catches: number; discoveries: number };
   breedGenerations: number[];
   upgradeRankReached: Map<number, number>;
 }
 
 export function createEmptyBalanceStats(): BalanceStats {
   return {
-    goldAtLevel: new Map(),
     ticksToLevel: new Map(),
     catchRateByTier: new Map(),
     energyDepleted: 0,
     collectionFullCount: 0,
     speciesDiscoveryTicks: [],
-    xpSources: { catches: 0, upgrades: 0, quests: 0, discoveries: 0 },
-    questRewards: [],
+    xpSources: { catches: 0, discoveries: 0 },
     breedGenerations: [],
     upgradeRankReached: new Map(),
   };

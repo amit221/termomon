@@ -38,7 +38,6 @@ export function processSessionEnergyBonus(state: GameState, sessionId: string): 
   }
 
   state.currentSessionId = sessionId;
-  state.sessionUpgradeCount = 0; // Reset session upgrade count on new session
 
   const maxGain = config.energy.maxEnergy - state.energy;
   const gained = Math.min(config.energy.sessionBonus, maxGain);

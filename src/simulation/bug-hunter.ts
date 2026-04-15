@@ -31,13 +31,11 @@ export function checkInvariants(result: SimulationResult): Violation[] {
       seed: result.seed,
       stateSnapshot: {
         energy: state.energy,
-        gold: state.gold,
         collection: state.collection,
         archive: state.archive,
         profile: state.profile,
         nearby: state.nearby,
         batch: state.batch,
-        activeQuest: state.activeQuest,
       },
     });
   }
@@ -53,11 +51,6 @@ export function checkInvariants(result: SimulationResult): Violation[] {
       "energy_exceeds_max",
       `energy=${state.energy} max=${config.energy.maxEnergy}`
     );
-  }
-
-  // Gold: never negative
-  if (state.gold < 0) {
-    addViolation("gold_negative", `gold=${state.gold}`);
   }
 
   // Collection: active (non-archived) count never exceeds MAX_COLLECTION_SIZE
@@ -109,36 +102,6 @@ export function checkInvariants(result: SimulationResult): Violation[] {
       "batch_attempts_negative",
       `attemptsRemaining=${state.batch.attemptsRemaining}`
     );
-  }
-
-  // Quest locked creatures must still be in collection
-  if (state.activeQuest) {
-    const collectionIdSet = new Set(state.collection.map((c) => c.id));
-    for (const creatureId of state.activeQuest.creatureIds) {
-      if (!collectionIdSet.has(creatureId)) {
-        addViolation(
-          "quest_creature_missing",
-          `questCreatureId=${creatureId} not found in collection`
-        );
-      }
-    }
-  }
-
-  // Upgrade rank never exceeds config.upgrade.maxRank
-  const maxRank = config.upgrade.maxRank;
-  for (const creature of state.collection) {
-    for (const slot of creature.slots) {
-      const rankMatch = slot.variantId.match(/_r(\d+)$/);
-      if (rankMatch) {
-        const rank = parseInt(rankMatch[1], 10);
-        if (rank > maxRank) {
-          addViolation(
-            "upgrade_rank_exceeds_max",
-            `creatureId=${creature.id} slotId=${slot.slotId} variantId=${slot.variantId} rank=${rank} maxRank=${maxRank}`
-          );
-        }
-      }
-    }
   }
 
   return violations;

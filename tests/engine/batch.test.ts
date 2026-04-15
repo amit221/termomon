@@ -3,8 +3,8 @@ import { GameState, NearbyCreature, SLOT_IDS, CREATURE_COLORS } from "../../src/
 
 function makeState(overrides: Partial<GameState> = {}): GameState {
   return {
-    version: 5,
-    profile: { level: 1, xp: 0, totalCatches: 0, totalMerges: 0, totalTicks: 0, currentStreak: 0, longestStreak: 0, lastActiveDate: "", totalUpgrades: 0, totalQuests: 0 },
+    version: 6,
+    profile: { level: 1, xp: 0, totalCatches: 0, totalMerges: 0, totalTicks: 0, currentStreak: 0, longestStreak: 0, lastActiveDate: "", },
     collection: [],
     archive: [],
     energy: 10,
@@ -15,11 +15,15 @@ function makeState(overrides: Partial<GameState> = {}): GameState {
     recentTicks: [],
     claimedMilestones: [],
     settings: { notificationLevel: "moderate" },
-    gold: 10,
+    
     discoveredSpecies: [],
-    activeQuest: null,
-    sessionUpgradeCount: 0,
+    
+    
     currentSessionId: "",
+    speciesProgress: {},
+    personalSpecies: [],
+    sessionBreedCount: 0,
+    breedCooldowns: {},
     ...overrides,
   };
 }
@@ -208,10 +212,10 @@ describe("pickColor", () => {
   });
 
   test("weighted distribution: mid roll gives mid colors", () => {
-    // grey=0.30, white=0.25 → cumulative 0.55; cyan=0.20 → cumulative 0.75
-    // roll at 0.60 should land in cyan range
+    // grey=0.28, white=0.22 → cumulative 0.50; green=0.18 → cumulative 0.68
+    // roll at 0.60 should land in green range
     const color = pickColor(() => 0.60);
-    expect(color).toBe("cyan");
+    expect(color).toBe("green");
   });
 });
 

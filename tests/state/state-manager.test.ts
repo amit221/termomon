@@ -15,7 +15,7 @@ describe("StateManager v5", () => {
     const sm = new StateManager(statePath);
     const state = sm.load();
 
-    expect(state.version).toBe(5);
+    expect(state.version).toBe(6);
     expect(state.profile.level).toBe(1);
     expect(state.collection).toEqual([]);
     expect(state.archive).toEqual([]);
@@ -31,10 +31,10 @@ describe("StateManager v5", () => {
 
     const loaded = sm.load();
     expect(loaded.profile.totalCatches).toBe(5);
-    expect(loaded.version).toBe(5);
+    expect(loaded.version).toBe(6);
   });
 
-  test("migrates v3 state to v5", () => {
+  test("migrates v3 state to v6", () => {
     // Write a v3 state file
     const v3State = {
       version: 3,
@@ -91,17 +91,22 @@ describe("StateManager v5", () => {
     const sm = new StateManager(statePath);
     const state = sm.load();
 
-    expect(state.version).toBe(5);
+    expect(state.version).toBe(6);
     expect(state.archive).toEqual([]);
 
-    // Collection creature should have speciesId and archived, no rarity on slots
+    // Collection creature should have speciesId, archived, and rarity on slots (from v6 migration)
     expect(state.collection[0].speciesId).toBe("compi");
     expect(state.collection[0].archived).toBe(false);
-    expect((state.collection[0].slots[0] as any).rarity).toBeUndefined();
+    expect(state.collection[0].slots[0].rarity).toBe(0); // v3 had no rank suffix → rarity 0
 
-    // Nearby creature should have speciesId, no rarity on slots
+    // Nearby creature should have speciesId and rarity
     expect(state.nearby[0].speciesId).toBe("compi");
-    expect((state.nearby[0].slots[0] as any).rarity).toBeUndefined();
+    expect(state.nearby[0].slots[0].rarity).toBe(0);
+
+    // v6 fields present
+    expect(state.speciesProgress).toBeDefined();
+    expect(state.sessionBreedCount).toBe(0);
+    expect(state.breedCooldowns).toEqual({});
 
     // Profile data preserved
     expect(state.profile.level).toBe(2);

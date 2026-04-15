@@ -20,7 +20,7 @@ export function makeRng(seed: number): () => number {
 export function makeDefaultState(sessionPrefix = "sim"): GameState {
   const config = loadConfig();
   return {
-    version: 5,
+    version: 6,
     profile: {
       level: 1,
       xp: 0,
@@ -30,8 +30,6 @@ export function makeDefaultState(sessionPrefix = "sim"): GameState {
       currentStreak: 0,
       longestStreak: 0,
       lastActiveDate: "",
-      totalUpgrades: 0,
-      totalQuests: 0,
     },
     collection: [],
     archive: [],
@@ -43,10 +41,11 @@ export function makeDefaultState(sessionPrefix = "sim"): GameState {
     recentTicks: [],
     claimedMilestones: [],
     settings: { notificationLevel: "moderate" },
-    gold: config.economy.startingGold,
     discoveredSpecies: [],
-    activeQuest: null,
-    sessionUpgradeCount: 0,
     currentSessionId: `${sessionPrefix}-session-0`,
+    speciesProgress: {},
+    personalSpecies: [],
+    sessionBreedCount: 0,
+    breedCooldowns: {},
   };
 }

@@ -268,6 +268,8 @@ describe("renderBreedResult", () => {
     parentA,
     parentB,
     inheritedFrom: { eyes: "A", mouth: "B", body: "A", tail: "B" },
+    isCrossSpecies: false,
+    upgrades: [],
   };
 
   test("contains BREED SUCCESS", () => {
@@ -331,16 +333,15 @@ describe("renderStatus", () => {
       profile: {
         level: 1, xp: 0, totalCatches: 0, totalMerges: 0, totalTicks: 0,
         currentStreak: 0, longestStreak: 0, lastActiveDate: "2026-04-01",
-        totalUpgrades: 0, totalQuests: 0,
+        
       },
       collectionCount: 2,
       archiveCount: 5,
       energy: 5,
       nearbyCount: 0,
       batchAttemptsRemaining: 0,
-      gold: 0,
       discoveredCount: 0,
-      activeQuest: null,
+      speciesProgress: {},
     });
     expect(out).toContain("Archive");
     expect(out).toContain("5 creatures");

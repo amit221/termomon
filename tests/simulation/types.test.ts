@@ -16,7 +16,6 @@ describe("simulation types", () => {
     const stats = createEmptyBalanceStats();
     expect(stats.energyDepleted).toBe(0);
     expect(stats.collectionFullCount).toBe(0);
-    expect(stats.goldAtLevel.size).toBe(0);
     expect(stats.xpSources.catches).toBe(0);
   });
 });
