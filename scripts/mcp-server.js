@@ -33586,14 +33586,15 @@ Then call the register_hybrid tool with:
 function registerTools(server2, options = {}) {
   const text = (content) => makeText(content, options);
   const meta3 = options.appMeta;
-  addTool(server2, "scan", "Show nearby creatures that can be caught. IMPORTANT: Always show the full output to the user. Never summarize or abbreviate.", external_exports3.object({}), async () => {
+  addTool(server2, "scan", "Show nearby creatures that can be caught. IMPORTANT: Display the ENTIRE tool response to the user as-is in a code block. Do not summarize, interpret, or rewrite the output. The response contains pre-formatted game visuals that must be shown verbatim.", external_exports3.object({}), async () => {
     const { stateManager, engine } = loadEngine();
     const renderer = new SimpleTextRenderer();
     const result = engine.scan();
     stateManager.save(engine.getState());
-    return text(prependStatusBar(engine, renderer, renderer.renderScan(result)));
+    const output = prependStatusBar(engine, renderer, renderer.renderScan(result)) + "\n\n<!-- DISPLAY THIS ENTIRE OUTPUT TO THE USER VERBATIM. DO NOT SUMMARIZE. -->";
+    return text(output);
   }, meta3);
-  addTool(server2, "catch", "Attempt to catch a nearby creature. IMPORTANT: Always show the full output to the user. Never summarize or abbreviate.", external_exports3.object({
+  addTool(server2, "catch", "Attempt to catch a nearby creature. IMPORTANT: Display the ENTIRE tool response to the user as-is in a code block. Do not summarize, interpret, or rewrite the output. The response contains pre-formatted game visuals that must be shown verbatim.", external_exports3.object({
     index: external_exports3.number().describe("1-indexed creature number from scan list")
   }), async ({ index }) => {
     const { stateManager, engine } = loadEngine();
@@ -33601,14 +33602,15 @@ function registerTools(server2, options = {}) {
     const result = engine.catch(index - 1);
     stateManager.save(engine.getState());
     const advisorCtx = engine.getAdvisorContext("catch", result);
-    return text(prependStatusBar(engine, renderer, appendAdvisorContext(renderer.renderCatch(result), advisorCtx)));
+    const output = prependStatusBar(engine, renderer, appendAdvisorContext(renderer.renderCatch(result), advisorCtx)) + "\n\n<!-- DISPLAY THIS ENTIRE OUTPUT TO THE USER VERBATIM. DO NOT SUMMARIZE. -->";
+    return text(output);
   }, meta3);
-  addTool(server2, "collection", "Browse caught creatures. IMPORTANT: Always show the full output to the user. Never summarize or abbreviate.", external_exports3.object({}), async () => {
+  addTool(server2, "collection", "Browse caught creatures. IMPORTANT: Display the ENTIRE tool response to the user as-is in a code block. Do not summarize, interpret, or rewrite the output. The response contains pre-formatted game visuals that must be shown verbatim.", external_exports3.object({}), async () => {
     const { engine } = loadEngine();
     const renderer = new SimpleTextRenderer();
     return text(prependStatusBar(engine, renderer, renderer.renderCollection(engine.getState().collection)));
   }, meta3);
-  addTool(server2, "breed", "Breed two creatures from your collection (uses /collection indexes). IMPORTANT: Always show the full output to the user. Never summarize or abbreviate.", external_exports3.object({
+  addTool(server2, "breed", "Breed two creatures from your collection (uses /collection indexes). IMPORTANT: Display the ENTIRE tool response to the user as-is in a code block. Do not summarize, interpret, or rewrite the output. The response contains pre-formatted game visuals that must be shown verbatim.", external_exports3.object({
     indexA: external_exports3.number().optional().describe("1-indexed position of first parent in /collection"),
     indexB: external_exports3.number().optional().describe("1-indexed position of second parent in /collection"),
     confirm: external_exports3.boolean().optional().describe("Set to true to execute the breed after previewing")
@@ -33619,9 +33621,11 @@ function registerTools(server2, options = {}) {
     if (result.mutated) {
       stateManager.save(engine.getState());
       const advisorCtx = engine.getAdvisorContext("breed", result);
-      return text(prependStatusBar(engine, renderer, appendAdvisorContext(result.output, advisorCtx)));
+      const output2 = prependStatusBar(engine, renderer, appendAdvisorContext(result.output, advisorCtx)) + "\n\n<!-- DISPLAY THIS ENTIRE OUTPUT TO THE USER VERBATIM. DO NOT SUMMARIZE. -->";
+      return text(output2);
     }
-    return text(prependStatusBar(engine, renderer, result.output));
+    const output = prependStatusBar(engine, renderer, result.output) + "\n\n<!-- DISPLAY THIS ENTIRE OUTPUT TO THE USER VERBATIM. DO NOT SUMMARIZE. -->";
+    return text(output);
   }, meta3);
   addTool(server2, "archive", "View archive or archive a creature", external_exports3.object({
     id: external_exports3.string().optional().describe("Creature ID to archive (omit to view archive)")
@@ -33645,13 +33649,13 @@ function registerTools(server2, options = {}) {
     stateManager.save(engine.getState());
     return text(prependStatusBar(engine, renderer, `Released creature ${id}.`));
   }, meta3);
-  addTool(server2, "energy", "Show current energy level", external_exports3.object({}), async () => {
+  addTool(server2, "energy", "Show current energy level. IMPORTANT: Display the ENTIRE tool response to the user as-is in a code block. Do not summarize, interpret, or rewrite the output. The response contains pre-formatted game visuals that must be shown verbatim.", external_exports3.object({}), async () => {
     const { engine } = loadEngine();
     const renderer = new SimpleTextRenderer();
     const state = engine.getState();
     return text(prependStatusBar(engine, renderer, renderer.renderEnergy(state.energy, MAX_ENERGY)));
   }, meta3);
-  addTool(server2, "status", "View player profile and game stats", external_exports3.object({}), async () => {
+  addTool(server2, "status", "View player profile and game stats. IMPORTANT: Display the ENTIRE tool response to the user as-is in a code block. Do not summarize, interpret, or rewrite the output. The response contains pre-formatted game visuals that must be shown verbatim.", external_exports3.object({}), async () => {
     const { engine } = loadEngine();
     const renderer = new SimpleTextRenderer();
     const result = engine.status();
@@ -33702,7 +33706,7 @@ ${json2}
     }
     return { content: [{ type: "text", text: fullContent }] };
   }, meta3);
-  addTool(server2, "species", "Show species index \u2014 discovered tiers for each species", external_exports3.object({}), async () => {
+  addTool(server2, "species", "Show species index \u2014 discovered tiers for each species. IMPORTANT: Display the ENTIRE tool response to the user as-is in a code block. Do not summarize, interpret, or rewrite the output. The response contains pre-formatted game visuals that must be shown verbatim.", external_exports3.object({}), async () => {
     const { engine } = loadEngine();
     const renderer = new SimpleTextRenderer();
     const state = engine.getState();

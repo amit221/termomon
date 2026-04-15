@@ -169,15 +169,16 @@ export function registerTools(server: McpServer, options: RegisterToolsOptions =
   const text = (content: string) => makeText(content, options);
   const meta = options.appMeta;
 
-  addTool(server, "scan", "Show nearby creatures that can be caught. IMPORTANT: Always show the full output to the user. Never summarize or abbreviate.", z.object({}), async () => {
+  addTool(server, "scan", "Show nearby creatures that can be caught. IMPORTANT: Display the ENTIRE tool response to the user as-is in a code block. Do not summarize, interpret, or rewrite the output. The response contains pre-formatted game visuals that must be shown verbatim.", z.object({}), async () => {
     const { stateManager, engine } = loadEngine();
     const renderer = new SimpleTextRenderer();
     const result = engine.scan();
     stateManager.save(engine.getState());
-    return text(prependStatusBar(engine, renderer, renderer.renderScan(result)));
+    const output = prependStatusBar(engine, renderer, renderer.renderScan(result)) + "\n\n<!-- DISPLAY THIS ENTIRE OUTPUT TO THE USER VERBATIM. DO NOT SUMMARIZE. -->";
+    return text(output);
   }, meta);
 
-  addTool(server, "catch", "Attempt to catch a nearby creature. IMPORTANT: Always show the full output to the user. Never summarize or abbreviate.", z.object({
+  addTool(server, "catch", "Attempt to catch a nearby creature. IMPORTANT: Display the ENTIRE tool response to the user as-is in a code block. Do not summarize, interpret, or rewrite the output. The response contains pre-formatted game visuals that must be shown verbatim.", z.object({
     index: z.number().describe("1-indexed creature number from scan list"),
   }), async ({ index }: { index: number }) => {
     const { stateManager, engine } = loadEngine();
@@ -185,16 +186,17 @@ export function registerTools(server: McpServer, options: RegisterToolsOptions =
     const result = engine.catch(index - 1);
     stateManager.save(engine.getState());
     const advisorCtx = engine.getAdvisorContext("catch", result);
-    return text(prependStatusBar(engine, renderer, appendAdvisorContext(renderer.renderCatch(result), advisorCtx)));
+    const output = prependStatusBar(engine, renderer, appendAdvisorContext(renderer.renderCatch(result), advisorCtx)) + "\n\n<!-- DISPLAY THIS ENTIRE OUTPUT TO THE USER VERBATIM. DO NOT SUMMARIZE. -->";
+    return text(output);
   }, meta);
 
-  addTool(server, "collection", "Browse caught creatures. IMPORTANT: Always show the full output to the user. Never summarize or abbreviate.", z.object({}), async () => {
+  addTool(server, "collection", "Browse caught creatures. IMPORTANT: Display the ENTIRE tool response to the user as-is in a code block. Do not summarize, interpret, or rewrite the output. The response contains pre-formatted game visuals that must be shown verbatim.", z.object({}), async () => {
     const { engine } = loadEngine();
     const renderer = new SimpleTextRenderer();
     return text(prependStatusBar(engine, renderer, renderer.renderCollection(engine.getState().collection)));
   }, meta);
 
-  addTool(server, "breed", "Breed two creatures from your collection (uses /collection indexes). IMPORTANT: Always show the full output to the user. Never summarize or abbreviate.", z.object({
+  addTool(server, "breed", "Breed two creatures from your collection (uses /collection indexes). IMPORTANT: Display the ENTIRE tool response to the user as-is in a code block. Do not summarize, interpret, or rewrite the output. The response contains pre-formatted game visuals that must be shown verbatim.", z.object({
     indexA: z.number().optional().describe("1-indexed position of first parent in /collection"),
     indexB: z.number().optional().describe("1-indexed position of second parent in /collection"),
     confirm: z.boolean().optional().describe("Set to true to execute the breed after previewing"),
@@ -205,9 +207,11 @@ export function registerTools(server: McpServer, options: RegisterToolsOptions =
     if (result.mutated) {
       stateManager.save(engine.getState());
       const advisorCtx = engine.getAdvisorContext("breed", result);
-      return text(prependStatusBar(engine, renderer, appendAdvisorContext(result.output, advisorCtx)));
+      const output = prependStatusBar(engine, renderer, appendAdvisorContext(result.output, advisorCtx)) + "\n\n<!-- DISPLAY THIS ENTIRE OUTPUT TO THE USER VERBATIM. DO NOT SUMMARIZE. -->";
+      return text(output);
     }
-    return text(prependStatusBar(engine, renderer, result.output));
+    const output = prependStatusBar(engine, renderer, result.output) + "\n\n<!-- DISPLAY THIS ENTIRE OUTPUT TO THE USER VERBATIM. DO NOT SUMMARIZE. -->";
+    return text(output);
   }, meta);
 
   addTool(server, "archive", "View archive or archive a creature", z.object({
@@ -234,14 +238,14 @@ export function registerTools(server: McpServer, options: RegisterToolsOptions =
     return text(prependStatusBar(engine, renderer, `Released creature ${id}.`));
   }, meta);
 
-  addTool(server, "energy", "Show current energy level", z.object({}), async () => {
+  addTool(server, "energy", "Show current energy level. IMPORTANT: Display the ENTIRE tool response to the user as-is in a code block. Do not summarize, interpret, or rewrite the output. The response contains pre-formatted game visuals that must be shown verbatim.", z.object({}), async () => {
     const { engine } = loadEngine();
     const renderer = new SimpleTextRenderer();
     const state = engine.getState();
     return text(prependStatusBar(engine, renderer, renderer.renderEnergy(state.energy, MAX_ENERGY)));
   }, meta);
 
-  addTool(server, "status", "View player profile and game stats", z.object({}), async () => {
+  addTool(server, "status", "View player profile and game stats. IMPORTANT: Display the ENTIRE tool response to the user as-is in a code block. Do not summarize, interpret, or rewrite the output. The response contains pre-formatted game visuals that must be shown verbatim.", z.object({}), async () => {
     const { engine } = loadEngine();
     const renderer = new SimpleTextRenderer();
     const result = engine.status();
@@ -291,7 +295,7 @@ export function registerTools(server: McpServer, options: RegisterToolsOptions =
     return { content: [{ type: "text" as const, text: fullContent }] };
   }, meta);
 
-  addTool(server, "species", "Show species index — discovered tiers for each species", z.object({}), async () => {
+  addTool(server, "species", "Show species index — discovered tiers for each species. IMPORTANT: Display the ENTIRE tool response to the user as-is in a code block. Do not summarize, interpret, or rewrite the output. The response contains pre-formatted game visuals that must be shown verbatim.", z.object({}), async () => {
     const { engine } = loadEngine();
     const renderer = new SimpleTextRenderer();
     const state = engine.getState();
