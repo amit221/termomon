@@ -191,6 +191,13 @@ try {
       break;
     }
 
+    case "species": {
+      const currentState = engine.getState();
+      const speciesText = renderer.renderSpeciesIndex(currentState.speciesProgress);
+      output(engine.species(), speciesText);
+      break;
+    }
+
     default:
       console.log("Compi — Terminal Creature Collection Game\n");
       console.log("Commands:");
@@ -204,6 +211,7 @@ try {
       console.log("  energy                  Show current energy");
       console.log("  status                  Your profile");
       console.log("  settings [key] [value]  View/change settings");
+      console.log("  species                 Show species index");
       console.log("\nAdd --json for machine-readable output.");
       break;
   }

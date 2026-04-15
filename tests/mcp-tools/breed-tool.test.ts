@@ -197,7 +197,8 @@ describe("runBreedCommand — execute mode", () => {
 
     expect(result.mutated).toBe(true);
     expect(stripAnsi(result.output)).toMatch(/BREED SUCCESS/);
-    expect(engine.getState().collection.length).toBe(beforeCount - 1);
+    // Parents survive, child is added — collection grows by 1
+    expect(engine.getState().collection.length).toBe(beforeCount + 1);
     expect(engine.getState().energy).toBeLessThan(beforeEnergy);
   });
 });

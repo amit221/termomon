@@ -17,4 +17,5 @@ export {
   getSuggestedActions,
 } from "./engine/advisor";
 export { getCompanionOverview } from "./engine/companion";
+export { getSpeciesIndex, SpeciesIndexEntry } from "./engine/species-index";
 export * from "./types";

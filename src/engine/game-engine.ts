@@ -10,6 +10,7 @@ import { recordDiscovery } from "./discovery";
 import { grantXp } from "./progression";
 import { loadConfig } from "../config/loader";
 import { buildAdvisorContext } from "./advisor";
+import { getSpeciesIndex, SpeciesIndexEntry } from "./species-index";
 
 export class GameEngine {
   private state: GameState;
@@ -25,7 +26,16 @@ export class GameEngine {
 
     // Grant session energy bonus if this tick carries a new session ID.
     const sessionId = tick.sessionId ?? String(tick.timestamp);
+    const isNewSession = this.state.currentSessionId !== sessionId;
     processSessionEnergyBonus(this.state, sessionId);
+
+    if (isNewSession) {
+      this.state.sessionBreedCount = 0;
+      const now = Date.now();
+      for (const key of Object.keys(this.state.breedCooldowns)) {
+        if (this.state.breedCooldowns[key] <= now) delete this.state.breedCooldowns[key];
+      }
+    }
 
     const energyGained = processEnergyGain(this.state, tick.timestamp);
 
@@ -109,6 +119,10 @@ export class GameEngine {
       discoveredCount: this.state.discoveredSpecies.length,
       speciesProgress: this.state.speciesProgress,
     };
+  }
+
+  species(): SpeciesIndexEntry[] {
+    return getSpeciesIndex(this.state.speciesProgress);
   }
 
   getDiscoveredSpecies(): string[] {

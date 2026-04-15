@@ -80,12 +80,16 @@ describe("listBreedable", () => {
     expect(listBreedable(state)).toEqual([]);
   });
 
-  it("returns empty array when no same-species pairs exist", () => {
+  it("returns both creatures when they are different species (cross-species breeding allowed)", () => {
     const state = makeState([
       makeCreature("a", "sparkmouse", [C_EYES, C_MOUTH, C_BODY, C_TAIL]),
       makeCreature("b", "flamecub", [C_EYES, C_MOUTH, C_BODY, C_TAIL]),
     ]);
-    expect(listBreedable(state)).toEqual([]);
+    const result = listBreedable(state);
+    // Cross-species breeding is allowed — both creatures have 1 partner each
+    expect(result).toHaveLength(2);
+    expect(result[0].partnerCount).toBe(1);
+    expect(result[1].partnerCount).toBe(1);
   });
 
   it("returns both creatures of a single same-species pair with partnerCount=1", () => {
@@ -103,7 +107,7 @@ describe("listBreedable", () => {
     expect(result[1].partnerCount).toBe(1);
   });
 
-  it("counts multiple partners correctly", () => {
+  it("counts multiple partners correctly (cross-species allowed)", () => {
     const state = makeState([
       makeCreature("a", "sparkmouse", [C_EYES, C_MOUTH, C_BODY, C_TAIL]),
       makeCreature("b", "sparkmouse", [C_EYES, C_MOUTH, C_BODY, C_TAIL]),
@@ -111,11 +115,10 @@ describe("listBreedable", () => {
       makeCreature("d", "flamecub", [C_EYES, C_MOUTH, C_BODY, C_TAIL]),
     ]);
     const result = listBreedable(state);
-    // a, b, c each have 2 partners; d is alone
-    expect(result).toHaveLength(3);
-    expect(result.map((e) => e.creature.id).sort()).toEqual(["a", "b", "c"]);
+    // All 4 creatures are breedable (cross-species allowed), each has 3 partners
+    expect(result).toHaveLength(4);
     for (const entry of result) {
-      expect(entry.partnerCount).toBe(2);
+      expect(entry.partnerCount).toBe(3);
     }
   });
 
@@ -187,13 +190,14 @@ describe("listPartnersFor", () => {
     expect(view.partners[0].partnerIndex).toBe(3);
   });
 
-  it("excludes different-species creatures", () => {
+  it("includes different-species creatures (cross-species breeding allowed)", () => {
     const state = makeState([
       makeCreature("a", "compi", [C_EYES, C_MOUTH, C_BODY, C_TAIL]),
       makeCreature("b", "flikk", [C_EYES, C_MOUTH, C_BODY, C_TAIL]),
     ]);
     const view = listPartnersFor(state, 1);
-    expect(view.partners).toHaveLength(0);
+    expect(view.partners).toHaveLength(1);
+    expect(view.partners[0].creature.id).toBe("b");
   });
 
   it("throws when index is out of range (too high)", () => {

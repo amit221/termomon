@@ -160,8 +160,9 @@ describe("core loop integration", () => {
     expect(result.child.generation).toBe(1);
     expect(result.child.speciesId).toBe("compi");
 
-    expect(state.collection).toHaveLength(1);
-    expect(state.collection[0].id).toBe(result.child.id);
+    // Parents survive, child added — collection grows from 2 to 3
+    expect(state.collection).toHaveLength(3);
+    expect(state.collection.find(c => c.id === result.child.id)).toBeDefined();
     expect(state.profile.totalMerges).toBe(1);
   });
 

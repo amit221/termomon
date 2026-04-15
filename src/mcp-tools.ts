@@ -287,5 +287,12 @@ export function registerTools(server: McpServer, options: RegisterToolsOptions =
     return { content: [{ type: "text" as const, text: fullContent }] };
   }, meta);
 
+  addTool(server, "species", "Show species index — discovered tiers for each species", z.object({}), async () => {
+    const { engine } = loadEngine();
+    const renderer = new SimpleTextRenderer();
+    const state = engine.getState();
+    return text(prependStatusBar(engine, renderer, renderer.renderSpeciesIndex(state.speciesProgress)));
+  }, meta);
+
   // companion_pick removed — agent presents choices directly in conversation text
 }

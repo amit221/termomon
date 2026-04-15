@@ -344,8 +344,12 @@ export class SimpleTextRenderer implements Renderer {
   }
 
   renderBreedResult(result: BreedResult): string {
-    const { child, parentA, parentB, inheritedFrom } = result;
+    const { child, parentA, parentB, inheritedFrom, isCrossSpecies, upgrades } = result;
     const lines: string[] = [];
+
+    if (isCrossSpecies) {
+      lines.push(`  ${YELLOW}${BOLD}★ HYBRID SPECIES BORN!${RESET}`);
+    }
 
     lines.push(`  ${GREEN}${BOLD}✦ BREED SUCCESS ✦${RESET}`);
     lines.push("");
@@ -363,9 +367,16 @@ export class SimpleTextRenderer implements Renderer {
       const parentName = from === "A" ? parentA.name : parentB.name;
       lines.push(`    ${DIM}${slot.slotId}${RESET} → ${from} (${parentName})`);
     }
-    lines.push("");
 
-    lines.push(`  ${DIM}Both parents consumed.${RESET}`);
+    if (upgrades && upgrades.length > 0) {
+      lines.push("");
+      for (const u of upgrades) {
+        const fromName = (["Common","Uncommon","Rare","Superior","Elite","Epic","Legendary","Mythic"])[u.fromRarity] ?? String(u.fromRarity);
+        const toName = (["Common","Uncommon","Rare","Superior","Elite","Epic","Legendary","Mythic"])[u.toRarity] ?? String(u.toRarity);
+        lines.push(`    ${YELLOW}↑ UP! ${u.slotId}: ${fromName} → ${toName}${RESET}`);
+      }
+    }
+
     lines.push("");
     lines.push(divider());
 
@@ -457,7 +468,44 @@ export class SimpleTextRenderer implements Renderer {
   }
 
   renderSpeciesIndex(progress: Record<string, boolean[]>): string {
-    return "Species index: coming soon";
+    const { getSpeciesIndex } = require("../engine/species-index");
+    const entries = getSpeciesIndex(progress);
+    if (!entries.length) return "No species discovered yet.";
+
+    const TIER_COLORS_ANSI: Record<number, string> = {
+      0: "\x1b[90m",
+      1: "\x1b[37m",
+      2: "\x1b[32m",
+      3: "\x1b[36m",
+      4: "\x1b[34m",
+      5: "\x1b[35m",
+      6: "\x1b[33m",
+      7: "\x1b[31m",
+    };
+
+    let out = "SPECIES INDEX\n\n";
+    const base = entries.filter((e: { isHybrid: boolean }) => !e.isHybrid);
+    const hybrids = entries.filter((e: { isHybrid: boolean }) => e.isHybrid);
+
+    for (const e of base) {
+      const dots = (e.tiers as boolean[]).map((t: boolean, i: number) =>
+        t ? `${TIER_COLORS_ANSI[i]}●${RESET}` : `${DIM}○${RESET}`
+      ).join(" ");
+      out += `  ${e.speciesId.padEnd(14)} ${dots}  ${e.discovered}/8\n`;
+    }
+
+    if (hybrids.length) {
+      out += "\n  ── HYBRIDS ──\n\n";
+      for (const e of hybrids) {
+        const dots = (e.tiers as boolean[]).map((t: boolean, i: number) =>
+          t ? `${TIER_COLORS_ANSI[i]}●${RESET}` : `${DIM}○${RESET}`
+        ).join(" ");
+        const name = e.speciesId.replace("hybrid_", "").replace("_", "×");
+        out += `  ${name.padEnd(14)} ${dots}  ${e.discovered}/8\n`;
+      }
+    }
+
+    return out;
   }
 
   renderNotification(notification: Notification): string {

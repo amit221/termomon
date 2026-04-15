@@ -106,14 +106,14 @@ describe("gameplay loop integration", () => {
     expect(breedResult.child).toBeDefined();
     expect(breedResult.child.generation).toBe(1);
     expect(breedResult.child.speciesId).toBe(creature1Species);
-    // Parents consumed, child added
-    expect(state.collection).toHaveLength(1);
-    expect(state.collection[0].id).toBe(breedResult.child.id);
+    // Parents survive, child added — collection grows from 2 to 3
+    expect(state.collection).toHaveLength(3);
+    expect(state.collection.find(c => c.id === breedResult.child.id)).toBeDefined();
 
-    // 5. Archive the child
+    // 5. Archive the child (parents still in collection, so archiving child leaves 2)
     const archiveResult = engine.archive(breedResult.child.id);
     expect(archiveResult.creature.archived).toBe(true);
-    expect(state.collection).toHaveLength(0);
+    expect(state.collection).toHaveLength(2);
     expect(state.archive).toHaveLength(1);
   });
 
@@ -202,8 +202,9 @@ describe("gameplay loop integration", () => {
     }
   });
 
-  test("cross-species breeding throws", () => {
+  test("cross-species breeding produces a hybrid child (no longer throws)", () => {
     const state = freshState();
+    state.energy = 30;
     const engine = new GameEngine(state);
 
     // Create two creatures of different species (fake second species)
@@ -217,8 +218,11 @@ describe("gameplay loop integration", () => {
     };
     state.collection.push(creatureA, creatureB);
 
-    expect(() => engine.breedExecute("xA", "xB", makeRng())).toThrow(
-      "Cannot breed different species"
-    );
+    // Cross-species is allowed — executeBreed succeeds
+    const result = engine.breedExecute("xA", "xB", makeRng());
+    expect(result.child).toBeDefined();
+    expect(result.isCrossSpecies).toBe(true);
+    // Collection grows from 2 to 3 (parents survive)
+    expect(state.collection).toHaveLength(3);
   });
 });

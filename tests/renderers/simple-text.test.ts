@@ -288,9 +288,9 @@ describe("renderBreedResult", () => {
     expect(out).toContain("B");
   });
 
-  test("contains consumed message", () => {
+  test("contains breed success message", () => {
     const out = renderer.renderBreedResult(result);
-    expect(out).toContain("consumed");
+    expect(out).toContain("BREED SUCCESS");
   });
 });
 
