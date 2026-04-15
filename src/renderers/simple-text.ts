@@ -295,7 +295,7 @@ export class SimpleTextRenderer implements Renderer {
     const lines: string[] = [];
 
     lines.push(`  Breed ${BOLD}#${parentAIndex} ${parentA.name}${RESET} ${DIM}(Lv ${parentA.generation})${RESET} + ${BOLD}#${parentBIndex} ${parentB.name}${RESET} ${DIM}(Lv ${parentB.generation})${RESET}?`);
-    lines.push(`  ${DIM}Both parents will be consumed.${RESET}`);
+    lines.push(`  ${DIM}Parents kept. Child added to collection.${RESET}`);
     lines.push("");
 
     lines.push(`  ${BOLD}Parent A: #${parentAIndex} ${parentA.name}${RESET}`);

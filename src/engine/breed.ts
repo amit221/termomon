@@ -411,37 +411,55 @@ function buildSlotInheritance(
     ? (Object.keys(species.traitPools) as SlotId[])
     : SLOT_IDS;
 
-  return speciesSlots.map((slotId) => {
+  return speciesSlots.map((slotId): SlotInheritance | null => {
     const slotA = parentA.slots.find((s) => s.slotId === slotId);
     const slotB = parentB.slots.find((s) => s.slotId === slotId);
 
     if (!slotA || !slotB) {
-      throw new Error(`Missing slot ${slotId} on parent`);
+      // Skip slots that one parent doesn't have (e.g., whiski has no body slot)
+      return null;
     }
 
-    const traitA = getTraitDefinition(speciesId, slotA.variantId);
-    const traitB = getTraitDefinition(speciesId, slotB.variantId);
+    // Use each parent's own species for trait lookup (cross-species safe)
+    const traitA = getTraitDefinition(parentA.speciesId, slotA.variantId);
+    const traitB = getTraitDefinition(parentB.speciesId, slotB.variantId);
 
     if (!traitA || !traitB) {
-      throw new Error(
-        `Trait definition not found for slot ${slotId}`
-      );
+      // Fallback for cross-species or missing traits
+      const fallbackTrait: TraitDefinition = { id: "unknown", name: "Unknown", art: "?", spawnRate: 0.5 };
+      return {
+        slotId,
+        parentAVariant: traitA || fallbackTrait,
+        parentBVariant: traitB || fallbackTrait,
+        parentAChance: 0.5,
+        parentBChance: 0.5,
+      };
     }
 
-    const synergyBoost = calculateSynergyBoost(
-      speciesId,
-      slotId,
-      parentA,
-      parentB,
-      speciesSlots
-    );
+    const isCrossSpecies = parentA.speciesId !== parentB.speciesId;
+    let chanceA: number, chanceB: number;
 
-    const { chanceA, chanceB } = calculateInheritance(
-      speciesId,
-      slotA.variantId,
-      slotB.variantId,
-      synergyBoost
-    );
+    if (isCrossSpecies) {
+      // Cross-species: simple 50/50, no synergy
+      chanceA = 0.5;
+      chanceB = 0.5;
+    } else {
+      const synergyBoost = calculateSynergyBoost(
+        speciesId,
+        slotId,
+        parentA,
+        parentB,
+        speciesSlots
+      );
+      const result = calculateInheritance(
+        speciesId,
+        slotA.variantId,
+        slotB.variantId,
+        synergyBoost
+      );
+      chanceA = result.chanceA;
+      chanceB = result.chanceB;
+    }
 
     return {
       slotId,
@@ -450,7 +468,7 @@ function buildSlotInheritance(
       parentAChance: chanceA,
       parentBChance: chanceB,
     };
-  });
+  }).filter((x): x is SlotInheritance => x !== null);
 }
 
 /**

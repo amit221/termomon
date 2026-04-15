@@ -2313,28 +2313,42 @@ function buildSlotInheritance(speciesId, parentA, parentB) {
     const slotA = parentA.slots.find((s) => s.slotId === slotId);
     const slotB = parentB.slots.find((s) => s.slotId === slotId);
     if (!slotA || !slotB) {
-      throw new Error(`Missing slot ${slotId} on parent`);
+      return null;
     }
-    const traitA = getTraitDefinition(speciesId, slotA.variantId);
-    const traitB = getTraitDefinition(speciesId, slotB.variantId);
+    const traitA = getTraitDefinition(parentA.speciesId, slotA.variantId);
+    const traitB = getTraitDefinition(parentB.speciesId, slotB.variantId);
     if (!traitA || !traitB) {
-      throw new Error(
-        `Trait definition not found for slot ${slotId}`
-      );
+      const fallbackTrait = { id: "unknown", name: "Unknown", art: "?", spawnRate: 0.5 };
+      return {
+        slotId,
+        parentAVariant: traitA || fallbackTrait,
+        parentBVariant: traitB || fallbackTrait,
+        parentAChance: 0.5,
+        parentBChance: 0.5
+      };
     }
-    const synergyBoost = calculateSynergyBoost(
-      speciesId,
-      slotId,
-      parentA,
-      parentB,
-      speciesSlots
-    );
-    const { chanceA, chanceB } = calculateInheritance(
-      speciesId,
-      slotA.variantId,
-      slotB.variantId,
-      synergyBoost
-    );
+    const isCrossSpecies = parentA.speciesId !== parentB.speciesId;
+    let chanceA, chanceB;
+    if (isCrossSpecies) {
+      chanceA = 0.5;
+      chanceB = 0.5;
+    } else {
+      const synergyBoost = calculateSynergyBoost(
+        speciesId,
+        slotId,
+        parentA,
+        parentB,
+        speciesSlots
+      );
+      const result = calculateInheritance(
+        speciesId,
+        slotA.variantId,
+        slotB.variantId,
+        synergyBoost
+      );
+      chanceA = result.chanceA;
+      chanceB = result.chanceB;
+    }
     return {
       slotId,
       parentAVariant: traitA,
@@ -2342,7 +2356,7 @@ function buildSlotInheritance(speciesId, parentA, parentB) {
       parentAChance: chanceA,
       parentBChance: chanceB
     };
-  });
+  }).filter((x) => x !== null);
 }
 function previewBreed(state2, parentAId, parentBId) {
   if (parentAId === parentBId) {
@@ -3025,7 +3039,7 @@ var SimpleTextRenderer = class {
     const { parentA, parentB, parentAIndex, parentBIndex, slotInheritance, energyCost } = preview;
     const lines = [];
     lines.push(`  Breed ${BOLD}#${parentAIndex} ${parentA.name}${RESET} ${DIM}(Lv ${parentA.generation})${RESET} + ${BOLD}#${parentBIndex} ${parentB.name}${RESET} ${DIM}(Lv ${parentB.generation})${RESET}?`);
-    lines.push(`  ${DIM}Both parents will be consumed.${RESET}`);
+    lines.push(`  ${DIM}Parents kept. Child added to collection.${RESET}`);
     lines.push("");
     lines.push(`  ${BOLD}Parent A: #${parentAIndex} ${parentA.name}${RESET}`);
     for (const line of renderCreatureSideBySide(parentA.slots, parentA.speciesId)) {
