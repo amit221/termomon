@@ -50,13 +50,24 @@ Each creature has 4 slots: eyes, mouth, body, tail. Each slot has a trait drawn 
 
 Each trait has its own rarity, shown by its color. Same trait name can appear at any rarity. The trait is the WHAT, the color is the HOW GOOD.
 
-| Color | Rarity | Catch Spawn Weight |
-|-------|--------|-------------------|
-| grey | Common | 50% |
-| green | Uncommon | 28% |
-| cyan | Rare | 14% |
-| magenta | Epic | 6% |
-| yellow | Legendary | 2% |
+8-color rarity system (expanded from current 6):
+
+| Color | Rarity | Spawn Weight |
+|-------|--------|-------------|
+| grey | Common | 28% |
+| white | Uncommon | 22% |
+| green | Rare | 18% |
+| cyan | Superior | 14% |
+| blue | Elite | 8% |
+| magenta | Epic | 5% |
+| yellow | Legendary | 3% |
+| red | Mythic | 2% |
+
+New colors `green` and `blue` are added between white and magenta. This adds 2 new rarity tiers (Rare, Elite) giving a smoother progression curve with more steps to breed through.
+
+Trait rarity is independent of trait identity. Any trait can spawn at any rarity — "Pebble Gaze" can be grey (common) or red (mythic). On catch, each of the 4 trait slots gets a random rarity based on the spawn weights above.
+
+`CreatureColor` type and `CREATURE_COLORS` array updated to include all 8.
 
 A creature's 4 traits each have independent rarity colors. Example:
 
@@ -106,7 +117,7 @@ Each slot resolves independently:
 - Child gets that trait
 - Rarity upgrade chance: **35%** to go up one tier
 - If either parent has higher rarity, child gets the higher rarity, **15%** chance to go up further
-- Can't exceed Legendary
+- Can't exceed Mythic (red, rarity index 7)
 
 **Parents have different traits in a slot:**
 - 50/50 which trait the child gets
@@ -171,19 +182,21 @@ Per species, tracks which rarity tiers the player has seen on ANY trait of that 
 ```
 SPECIES INDEX
 
-  Compi          3/5 tiers    ● ● ● ○ ○
-                               C U R E L
+  Compi         ● ● ● ● ○ ○ ○ ○   4/8
+                C U R S E E L M
 
-  Pyrax          2/5 tiers    ● ● ○ ○ ○
-                               C U R E L
+  Pyrax         ● ● ○ ○ ○ ○ ○ ○   2/8
+                C U R S E E L M
 
-  Felavian       1/5 tiers    ● ○ ○ ○ ○
-  (Hybrid)                     C U R E L
+  ── HYBRIDS ──
+
+  Emberlotl     ● ● ○ ○ ○ ○ ○ ○   2/8
+  (Compi×Pyrax) C U R S E E L M
 ```
 
-A tier is "discovered" when the player has caught OR bred a creature of that species with at least one trait at that rarity level. This is cumulative — once discovered, it stays.
+C=Common, U=Uncommon, R=Rare, S=Superior, E=Elite, E=Epic, L=Legendary, M=Mythic. Filled dots colored by their tier. A tier is "discovered" when the player has caught OR bred a creature of that species with at least one trait at that rarity level. Cumulative — once discovered, stays.
 
-Implementation: `state.speciesProgress: Record<string, boolean[]>` — maps speciesId to array of 5 booleans (one per rarity tier).
+Implementation: `state.speciesProgress: Record<string, boolean[]>` — maps speciesId to array of 8 booleans (one per rarity tier).
 
 ## Energy Economy
 
@@ -340,21 +353,16 @@ The hybrid reveal is the BIG moment — new name, new art (AI-generated), descri
 │  SPECIES INDEX              7 + 2    │
 ╰──────────────────────────────────────╯
 
-  Compi         ● ● ● ○ ○   3/5
-                C U R E L
+  Compi         ● ● ● ● ○ ○ ○ ○   4/8
+                C U R S E E L M
 
-  Pyrax         ● ● ○ ○ ○   2/5
-                C U R E L
-
-  Flikk         ● ○ ○ ○ ○   1/5
-                C U R E L
-
-  ...
+  Pyrax         ● ● ○ ○ ○ ○ ○ ○   2/8
+                C U R S E E L M
 
   ── HYBRIDS ──
 
-  Emberlotl     ● ● ○ ○ ○   2/5
-  (Compi×Pyrax) C U R E L
+  Emberlotl     ● ● ○ ○ ○ ○ ○ ○   2/8
+  (Compi×Pyrax) C U R S E E L M
 ```
 
 Filled dots are colored by their rarity tier. Empty dots are dim. Shows base species first, then hybrids below a separator.
@@ -376,19 +384,96 @@ Same as current but:
 - `/upgrade` command
 - `/quest` command
 
+## Catch Rate & Cost (Updated)
+
+Currently catch rate and energy cost use trait RANK (`_rN` suffix). With ranks removed, these use the new rarity index (0-7) instead.
+
+**Catch rate per trait**: `1.0 - (rarityIndex / 7) * 0.50`
+Average across 4 traits, minus fail penalty, clamped to [0.15, 0.90]. Same formula structure, just reads `slot.rarity` instead of extracting rank from variantId.
+
+**Energy cost**: `1 + floor(avgRarityRatio * 4)` where avgRarityRatio = average(slot.rarity) / 7. Range: 1-5. Same formula, new input source.
+
+## Progression / Leveling (Updated)
+
+With trait ranks removed, leveling no longer gates rank caps. New purpose:
+
+**Leveling gates RARITY BREEDING CEILING:**
+
+| Level | Max Breedable Rarity |
+|-------|---------------------|
+| 1-2 | Uncommon (white, index 1) |
+| 3-4 | Rare (green, index 2) |
+| 5-6 | Superior (cyan, index 3) |
+| 7-8 | Elite (blue, index 4) |
+| 9-10 | Epic (magenta, index 5) |
+| 11-12 | Legendary (yellow, index 6) |
+| 13+ | Mythic (red, index 7) |
+
+You can CATCH any rarity (luck-based). But breeding upgrades are capped by level. A level 1 player can catch a mythic creature but can't breed UP to mythic until level 13.
+
+This preserves the progression curve: early game = easy upgrades, late game = hard-earned.
+
+XP thresholds stay as-is. XP sources updated per the XP table in this spec.
+
+## AI Latency for Hybrid Creation
+
+Cross-species breeding calls `/create-species` which requires an AI response (5-30 seconds). The terminal must handle this gracefully:
+
+1. After `/breed 1 2` (cross-species), immediately show: `Creating hybrid species...` with a spinner
+2. The breed trait resolution happens locally (instant) — the child's traits are determined immediately
+3. The AI call generates the species frame, name, and description IN PARALLEL
+4. Once AI responds: show the full hybrid reveal with "★ HYBRID SPECIES BORN!"
+5. If AI fails/times out: use a fallback — alternate parent frames (like GENEX did), generate a portmanteau name, generic description. The breed still succeeds.
+
+## Collection Management
+
+Parents survive breeding. With 3 breeds/session and 15 max collection, players hit the cap quickly. Archive is now a KEY mechanic:
+
+- **Before breeding**: if collection is 14/15, the breed can proceed (child fills slot 15). At 15/15, must archive first.
+- **Archive prompt**: when collection is full and player tries to breed or catch, suggest archiving: "Collection full. Use /archive <n> to make room."
+- **Archive is NOT deletion**: archived creatures preserve species progress data. They count toward the species index.
+- **Strategic archiving**: players keep their best breeders and archive weaker creatures. The decision of WHAT to archive adds strategy.
+
+## Scan Layout
+
+Spawn batches produce 3-5 creatures. Terminal width may not fit 5 side-by-side.
+
+- **3 creatures**: show side-by-side (3 columns)
+- **4-5 creatures**: show in 2 rows (3 top + 1-2 bottom) or a compact list format
+
+For narrow terminals (<100 chars), fall back to vertical stacked cards (one per creature).
+
+The renderer already handles width detection — adapt the scan display to available width.
+
+## Cleanup — Old Design Artifacts
+
+The following files from the over-engineered spec iteration should be removed:
+
+- `docs/design-analysis/breeding-rules.md` — replaced by this spec
+- `docs/design-analysis/breeding-recipes-eyes.csv` — no longer applicable
+- `docs/design-analysis/breeding-recipes-mouth.csv` — no longer applicable
+- `docs/design-analysis/breeding-recipes-body.csv` — no longer applicable
+- `docs/design-analysis/breeding-recipes-tail.csv` — no longer applicable
+- `docs/design-analysis/trait-relationships.md` — no longer applicable
+- `docs/design-analysis/trait-pool.csv` — no longer applicable
+- `docs/design-analysis/breeding-table.md` — no longer applicable
+- `scripts/generate-breeding-tables.js` — no longer applicable
+
+These will be deleted as part of the implementation.
+
 ## State Migration (v5 → v6)
 
 ### New Fields
 
 ```typescript
 // On GameState
-speciesProgress: Record<string, boolean[]>  // speciesId → [com,unc,rar,epi,leg]
+speciesProgress: Record<string, boolean[]>  // speciesId → 8 booleans, one per rarity tier
 personalSpecies: SpeciesDefinition[]        // AI-generated hybrid species
 sessionBreedCount: number                   // reset each session, max 3
 breedCooldowns: Record<string, number>      // "idA+idB" → cooldown expiry timestamp
 
 // On CreatureSlot
-rarity: number  // 0-4 index into rarity table (replaces rank in variantId)
+rarity: number  // 0-7 index into 8-tier rarity table (replaces rank in variantId)
 ```
 
 ### Removed Fields
@@ -414,7 +499,7 @@ totalQuests: number
 ### Migration Logic
 
 For existing creatures:
-1. Extract rank from variantId suffix → map to rarity (rank 0-1 = common, 2-3 = uncommon, 4-5 = rare, 6 = epic, 7 = legendary)
+1. Extract rank from variantId suffix → map to rarity (rank 0 = common, 1 = uncommon, 2 = rare, 3 = superior, 4 = elite, 5 = epic, 6 = legendary, 7 = mythic)
 2. Strip `_rN` suffix from variantId
 3. Set `slot.rarity` from extracted rank
 4. Initialize `speciesProgress` from existing collection (scan all creatures, mark discovered tiers)
