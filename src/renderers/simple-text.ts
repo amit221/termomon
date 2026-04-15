@@ -244,7 +244,7 @@ export class SimpleTextRenderer implements Renderer {
     }
 
     lines.push(divider());
-    lines.push(`  ${WHITE}Use ${BLUE}/catch <number>${WHITE} to attempt a catch${RESET}`);
+    lines.push(`  ${WHITE}${BLUE}/catch${WHITE} to capture  ·  ${BLUE}/scan${WHITE} for a new one${RESET}`);
 
     if (result.nextBatchInMs > 0) {
       const mins = Math.ceil(result.nextBatchInMs / 60000);

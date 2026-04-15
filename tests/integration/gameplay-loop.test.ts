@@ -66,9 +66,9 @@ describe("gameplay loop integration", () => {
     const engine = new GameEngine(state);
     const rng = makeRng(42);
 
-    // 1. Scan — should auto-spawn creatures
+    // 1. Scan — should auto-spawn creatures (result shows 1 at a time)
     const scanResult = engine.scan(rng);
-    expect(scanResult.nearby.length).toBeGreaterThanOrEqual(3);
+    expect(scanResult.nearby.length).toBe(1);
     expect(scanResult.nearby[0].creature.speciesId).toBeDefined();
 
     // 2. Catch the first creature (rng < 0.90 base catch rate — very likely)
@@ -86,9 +86,9 @@ describe("gameplay loop integration", () => {
     state.batch = null;
     state.nearby = [];
     const scan2 = engine.scan(rng);
-    expect(scan2.nearby.length).toBeGreaterThanOrEqual(3);
+    expect(scan2.nearby.length).toBe(1);
 
-    // Find a creature of the same species in nearby
+    // Find a creature of the same species in nearby (check full state.nearby queue)
     const sameSpeciesIdx = state.nearby.findIndex(c => c.speciesId === creature1Species);
     // If there's no match (unlikely with only 1 species), use index 0 anyway
     const catchIdx = sameSpeciesIdx >= 0 ? sameSpeciesIdx : 0;

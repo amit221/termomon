@@ -115,7 +115,7 @@ describe("core loop integration", () => {
     const rng = makeRng(42);
 
     const scanResult = engine.scan(rng);
-    expect(scanResult.nearby.length).toBeGreaterThanOrEqual(3);
+    expect(scanResult.nearby.length).toBe(1);
 
     const xpBefore = state.profile.xp;
     const discoveredBefore = state.discoveredSpecies.length;

@@ -5,6 +5,15 @@ description: Generate a new creature species using AI
 
 You are creating a brand new creature species for Compi, a terminal creature collection game. You will generate EVERYTHING autonomously — the species concept, name, ASCII art, traits, and rarity distribution.
 
+## Breed Mode (Hybrid Species)
+
+If the player just bred a cross-species hybrid (you'll see a `<hybrid_species_context>` block in the conversation), you are in **breed mode**. In this case:
+- The child creature already exists in the player's collection
+- Use the parent species names and child traits from the context as inspiration for the new species
+- The species ID should follow the pattern `hybrid_<speciesA>_<speciesB>` (e.g. `hybrid_compi_flikk`)
+- Skip straight to Step 2 (species generation) — no need to ask what to make
+- The art and traits should blend both parent aesthetics
+
 ## Step 1: Read existing species
 
 Read all files in `config/species/` to understand what creatures already exist. Note their:

@@ -155,7 +155,12 @@ export function runBreedCommand(
 
   if (confirm) {
     const result = engine.breedExecute(parentAId, parentBId);
-    return { output: renderer.renderBreedResult(result), mutated: true };
+    let output = renderer.renderBreedResult(result);
+    if (result.isCrossSpecies) {
+      const traitSummary = result.child.slots.map(s => `${s.slotId}: ${s.variantId}`).join(", ");
+      output += `\n\n<hybrid_species_context>\nA new hybrid species was born from ${result.parentA.speciesId} × ${result.parentB.speciesId}!\nParent A: ${result.parentA.name} (${result.parentA.speciesId})\nParent B: ${result.parentB.name} (${result.parentB.speciesId})\nChild traits: ${traitSummary}\n\nThis hybrid creature is unique — it combines traits from two different species. Feel free to describe its appearance, personality, and lore. When the player is ready to formalize this as a new species, they can use /create-species.\n</hybrid_species_context>`;
+    }
+    return { output, mutated: true };
   }
   const preview = engine.breedPreview(parentAId, parentBId);
   return { output: renderer.renderBreedPreview(preview), mutated: false };
