@@ -1,4 +1,4 @@
-// src/types.ts — Compi v5
+// src/types.ts — Compi v6
 
 // --- Slots (4) ---
 
@@ -100,8 +100,6 @@ export interface PlayerProfile {
   currentStreak: number;
   longestStreak: number;
   lastActiveDate: string;
-  totalUpgrades: number;
-  totalQuests: number;
 }
 
 export interface GameSettings {
@@ -109,7 +107,7 @@ export interface GameSettings {
 }
 
 export interface GameState {
-  version: number; // 5
+  version: number; // 6
   profile: PlayerProfile;
   collection: CollectionCreature[];
   archive: CollectionCreature[];
@@ -121,47 +119,13 @@ export interface GameState {
   recentTicks: Tick[];
   claimedMilestones: string[];
   settings: GameSettings;
-  gold: number;
   discoveredSpecies: string[];
-  activeQuest: ActiveQuest | null;
-  sessionUpgradeCount: number;
   currentSessionId: string;
-}
-
-// --- Quest ---
-export interface ActiveQuest {
-  id: string;
-  creatureIds: string[];
-  startedAtSession: number;
-  sessionsRemaining: number;
-  teamPower: number;
-}
-
-// --- Upgrade ---
-export interface UpgradeResult {
-  creatureId: string;
-  creatureName: string;
-  speciesId: string;
-  slots: CreatureSlot[];
-  slotId: SlotId;
-  fromRank: number;
-  toRank: number;
-  goldCost: number;
-}
-
-// --- Quest Result ---
-export interface QuestStartResult {
-  quest: ActiveQuest;
-  creaturesLocked: string[];
-  creatures: { name: string; speciesId: string; slots: CreatureSlot[] }[];
-}
-
-export interface QuestCompleteResult {
-  questId: string;
-  goldEarned: number;
-  xpEarned: number;
-  creaturesReturned: string[];
-  creatures: { name: string; speciesId: string; slots: CreatureSlot[] }[];
+  // v6 new fields
+  speciesProgress: Record<string, boolean[]>;
+  personalSpecies: SpeciesDefinition[];
+  sessionBreedCount: number;
+  breedCooldowns: Record<string, number>;
 }
 
 // --- Level Up ---
@@ -184,9 +148,9 @@ export interface DiscoveryResult {
 export type AdvisorMode = "autopilot" | "advisor";
 
 export interface SuggestedAction {
-  type: "catch" | "upgrade" | "merge" | "quest" | "scan" | "release" | "collection";
+  type: "catch" | "breed" | "scan" | "release" | "collection";
   label: string;
-  cost: { gold?: number; energy?: number };
+  cost: { energy?: number };
   priority: number;
   reasoning: string;
   target?: {
@@ -204,22 +168,13 @@ export interface ProgressInfo {
   xpPercent: number;
   nextSpeciesUnlock: { species: string; level: number } | null;
   bestTrait: { creatureName: string; slot: SlotId; rank: number; tierName: string } | null;
-  nearestTierThreshold: {
-    creatureName: string;
-    slot: SlotId;
-    currentRank: number;
-    targetRank: number;
-    method: "upgrade" | "merge";
-  } | null;
-  teamPower: number;
-  nextPowerMilestone: number;
   collectionSize: number;
   collectionMax: number;
-  gold: number;
   energy: number;
   energyMax: number;
   discoveredCount: number;
   totalSpecies: number;
+  speciesProgress: Record<string, boolean[]>;
 }
 
 export interface AdvisorContext {
@@ -241,17 +196,6 @@ export interface NearbyHighlight {
   totalRarity: number;
 }
 
-export interface UpgradeOpportunity {
-  creatureId: string;
-  creatureName: string;
-  slotId: SlotId;
-  currentRank: number;
-  goldCost: number;
-  /** True if this upgrade pushes the trait into a new rarity tier */
-  nearTier: boolean;
-  tierName: string;
-}
-
 export interface BreedablePair {
   indexA: number;
   nameA: string;
@@ -264,9 +208,6 @@ export interface CompanionOverview {
   progress: ProgressInfo;
   nearbyHighlights: NearbyHighlight[];
   breedablePairs: BreedablePair[];
-  upgradeOpportunities: UpgradeOpportunity[];
-  questStatus: "available" | "in_progress" | "complete" | "no_creatures";
-  questSessionsRemaining: number | null;
   suggestedActions: SuggestedAction[];
 }
 
@@ -333,6 +274,8 @@ export interface BreedResult {
   parentA: CollectionCreature;
   parentB: CollectionCreature;
   inheritedFrom: Record<SlotId, "A" | "B">;
+  isCrossSpecies: boolean;
+  upgrades: { slotId: SlotId; fromRarity: number; toRarity: number }[];
 }
 
 export interface BreedableEntry {
@@ -391,9 +334,8 @@ export interface StatusResult {
   energy: number;
   nearbyCount: number;
   batchAttemptsRemaining: number;
-  gold: number;
   discoveredCount: number;
-  activeQuest: ActiveQuest | null;
+  speciesProgress: Record<string, boolean[]>;
 }
 
 export interface TickResult {
@@ -512,9 +454,7 @@ export interface Renderer {
   renderStatus(result: StatusResult): string;
   renderNotification(notification: Notification): string;
   renderBreedTable(table: BreedTable): string;
-  renderUpgradeResult(result: UpgradeResult): string;
-  renderQuestStart(result: QuestStartResult): string;
-  renderQuestComplete(result: QuestCompleteResult): string;
+  renderSpeciesIndex(progress: Record<string, boolean[]>): string;
   renderLevelUp(result: LevelUpResult): string;
   renderDiscovery(result: DiscoveryResult): string;
   renderStatusBar(progress: ProgressInfo): string;
