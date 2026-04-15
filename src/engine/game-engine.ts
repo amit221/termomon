@@ -56,20 +56,18 @@ export class GameEngine {
   }
 
   scan(rng: () => number = Math.random): ScanResult {
-    // If player scans again with creatures already in the queue, the previously
-    // shown creature "escaped" — remove it so the next one is revealed.
-    if (this.state.nearby.length > 0) {
-      this.state.nearby.shift();
-    }
-
-    // Auto-spawn a new batch if the queue is now empty
+    // If no creatures nearby, spawn a fresh batch
     if (this.state.nearby.length === 0) {
       spawnBatch(this.state, Date.now(), rng);
+    } else if (this.state.nearby.length > 1) {
+      // Player scanned again without catching — previous creature "escaped", show next
+      this.state.nearby.shift();
     }
+    // If only 1 left and player scans again, keep showing it (don't remove the last one)
 
     // Return only the first creature — one at a time
-    const nearby: ScanEntry[] = this.state.nearby.slice(0, 1).map((creature) => ({
-      index: 0,
+    const nearby: ScanEntry[] = this.state.nearby.slice(0, 1).map((creature, i) => ({
+      index: i,
       creature,
       catchRate: calculateCatchRate(creature.speciesId, creature.slots, this.state.batch?.failPenalty ?? 0),
       energyCost: calculateEnergyCost(creature.speciesId, creature.slots),

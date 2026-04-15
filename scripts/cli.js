@@ -2771,14 +2771,13 @@ var GameEngine = class {
     return { notifications, spawned, energyGained, despawned };
   }
   scan(rng = Math.random) {
-    if (this.state.nearby.length > 0) {
-      this.state.nearby.shift();
-    }
     if (this.state.nearby.length === 0) {
       spawnBatch(this.state, Date.now(), rng);
+    } else if (this.state.nearby.length > 1) {
+      this.state.nearby.shift();
     }
-    const nearby = this.state.nearby.slice(0, 1).map((creature) => ({
-      index: 0,
+    const nearby = this.state.nearby.slice(0, 1).map((creature, i) => ({
+      index: i,
       creature,
       catchRate: calculateCatchRate(creature.speciesId, creature.slots, this.state.batch?.failPenalty ?? 0),
       energyCost: calculateEnergyCost(creature.speciesId, creature.slots)
