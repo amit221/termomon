@@ -40,8 +40,8 @@ Each compi belongs to one of **7 species** and is built from a handful of trait 
 
 - **Zero context-switching** — the game lives inside your coding agent, not a separate app
 - **Your work fuels the game** — compis spawn from your actual coding activity
-- **Real depth** — 7 species, 6 rarity tiers, weighted catch rates, breeding & inheritance, streaks, leveling
-- **Every compi is unique** — species × trait variants × 6 colors = hundreds of millions of combos
+- **Real depth** — 7 species, 8 rarity tiers, weighted catch rates, breeding with rarity upgrades, cross-species hybrids, streaks, leveling
+- **Every compi is unique** — species × trait variants × 8 colors = hundreds of millions of combos
 - **Lightweight** — hooks only, no background processes, no performance impact
 - **Open source** — MIT licensed, community-driven
 
@@ -132,14 +132,16 @@ The companion shows real game output, adds strategic context to every option, an
 | Command | CLI | What it does |
 |---------|-----|-------------|
 | **`/play`** | — | **AI companion mode** — guided gameplay with strategic insights |
-| `/scan` | `compi scan` | Show nearby compis with traits, catch rates, and energy costs |
-| `/catch [n]` | `compi catch [n]` | Catch compi #N from the current batch |
-| `/collection` | `compi collection` | Browse your caught compis and their traits |
-| `/breed [a] [b]` | `compi breed [a] [b]` | Pair two same-species compis to produce a child that inherits their traits |
-| `/archive [id]` | `compi archive [id]` | View your archive, or move a compi into it |
+| `/scan` | `compi scan` | Show one nearby creature — catch it or scan for the next |
+| `/catch` | `compi catch 1` | Catch the creature shown by scan |
+| `/collection` | `compi collection` | Browse your caught creatures and their traits |
+| `/breed [a] [b]` | `compi breed [a] [b]` | Breed any two creatures — same species upgrades rarity, cross-species creates hybrids |
+| `/species` | `compi species` | Species discovery index — track rarity tiers found per species |
+| `/archive [id]` | `compi archive [id]` | View your archive, or move a creature into it |
 | `/energy` | `compi energy` | Check your current energy level |
 | `/status` | `compi status` | Player profile, stats, and progress |
 | `/settings` | `compi settings` | Configure notifications and preferences |
+| `/create-species` | — | Generate a new creature species using AI |
 | `/list` | `compi list` | Show all available Compi commands |
 
 > **Tip — just use `/play`.** It's the easiest way to experience Compi. The AI reads your game state, suggests moves, and executes them when you say yes. Individual commands are still available for power users who prefer direct control.
