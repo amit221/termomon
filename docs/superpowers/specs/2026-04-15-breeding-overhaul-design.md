@@ -31,14 +31,18 @@ GENEX prototype (`Downloads/genex.html`) — the experience benchmark. The termi
 ## Core Loop
 
 ```
-/scan   → see nearby creatures (species + traits with rarity colors)
-/catch  → capture one (costs energy)
+/scan   → ONE creature appears (species + traits with rarity colors)
+         decide: /catch it or /scan again for a new one
+/catch  → capture it (costs energy). creature disappears.
+/scan   → new creature replaces the previous one
 /breed  → pick two from collection → child appears
          same species: trait inheritance + rarity upgrade chance
          diff species: AI generates hybrid via /create-species
 /collection → view your creatures
 /species    → (new) track rarity tier progress per species
 ```
+
+Scan is **free** — encourages exploration. Catch **costs energy** — the commitment. Each scan replaces the previous creature (pass or grab).
 
 ## Traits & Rarity
 
@@ -224,32 +228,33 @@ Removed: xpPerUpgrade (8), xpPerQuest (15).
 
 ## UI/UX — Terminal Output
 
-### `/scan` — Show Nearby Creatures
+### `/scan` — Reveal One Creature
 
-Show all nearby creatures at once (not one at a time). Each creature displays its ASCII art with trait colors, species name, and trait names with rarity colors.
+Shows ONE creature. Player decides: catch it or scan again.
 
 ```
 ╭──────────────────────────────────────╮
-│  3 creatures nearby     ⚡ 12 energy │
+│  Creature found!        ⚡ 12 energy │
 ╰──────────────────────────────────────╯
 
- 1)    ·.·            2)   ✦~✦           3)    ○w○
-      ( ω  )              <( △  )>            ( ◡  )
-      /░░░░\               /▓▓\               /····\
-       ~~/                  ☄☄                 ∿∿
+          ·.·
+         ( ω  )
+         /░░░░\
+          ~~/
 
-    Compi                 Pyrax               Flikk
-    Pebble Gaze (cyan)    Ember Gaze (grey)   Owl Sight (green)
-    Omega (magenta)       Flame (cyan)        Smile (grey)
-    Dots (grey)           Crystal (green)     Light (cyan)
-    Curl (green)          Comet (magenta)     Drift (grey)
+        Compi
 
-    catch cost: 2⚡       catch cost: 3⚡      catch cost: 1⚡
+  Pebble Gaze (cyan)     Omega (magenta)
+  Dots (grey)             Curl (green)
 
-  /catch 1   /catch 2   /catch 3
+  catch cost: 2⚡
+
+  /catch to capture  ·  /scan for a new one
 ```
 
-Each trait name is rendered in its rarity color. The creature's ASCII art uses the color of its highest-rarity trait.
+Each trait name rendered in its rarity color. ASCII art colored by highest-rarity trait. Scanning again replaces this creature — it's gone.
+
+Scanning is free. Catching costs energy.
 
 ### `/catch <n>` — Capture Result
 
@@ -433,17 +438,6 @@ Parents survive breeding. With 3 breeds/session and 15 max collection, players h
 - **Archive prompt**: when collection is full and player tries to breed or catch, suggest archiving: "Collection full. Use /archive <n> to make room."
 - **Archive is NOT deletion**: archived creatures preserve species progress data. They count toward the species index.
 - **Strategic archiving**: players keep their best breeders and archive weaker creatures. The decision of WHAT to archive adds strategy.
-
-## Scan Layout
-
-Spawn batches produce 3-5 creatures. Terminal width may not fit 5 side-by-side.
-
-- **3 creatures**: show side-by-side (3 columns)
-- **4-5 creatures**: show in 2 rows (3 top + 1-2 bottom) or a compact list format
-
-For narrow terminals (<100 chars), fall back to vertical stacked cards (one per creature).
-
-The renderer already handles width detection — adapt the scan display to available width.
 
 ## Cleanup — Old Design Artifacts
 
