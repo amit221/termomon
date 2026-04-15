@@ -7,7 +7,7 @@ import { logger } from "../logger";
 function defaultState(): GameState {
   const today = new Date().toISOString().split("T")[0];
   return {
-    version: 5,
+    version: 6,
     profile: {
       level: 1,
       xp: 0,
@@ -17,12 +17,10 @@ function defaultState(): GameState {
       currentStreak: 0,
       longestStreak: 0,
       lastActiveDate: today,
-      totalUpgrades: 0,
-      totalQuests: 0,
     },
     collection: [],
     archive: [],
-    energy: loadConfig().energy.maxEnergy,
+    energy: loadConfig().energy.startingEnergy,
     lastEnergyGainAt: Date.now(),
     nearby: [],
     batch: null,
@@ -32,11 +30,12 @@ function defaultState(): GameState {
     settings: {
       notificationLevel: "moderate",
     },
-    gold: 10,
     discoveredSpecies: [],
-    activeQuest: null,
-    sessionUpgradeCount: 0,
     currentSessionId: "",
+    speciesProgress: {},
+    personalSpecies: [],
+    sessionBreedCount: 0,
+    breedCooldowns: {},
   };
 }
 
@@ -100,6 +99,66 @@ function migrateV4toV5(raw: Record<string, unknown>): GameState {
   return state;
 }
 
+function migrateV5toV6(raw: Record<string, unknown>): GameState {
+  const state = raw as any;
+
+  // Strip _rN suffix from variantId, set rarity field on all creature slots
+  for (const list of [state.collection, state.nearby, state.archive]) {
+    if (Array.isArray(list)) {
+      for (const creature of list) {
+        if (Array.isArray(creature.slots)) {
+          for (const slot of creature.slots) {
+            const match = slot.variantId?.match(/_r(\d+)$/);
+            if (match) {
+              slot.rarity = parseInt(match[1], 10);
+              slot.variantId = slot.variantId.replace(/_r\d+$/, "");
+            } else {
+              slot.rarity = slot.rarity ?? 0;
+            }
+            // Update color to match new 8-color rarity system
+            const RARITY_TO_COLOR = ["grey", "white", "green", "cyan", "blue", "magenta", "yellow", "red"];
+            slot.color = RARITY_TO_COLOR[Math.min(slot.rarity, 7)] || "grey";
+          }
+        }
+      }
+    }
+  }
+
+  // Remove old fields
+  delete state.gold;
+  delete state.activeQuest;
+  delete state.sessionUpgradeCount;
+  if (state.profile) {
+    delete state.profile.totalUpgrades;
+    delete state.profile.totalQuests;
+  }
+
+  // Initialize speciesProgress from existing collection + archive
+  const progress: Record<string, boolean[]> = {};
+  for (const list of [state.collection, state.archive]) {
+    if (Array.isArray(list)) {
+      for (const creature of list) {
+        const sid = creature.speciesId;
+        if (!sid) continue;
+        if (!progress[sid]) progress[sid] = Array(8).fill(false);
+        for (const slot of creature.slots || []) {
+          const r = slot.rarity ?? 0;
+          if (r >= 0 && r < 8) progress[sid][r] = true;
+        }
+      }
+    }
+  }
+  state.speciesProgress = progress;
+
+  // Add new fields
+  state.personalSpecies = state.personalSpecies || [];
+  state.sessionBreedCount = 0;
+  state.breedCooldowns = {};
+
+  state.version = 6;
+  return state as GameState;
+}
+
 export class StateManager {
   constructor(private filePath: string) {}
 
@@ -112,34 +171,34 @@ export class StateManager {
         logger.info("Migrating state from v3 to v4", { path: this.filePath });
         const v4 = migrateV3toV4(raw);
         logger.info("Migrating state from v4 to v5", { path: this.filePath });
-        return migrateV4toV5(v4 as unknown as Record<string, unknown>);
+        const v5 = migrateV4toV5(v4 as unknown as Record<string, unknown>);
+        logger.info("Migrating state from v5 to v6", { path: this.filePath });
+        return migrateV5toV6(v5 as unknown as Record<string, unknown>);
       }
       if (version === 4) {
         logger.info("Migrating state from v4 to v5", { path: this.filePath });
-        return migrateV4toV5(raw);
+        const v5 = migrateV4toV5(raw);
+        logger.info("Migrating state from v5 to v6", { path: this.filePath });
+        return migrateV5toV6(v5 as unknown as Record<string, unknown>);
       }
-      if (version !== 5) {
+      if (version === 5) {
+        logger.info("Migrating state from v5 to v6", { path: this.filePath });
+        return migrateV5toV6(raw);
+      }
+      if (version !== 6) {
         logger.info("Incompatible state version, creating fresh state", { path: this.filePath });
         return defaultState();
       }
-      // Backfill lastSpawnAt for existing v5 states
+      // Backfill lastSpawnAt for existing v6 states
       const state = raw as unknown as GameState;
       if (state.lastSpawnAt === undefined) {
         (state as any).lastSpawnAt = 0;
       }
-      // Backfill color to slots for existing v4 states; remove creature-level color
-      for (const list of [state.collection, state.nearby, state.archive]) {
-        if (Array.isArray(list)) {
-          for (const c of list as any[]) {
-            delete c.color;
-            if (Array.isArray(c.slots)) {
-              for (const slot of c.slots) {
-                if (!slot.color) slot.color = "white";
-              }
-            }
-          }
-        }
-      }
+      // Ensure v6 fields are present (backfill for states that may be missing them)
+      if (!state.speciesProgress) (state as any).speciesProgress = {};
+      if (!state.personalSpecies) (state as any).personalSpecies = [];
+      if (state.sessionBreedCount === undefined) (state as any).sessionBreedCount = 0;
+      if (!state.breedCooldowns) (state as any).breedCooldowns = {};
       return state;
     } catch (err: unknown) {
       const errObj = err as Record<string, unknown>;
