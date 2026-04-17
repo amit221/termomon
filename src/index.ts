@@ -5,17 +5,9 @@ export { getVariantById, loadCreatureName } from "./config/traits";
 export { loadConfig, formatMessage } from "./config/loader";
 export { loadSpecies, getSpeciesById, getAllSpecies, pickSpecies, pickTraitForSlot, getTraitDefinition, getTraitRank } from "./config/species";
 export { previewBreed, executeBreed, calculateInheritance, listBreedable, listPartnersFor } from "./engine/breed";
-export { archiveCreature, releaseCreature, isCollectionFull } from "./engine/archive";
 export { calculateTraitRarityScore, calculateColorRarityScore, calculateSlotScore, calculateCreatureScore } from "./engine/rarity";
 export { recordDiscovery, isSpeciesDiscovered, getDiscoveryCount } from "./engine/discovery";
 export { logger } from "./logger";
-export {
-  buildAdvisorContext,
-  getProgressInfo,
-  getViableActions,
-  getAdvisorMode,
-  getSuggestedActions,
-} from "./engine/advisor";
-export { getCompanionOverview } from "./engine/companion";
+export { buildPool, drawCards, playCard, skipHand } from "./engine/cards";
 export { getSpeciesIndex, SpeciesIndexEntry } from "./engine/species-index";
 export * from "./types";

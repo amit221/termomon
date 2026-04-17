@@ -1,15 +1,13 @@
-import { GameState, Tick, TickResult, ScanResult, ScanEntry, CatchResult, BreedPreview, BreedResult, ArchiveResult, StatusResult, Notification, BreedTable, AdvisorContext } from "../types";
+import { GameState, Tick, TickResult, ScanResult, ScanEntry, CatchResult, BreedPreview, BreedResult, StatusResult, Notification, BreedTable } from "../types";
 import { processNewTick } from "./ticks";
 import { spawnBatch, cleanupBatch } from "./batch";
 import { attemptCatch, calculateCatchRate, calculateEnergyCost } from "./catch";
 import { processEnergyGain, processSessionEnergyBonus } from "./energy";
 import { previewBreed, executeBreed, buildBreedTable } from "./breed";
-import { archiveCreature, releaseCreature, isCollectionFull } from "./archive";
 import { SPAWN_INTERVAL_MS } from "../config/constants";
 import { recordDiscovery } from "./discovery";
 import { grantXp } from "./progression";
 import { loadConfig } from "../config/loader";
-import { buildAdvisorContext } from "./advisor";
 import { getSpeciesIndex, SpeciesIndexEntry } from "./species-index";
 
 export class GameEngine {
@@ -80,9 +78,6 @@ export class GameEngine {
   }
 
   catch(nearbyIndex: number, rng: () => number = Math.random): CatchResult {
-    if (isCollectionFull(this.state)) {
-      throw new Error("Collection is full (15 creatures). Archive or release a creature first.");
-    }
     const result = attemptCatch(this.state, nearbyIndex, rng);
     if (result.success) {
       const config = loadConfig();
@@ -107,19 +102,10 @@ export class GameEngine {
     return buildBreedTable(this.state);
   }
 
-  archive(creatureId: string): ArchiveResult {
-    return archiveCreature(this.state, creatureId);
-  }
-
-  release(creatureId: string): void {
-    return releaseCreature(this.state, creatureId);
-  }
-
   status(): StatusResult {
     return {
       profile: this.state.profile,
       collectionCount: this.state.collection.length,
-      archiveCount: ((this.state as any).archive ?? []).length,
       energy: this.state.energy,
       nearbyCount: this.state.nearby.length,
       batchAttemptsRemaining: this.state.batch?.attemptsRemaining ?? 0,
@@ -134,10 +120,6 @@ export class GameEngine {
 
   getDiscoveredSpecies(): string[] {
     return [...this.state.discoveredSpecies];
-  }
-
-  getAdvisorContext(action: string, result: unknown): AdvisorContext {
-    return buildAdvisorContext(action, result, this.state);
   }
 
   getState(): GameState {

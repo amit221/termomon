@@ -1,4 +1,4 @@
-import { GameState, CollectionCreature, MAX_COLLECTION_SIZE } from "../types";
+import { GameState, CollectionCreature } from "../types";
 import { GameEngine } from "../engine/game-engine";
 import { loadConfig } from "../config/loader";
 import { SimulationConfig, SimulationResult, SimAction, StrategyName, ActionType } from "./types";
@@ -39,7 +39,7 @@ function randomStrategy(state: GameState, _engine: GameEngine, rng: () => number
   const actions: Array<() => StrategyDecision> = [];
 
   // catch
-  if (state.nearby.length > 0 && state.collection.length < MAX_COLLECTION_SIZE) {
+  if (state.nearby.length > 0) {
     actions.push(() => ({
       type: "catch" as ActionType,
       detail: `nearby:${state.nearby.length}`,
@@ -47,16 +47,9 @@ function randomStrategy(state: GameState, _engine: GameEngine, rng: () => number
   }
 
   // breed
-  if (state.collection.length < MAX_COLLECTION_SIZE) {
-    const pairs = findBreedPairs(state);
-    if (pairs.length > 0) {
-      actions.push(() => ({ type: "breed" as ActionType, detail: `pairs:${pairs.length}` }));
-    }
-  }
-
-  // archive (if collection getting full)
-  if (state.collection.length >= MAX_COLLECTION_SIZE) {
-    actions.push(() => ({ type: "archive" as ActionType, detail: "collection_full" }));
+  const pairs = findBreedPairs(state);
+  if (pairs.length > 0) {
+    actions.push(() => ({ type: "breed" as ActionType, detail: `pairs:${pairs.length}` }));
   }
 
   // scan
@@ -71,27 +64,20 @@ function randomStrategy(state: GameState, _engine: GameEngine, rng: () => number
 // --- Strategy: greedy ---
 
 function greedyStrategy(state: GameState, _engine: GameEngine, _rng: () => number): StrategyDecision {
-  // Priority: catch > breed > archive
+  // Priority: catch > breed > scan
 
   // 1. catch
-  if (state.nearby.length > 0 && state.collection.length < MAX_COLLECTION_SIZE) {
+  if (state.nearby.length > 0) {
     return { type: "catch", detail: `nearby:${state.nearby.length}` };
   }
 
   // 2. breed
-  if (state.collection.length < MAX_COLLECTION_SIZE) {
-    const pairs = findBreedPairs(state);
-    if (pairs.length > 0) {
-      return { type: "breed", detail: `pairs:${pairs.length}` };
-    }
+  const pairs = findBreedPairs(state);
+  if (pairs.length > 0) {
+    return { type: "breed", detail: `pairs:${pairs.length}` };
   }
 
-  // 3. archive if full
-  if (state.collection.length >= MAX_COLLECTION_SIZE) {
-    return { type: "archive", detail: "collection_full" };
-  }
-
-  // 4. scan to get creatures
+  // 3. scan to get creatures
   return { type: "scan", detail: "look_around" };
 }
 
@@ -99,13 +85,8 @@ function greedyStrategy(state: GameState, _engine: GameEngine, _rng: () => numbe
 
 function passiveStrategy(state: GameState, _engine: GameEngine, _rng: () => number): StrategyDecision {
   // Only catches, never breeds
-  if (state.nearby.length > 0 && state.collection.length < MAX_COLLECTION_SIZE) {
+  if (state.nearby.length > 0) {
     return { type: "catch", detail: `nearby:${state.nearby.length}` };
-  }
-
-  // Archive if full to free space
-  if (state.collection.length >= MAX_COLLECTION_SIZE) {
-    return { type: "archive", detail: "collection_full" };
   }
 
   return { type: "scan", detail: "look_around" };
@@ -204,9 +185,6 @@ export class GameSimulator {
           if (state.nearby.length === 0) {
             return { tick, type, detail: "no_nearby_after_scan", success: false };
           }
-          if (state.collection.length >= MAX_COLLECTION_SIZE) {
-            return { tick, type, detail: "collection_full", success: false };
-          }
           const idx = Math.floor(rng() * state.nearby.length);
           const result = engine.catch(idx, rng);
           return {
@@ -218,9 +196,6 @@ export class GameSimulator {
         }
 
         case "breed": {
-          if (state.collection.length >= MAX_COLLECTION_SIZE) {
-            return { tick, type, detail: "collection_full", success: false };
-          }
           const pairs = findBreedPairs(state);
           if (pairs.length === 0) {
             return { tick, type, detail: "no_pairs", success: false };
@@ -236,35 +211,10 @@ export class GameSimulator {
           };
         }
 
-        case "archive": {
-          const active = state.collection.filter((c) => !c.archived);
-          if (active.length === 0) {
-            return { tick, type, detail: "no_creatures", success: false };
-          }
-          // Archive the last creature (least recently caught)
-          const target = active[active.length - 1];
-          engine.archive(target.id);
-          return {
-            tick,
-            type,
-            detail: `archived:${target.id}`,
-            success: true,
-          };
-        }
-
+        case "archive":
         case "release": {
-          const active = state.collection.filter((c) => !c.archived);
-          if (active.length === 0) {
-            return { tick, type, detail: "no_creatures", success: false };
-          }
-          const target = active[active.length - 1];
-          engine.release(target.id);
-          return {
-            tick,
-            type,
-            detail: `released:${target.id}`,
-            success: true,
-          };
+          // archive/release removed in v7
+          return { tick, type, detail: "removed", success: false };
         }
 
         default:

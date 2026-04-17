@@ -120,17 +120,6 @@ export class McpSmokeTester {
       }
     }
 
-    // archive — if collection > 1
-    results.push(
-      testTool("archive", false, () => {
-        const active = state.collection.filter((c) => !c.archived);
-        if (active.length > 1) {
-          const target = active[active.length - 1];
-          engine.archive(target.id);
-        }
-      })
-    );
-
     // --- Edge cases ---
 
     // catch index 999 (out of range)
@@ -144,20 +133,6 @@ export class McpSmokeTester {
     results.push(
       testTool("catch", true, () => {
         engine.catch(-1, rng);
-      })
-    );
-
-    // archive with nonexistent id
-    results.push(
-      testTool("archive", true, () => {
-        engine.archive("nonexistent-id");
-      })
-    );
-
-    // release with nonexistent id
-    results.push(
-      testTool("release", true, () => {
-        engine.release("nonexistent-id");
       })
     );
 

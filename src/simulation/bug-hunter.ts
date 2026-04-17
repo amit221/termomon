@@ -1,4 +1,4 @@
-import { GameState, MAX_COLLECTION_SIZE } from "../types";
+import { GameState } from "../types";
 import { loadConfig } from "../config/loader";
 import { GameSimulator } from "./game-simulator";
 import { Violation, StrategyName, SimulationResult } from "./types";
@@ -49,15 +49,6 @@ export function checkInvariants(result: SimulationResult): Violation[] {
     addViolation(
       "energy_exceeds_max",
       `energy=${state.energy} max=${config.energy.maxEnergy}`
-    );
-  }
-
-  // Collection: active (non-archived) count never exceeds MAX_COLLECTION_SIZE
-  const activeCreatures = state.collection.filter((c) => !c.archived);
-  if (activeCreatures.length > MAX_COLLECTION_SIZE) {
-    addViolation(
-      "collection_exceeds_max",
-      `activeCount=${activeCreatures.length} max=${MAX_COLLECTION_SIZE}`
     );
   }
 
