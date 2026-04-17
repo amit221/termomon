@@ -1,4 +1,4 @@
-// src/types.ts — Compi v6
+// src/types.ts — Compi v7
 
 // --- Slots (4) ---
 
@@ -49,10 +49,6 @@ export interface SpeciesDefinition {
   zones?: SlotId[]; // one per art line, maps line to slot rarity color
   traitPools: Partial<Record<SlotId, TraitDefinition[]>>;
 }
-
-// --- Collection ---
-
-export const MAX_COLLECTION_SIZE = 15;
 
 // --- Time ---
 
@@ -126,6 +122,8 @@ export interface GameState {
   personalSpecies: SpeciesDefinition[];
   sessionBreedCount: number;
   breedCooldowns: Record<string, number>;
+  /** v7: current drawn cards for /play, cleared after pick/skip */
+  currentHand?: CardRef[];
 }
 
 // --- Level Up ---
@@ -323,14 +321,9 @@ export interface BreedTable {
   species: BreedTableSpecies[];
 }
 
-export interface ArchiveResult {
-  creature: CollectionCreature;
-}
-
 export interface StatusResult {
   profile: PlayerProfile;
   collectionCount: number;
-  archiveCount: number;
   energy: number;
   nearbyCount: number;
   batchAttemptsRemaining: number;
@@ -430,6 +423,58 @@ export interface BalanceConfig {
   };
 }
 
+// --- Cards (v7) ---
+
+export interface CardRef {
+  id: string;
+  type: "catch" | "breed";
+  /** For catch cards: index into nearby[] */
+  nearbyIndex?: number;
+  /** For breed cards: indices into collection[] (0-based) */
+  parentIndices?: [number, number];
+}
+
+export interface CatchCardData {
+  nearbyIndex: number;
+  creature: NearbyCreature;
+  catchRate: number;
+  energyCost: number;
+}
+
+export interface BreedCardData {
+  parentA: { index: number; creature: CollectionCreature };
+  parentB: { index: number; creature: CollectionCreature };
+  upgradeChances: SlotUpgradeInfo[];
+  energyCost: number;
+}
+
+export interface SlotUpgradeInfo {
+  slotId: SlotId;
+  match: boolean;
+  upgradeChance: number;
+}
+
+export interface Card {
+  id: string;
+  type: "catch" | "breed";
+  label: string;
+  energyCost: number;
+  data: CatchCardData | BreedCardData;
+}
+
+export interface DrawResult {
+  cards: Card[];
+  empty: boolean;
+  noEnergy: boolean;
+}
+
+export interface PlayResult {
+  action: "catch" | "breed";
+  catchResult?: CatchResult;
+  breedResult?: BreedResult;
+  nextDraw: DrawResult;
+}
+
 // --- Renderer Interface ---
 
 export interface Renderer {
@@ -438,7 +483,6 @@ export interface Renderer {
   renderBreedPreview(preview: BreedPreview): string;
   renderBreedResult(result: BreedResult): string;
   renderCollection(collection: CollectionCreature[]): string;
-  renderArchive(archive: CollectionCreature[]): string;
   renderEnergy(energy: number, maxEnergy: number): string;
   renderStatus(result: StatusResult): string;
   renderNotification(notification: Notification): string;
@@ -450,4 +494,6 @@ export interface Renderer {
   renderActionMenu(entries: ActionMenuEntry[]): string;
   renderProgressPanel(progress: ProgressInfo): string;
   renderCompanionOverview(overview: CompanionOverview): string;
+  renderCardDraw(draw: DrawResult, energy: number, maxEnergy: number, profile: PlayerProfile): string;
+  renderPlayResult(result: PlayResult, energy: number, maxEnergy: number, profile: PlayerProfile): string;
 }
