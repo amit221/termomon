@@ -86,6 +86,13 @@ try {
       break;
     }
 
+    case "collection": {
+      const gameState = engine.getState();
+      const active = gameState.collection.filter(c => !c.archived);
+      output(active, renderer.renderCollection(active));
+      break;
+    }
+
     default:
       console.log("Compi — Terminal Creature Collection Game\n");
       console.log("Commands:");
@@ -93,6 +100,7 @@ try {
       console.log("  play                    Draw cards");
       console.log("  play [a|b|c]            Pick a card");
       console.log("  play s                  Skip hand (free redraw)");
+      console.log("  collection              View your creatures");
       console.log("\nAdd --json for machine-readable output.");
       break;
   }

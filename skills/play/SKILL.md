@@ -24,3 +24,4 @@ You are running the Compi game. Use the `play` MCP tool to interact.
 - Keep your commentary to 1 sentence max between turns
 - If the player says a letter or "skip", pass it as the choice
 - If the player wants to stop, just stop — no special command needed
+- If the player asks to see their creatures, use `/collection` instead

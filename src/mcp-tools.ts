@@ -124,6 +124,16 @@ export function registerTools(server: McpServer, options: RegisterToolsOptions =
     return makeText(output, options);
   }, meta);
 
+  addTool(server, "collection", "View your creature collection (free, no energy cost)", z.object({}), async () => {
+    const { engine } = loadEngine();
+    const state = engine.getState();
+    registerPersonalSpecies(state.personalSpecies);
+    const renderer = new SimpleTextRenderer();
+    const active = state.collection.filter((c: any) => !c.archived);
+    const output = renderer.renderCollection(active);
+    return makeText(output, options);
+  }, meta);
+
   addTool(server, "register_hybrid", "Register a newly bred hybrid species with AI-generated name and art", z.object({
     speciesId: z.string().describe("The hybrid species ID (e.g., hybrid_compi_pyrax)"),
     name: z.string().describe("Creative name for the hybrid species"),
