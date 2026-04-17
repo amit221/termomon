@@ -444,7 +444,6 @@ export class SimpleTextRenderer implements Renderer {
     lines.push(`  Catches:    ${p.totalCatches}`);
     lines.push(`  Merges:     ${p.totalMerges}`);
     lines.push(`  Collection: ${result.collectionCount} creatures`);
-    lines.push(`  Archive:    ${result.archiveCount} creatures`);
     lines.push(`  Discovered: ${result.discoveredCount} species`);
     lines.push(`  Streak:     ${p.currentStreak} days ${DIM}(best: ${p.longestStreak})${RESET}`);
     lines.push(`  Nearby:     ${result.nearbyCount} creatures`);

@@ -323,7 +323,6 @@ export interface BreedTable {
 export interface StatusResult {
   profile: PlayerProfile;
   collectionCount: number;
-  archiveCount: number;
   energy: number;
   nearbyCount: number;
   batchAttemptsRemaining: number;
