@@ -17,7 +17,6 @@ import {
   BreedTableSpecies,
   BreedTableRow,
   RARITY_COLORS,
-  MAX_COLLECTION_SIZE,
 } from "../types";
 import { loadConfig } from "../config/loader";
 import { getSpeciesById, getTraitDefinition } from "../config/species";
@@ -257,13 +256,6 @@ export function executeBreed(
     const remaining = Math.ceil((cooldownUntil - now) / 60000);
     throw new Error(
       `This pair is on cooldown for ${remaining} more minute(s).`
-    );
-  }
-
-  const nonArchived = state.collection.filter((c) => !c.archived);
-  if (nonArchived.length >= MAX_COLLECTION_SIZE) {
-    throw new Error(
-      `Collection is full (${MAX_COLLECTION_SIZE}). Archive a creature first.`
     );
   }
 

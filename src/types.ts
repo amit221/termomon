@@ -422,12 +422,6 @@ export interface BalanceConfig {
   };
 }
 
-export const MAX_COLLECTION_SIZE = 15;
-
-export interface ArchiveResult {
-  creature: CollectionCreature;
-}
-
 // --- Cards (v7) ---
 
 export interface CardRef {
