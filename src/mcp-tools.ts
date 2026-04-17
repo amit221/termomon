@@ -12,9 +12,8 @@ import { StateManager } from "./state/state-manager";
 import { GameEngine } from "./engine/game-engine";
 import { SimpleTextRenderer } from "./renderers/simple-text";
 import { MAX_ENERGY } from "./engine/energy";
-import { AdvisorContext, SlotId, SpeciesDefinition } from "./types";
-import { getProgressInfo } from "./engine/advisor";
-import { getCompanionOverview } from "./engine/companion";
+import { SlotId, SpeciesDefinition } from "./types";
+import { drawCards, playCard, skipHand } from "./engine/cards";
 
 const statePath =
   process.env.COMPI_STATE_PATH ||
@@ -39,25 +38,6 @@ export interface RegisterToolsOptions {
 }
 
 const displayPath = path.join(os.tmpdir(), "compi_display.txt");
-
-/**
- * Append advisor context as a structured JSON block after the ANSI display text.
- * Claude reads this block for narrator commentary and next-action suggestions.
- */
-function appendAdvisorContext(displayContent: string, advisorCtx: AdvisorContext): string {
-  const json = JSON.stringify(advisorCtx, null, 2);
-  return `${displayContent}\n\n<advisor_context>\n${json}\n</advisor_context>`;
-}
-
-/**
- * Prepend the status bar (energy, collection, XP%, level)
- * to any rendered screen output. Called by every MCP tool so players always
- * see their current game state at the top of every response.
- */
-function prependStatusBar(engine: GameEngine, renderer: SimpleTextRenderer, content: string): string {
-  const progress = getProgressInfo(engine.getState());
-  return renderer.renderStatusBar(progress) + "\n\n" + content;
-}
 
 function makeText(content: string, options: RegisterToolsOptions) {
   if (options.writeDisplayFile) {
@@ -100,206 +80,44 @@ function addTool<T extends z.ZodRawShape>(
   }
 }
 
-/**
- * Pure command-layer logic for the `breed` MCP tool. Extracted so the three
- * modes (list / partner / preview / execute) can be unit-tested without
- * constructing a real MCP server.
- *
- * Returns the rendered output and a flag indicating whether state mutated
- * (so the caller can decide whether to persist).
- */
-export function runBreedCommand(
-  engine: GameEngine,
-  renderer: SimpleTextRenderer,
-  args: { indexA?: number; indexB?: number; confirm?: boolean }
-): { output: string; mutated: boolean } {
-  const { indexA, indexB, confirm } = args;
-  const collection = engine.getState().collection;
-
-  // List mode: no indexes → show the species-grouped breed table
-  if (indexA === undefined && indexB === undefined) {
-    return {
-      output: renderer.renderBreedTable(engine.buildBreedTable()),
-      mutated: false,
-    };
-  }
-
-  // One-arg mode is no longer supported
-  if (indexA !== undefined && indexB === undefined) {
-    throw new Error(
-      "Pick two creatures to breed. Run /breed to see all breedable creatures, or /breed N M to preview a pair."
-    );
-  }
-  if (indexA === undefined && indexB !== undefined) {
-    throw new Error(
-      "indexA is required. Run /breed to see all breedable creatures, or /breed N M to preview a pair."
-    );
-  }
-
-  // Preview / execute mode
-  if (indexA === undefined || indexB === undefined) {
-    throw new Error("Both indexA and indexB are required to preview or confirm a breed.");
-  }
-  if (indexA < 1 || indexA > collection.length) {
-    throw new Error(
-      `No creature at index ${indexA}. You have ${collection.length} creatures.`
-    );
-  }
-  if (indexB < 1 || indexB > collection.length) {
-    throw new Error(
-      `No creature at index ${indexB}. You have ${collection.length} creatures.`
-    );
-  }
-  const parentAId = collection[indexA - 1].id;
-  const parentBId = collection[indexB - 1].id;
-
-  if (confirm) {
-    const result = engine.breedExecute(parentAId, parentBId);
-    let output = renderer.renderBreedResult(result);
-    if (result.isCrossSpecies) {
-      output += `\n\n<hybrid_species_context>\nIMPORTANT: You MUST now generate a hybrid species. Do this immediately — do not ask the player first.\n\nCreate:\n1. A creative name blending both parent species themes (e.g. "Emberlotl" for compi × pyrax)\n2. ASCII art (3-4 lines) combining visual elements from both parents\n3. A one-line flavor description\n\nThen call the register_hybrid tool with:\n- speciesId: "${result.child.speciesId}"\n- name: your generated name\n- art: your generated ASCII art (newline-separated)\n- description: your flavor text\n</hybrid_species_context>`;
-    }
-    return { output, mutated: true };
-  }
-  const preview = engine.breedPreview(parentAId, parentBId);
-  return { output: renderer.renderBreedPreview(preview), mutated: false };
-}
-
 export function registerTools(server: McpServer, options: RegisterToolsOptions = {}): void {
-  const text = (content: string) => makeText(content, options);
   const meta = options.appMeta;
 
-  addTool(server, "scan", "Show nearby creatures that can be caught. IMPORTANT: Display the ENTIRE tool response to the user as-is in a code block. Do not summarize, interpret, or rewrite the output. The response contains pre-formatted game visuals that must be shown verbatim.", z.object({}), async () => {
+  addTool(server, "play", "Play the game — draw cards or pick one", z.object({
+    choice: z.enum(["a", "b", "c", "s"]).optional().describe("Pick a card (a/b/c) or skip (s). Omit for initial draw."),
+  }), async (args) => {
     const { stateManager, engine } = loadEngine();
+    const state = engine.getState();
     const renderer = new SimpleTextRenderer();
-    const result = engine.scan();
-    stateManager.save(engine.getState());
-    const output = prependStatusBar(engine, renderer, renderer.renderScan(result)) + "\n\n<!-- DISPLAY THIS ENTIRE OUTPUT TO THE USER VERBATIM. DO NOT SUMMARIZE. -->";
-    return text(output);
-  }, meta);
 
-  addTool(server, "catch", "Attempt to catch a nearby creature. IMPORTANT: Display the ENTIRE tool response to the user as-is in a code block. Do not summarize, interpret, or rewrite the output. The response contains pre-formatted game visuals that must be shown verbatim.", z.object({
-    index: z.number().describe("1-indexed creature number from scan list"),
-  }), async ({ index }: { index: number }) => {
-    const { stateManager, engine } = loadEngine();
-    const renderer = new SimpleTextRenderer();
-    const result = engine.catch(index - 1);
-    stateManager.save(engine.getState());
-    const advisorCtx = engine.getAdvisorContext("catch", result);
-    const output = prependStatusBar(engine, renderer, appendAdvisorContext(renderer.renderCatch(result), advisorCtx)) + "\n\n<!-- DISPLAY THIS ENTIRE OUTPUT TO THE USER VERBATIM. DO NOT SUMMARIZE. -->";
-    return text(output);
-  }, meta);
+    // Process ticks (energy/spawns)
+    engine.processTick({ timestamp: Date.now(), sessionId: state.currentSessionId }, Math.random);
 
-  addTool(server, "collection", "Browse caught creatures. IMPORTANT: Display the ENTIRE tool response to the user as-is in a code block. Do not summarize, interpret, or rewrite the output. The response contains pre-formatted game visuals that must be shown verbatim.", z.object({}), async () => {
-    const { engine } = loadEngine();
-    const renderer = new SimpleTextRenderer();
-    return text(prependStatusBar(engine, renderer, renderer.renderCollection(engine.getState().collection)));
-  }, meta);
+    let output: string;
 
-  addTool(server, "breed", "Breed two creatures from your collection (uses /collection indexes). IMPORTANT: Display the ENTIRE tool response to the user as-is in a code block. Do not summarize, interpret, or rewrite the output. The response contains pre-formatted game visuals that must be shown verbatim.", z.object({
-    indexA: z.number().optional().describe("1-indexed position of first parent in /collection"),
-    indexB: z.number().optional().describe("1-indexed position of second parent in /collection"),
-    confirm: z.boolean().optional().describe("Set to true to execute the breed after previewing"),
-  }), async ({ indexA, indexB, confirm }: { indexA?: number; indexB?: number; confirm?: boolean }) => {
-    const { stateManager, engine } = loadEngine();
-    const renderer = new SimpleTextRenderer();
-    const result = runBreedCommand(engine, renderer, { indexA, indexB, confirm });
-    if (result.mutated) {
-      stateManager.save(engine.getState());
-      const advisorCtx = engine.getAdvisorContext("breed", result);
-      const output = prependStatusBar(engine, renderer, appendAdvisorContext(result.output, advisorCtx)) + "\n\n<!-- DISPLAY THIS ENTIRE OUTPUT TO THE USER VERBATIM. DO NOT SUMMARIZE. -->";
-      return text(output);
-    }
-    const output = prependStatusBar(engine, renderer, result.output) + "\n\n<!-- DISPLAY THIS ENTIRE OUTPUT TO THE USER VERBATIM. DO NOT SUMMARIZE. -->";
-    return text(output);
-  }, meta);
-
-  addTool(server, "archive", "View archive or archive a creature", z.object({
-    id: z.string().optional().describe("Creature ID to archive (omit to view archive)"),
-  }), async ({ id }: { id?: string }) => {
-    const { stateManager, engine } = loadEngine();
-    const renderer = new SimpleTextRenderer();
-    if (id) {
-      const result = engine.archive(id);
-      stateManager.save(engine.getState());
-      return text(prependStatusBar(engine, renderer, `Archived ${result.creature.name}.`));
+    if (!args.choice) {
+      // Initial draw
+      const draw = drawCards(state, Math.random);
+      output = renderer.renderCardDraw(draw, state.energy, MAX_ENERGY, state.profile);
+    } else if (args.choice === "s") {
+      // Skip — new turn costs 1 energy
+      const draw = drawCards(state, Math.random);
+      output = renderer.renderCardDraw(draw, state.energy, MAX_ENERGY, state.profile);
     } else {
-      return text(prependStatusBar(engine, renderer, renderer.renderArchive((engine.getState() as any).archive ?? [])));
-    }
-  }, meta);
+      const choiceIndex = args.choice.charCodeAt(0) - 97; // 'a'=0, 'b'=1, 'c'=2
 
-  addTool(server, "release", "Permanently release a creature", z.object({
-    id: z.string().describe("Creature ID to release"),
-  }), async ({ id }: { id: string }) => {
-    const { stateManager, engine } = loadEngine();
-    const renderer = new SimpleTextRenderer();
-    engine.release(id);
-    stateManager.save(engine.getState());
-    return text(prependStatusBar(engine, renderer, `Released creature ${id}.`));
-  }, meta);
-
-  addTool(server, "energy", "Show current energy level. IMPORTANT: Display the ENTIRE tool response to the user as-is in a code block. Do not summarize, interpret, or rewrite the output. The response contains pre-formatted game visuals that must be shown verbatim.", z.object({}), async () => {
-    const { engine } = loadEngine();
-    const renderer = new SimpleTextRenderer();
-    const state = engine.getState();
-    return text(prependStatusBar(engine, renderer, renderer.renderEnergy(state.energy, MAX_ENERGY)));
-  }, meta);
-
-  addTool(server, "status", "View player profile and game stats. IMPORTANT: Display the ENTIRE tool response to the user as-is in a code block. Do not summarize, interpret, or rewrite the output. The response contains pre-formatted game visuals that must be shown verbatim.", z.object({}), async () => {
-    const { engine } = loadEngine();
-    const renderer = new SimpleTextRenderer();
-    const result = engine.status();
-    return text(prependStatusBar(engine, renderer, renderer.renderStatus(result)));
-  }, meta);
-
-  addTool(server, "settings", "View or change game settings", z.object({
-    key: z.string().optional().describe("Setting key: 'notifications'"),
-    value: z.string().optional().describe("New value for the setting"),
-  }), async ({ key, value }: { key?: string; value?: string }) => {
-    const { stateManager, engine } = loadEngine();
-    const gameState = engine.getState();
-    if (key && value) {
-      if (key === "notifications") {
-        gameState.settings.notificationLevel = value as "minimal" | "moderate" | "off";
+      // Handle breed pass (choice "b" on a single breed card)
+      if (state.currentHand?.length === 1 && state.currentHand[0].type === "breed" && args.choice === "b") {
+        const draw = skipHand(state, Math.random);
+        output = renderer.renderCardDraw(draw, state.energy, MAX_ENERGY, state.profile);
+      } else {
+        const result = playCard(state, choiceIndex, Math.random);
+        output = renderer.renderPlayResult(result, state.energy, MAX_ENERGY, state.profile);
       }
-      stateManager.save(gameState);
-      return text(`Settings updated: ${key} = ${value}`);
     }
-    const settings = gameState.settings;
-    return text(`SETTINGS\n\nNotifications: ${settings.notificationLevel}`);
-  }, meta);
 
-  addTool(server, "companion", "Get a full game overview with strategic insights for the companion AI", z.object({}), async () => {
-    const { stateManager, engine } = loadEngine();
-    const renderer = new SimpleTextRenderer();
-    const state = engine.getState();
-    const overview = getCompanionOverview(state);
-    // Display file gets only the rendered ANSI (status bar + overview with numbered picks)
-    const rendered = prependStatusBar(engine, renderer, renderer.renderCompanionOverview(overview));
-    if (options.writeDisplayFile) {
-      fs.writeFileSync(displayPath, rendered);
-    }
-    if (options.onOutput) {
-      options.onOutput(rendered);
-    }
-    // MCP response includes the rendered display AND JSON for Claude to parse
-    const json = JSON.stringify(overview, null, 2);
-    const fullContent = `${rendered}\n\n<companion_overview>\n${json}\n</companion_overview>`;
-    if (options.renderHtml) {
-      const html = options.renderHtml(rendered);
-      return { content: [
-        { type: "text" as const, text: fullContent },
-        { type: "resource" as any, resource: { uri: `ui://compi/result-${Date.now()}.html`, mimeType: "text/html;profile=mcp-app", text: html } },
-      ] };
-    }
-    return { content: [{ type: "text" as const, text: fullContent }] };
-  }, meta);
-
-  addTool(server, "species", "Show species index — discovered tiers for each species. IMPORTANT: Display the ENTIRE tool response to the user as-is in a code block. Do not summarize, interpret, or rewrite the output. The response contains pre-formatted game visuals that must be shown verbatim.", z.object({}), async () => {
-    const { engine } = loadEngine();
-    const renderer = new SimpleTextRenderer();
-    const state = engine.getState();
-    return text(prependStatusBar(engine, renderer, renderer.renderSpeciesIndex(state.speciesProgress)));
+    stateManager.save(state);
+    return makeText(output, options);
   }, meta);
 
   addTool(server, "register_hybrid", "Register a newly bred hybrid species with AI-generated name and art", z.object({
@@ -312,7 +130,7 @@ export function registerTools(server: McpServer, options: RegisterToolsOptions =
     const state = engine.getState();
 
     if (state.personalSpecies.find((s: SpeciesDefinition) => s.id === speciesId)) {
-      return text(`Hybrid species "${name}" (${speciesId}) is already registered.`);
+      return makeText(`Hybrid species "${name}" (${speciesId}) is already registered.`, options);
     }
 
     const artLines = art.split("\n");
@@ -330,8 +148,6 @@ export function registerTools(server: McpServer, options: RegisterToolsOptions =
     stateManager.save(state);
 
     const artDisplay = artLines.join("\n");
-    return text(`★ Hybrid species "${name}" registered!\n\n${artDisplay}\n\n"${description}"`);
+    return makeText(`★ Hybrid species "${name}" registered!\n\n${artDisplay}\n\n"${description}"`, options);
   }, meta);
-
-  // companion_pick removed — agent presents choices directly in conversation text
 }
