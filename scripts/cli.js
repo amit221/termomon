@@ -2260,8 +2260,9 @@ function executeBreed(state2, parentAId, parentBId, rng = Math.random) {
   const maxRarity = rarityBreedCaps[levelIndex] ?? 7;
   const slotIds = [];
   const speciesA = getSpeciesById(parentA.speciesId);
-  if (speciesA) {
-    slotIds.push(...Object.keys(speciesA.traitPools));
+  const poolKeys = speciesA ? Object.keys(speciesA.traitPools) : [];
+  if (poolKeys.length > 0) {
+    slotIds.push(...poolKeys);
   } else {
     slotIds.push(...SLOT_IDS);
   }
@@ -3647,6 +3648,7 @@ try {
           output(draw, renderer.renderCardDraw(draw, gameState.energy, MAX_ENERGY, profile));
         } else {
           const result = playCard(gameState, index);
+          registerPersonalSpecies(gameState.personalSpecies);
           save();
           output(result, renderer.renderPlayResult(result, gameState.energy, MAX_ENERGY, profile));
         }
