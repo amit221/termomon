@@ -2,6 +2,21 @@
 
 All notable changes to this project are documented in this file. This file is maintained automatically by [release-please](https://github.com/googleapis/release-please) based on [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [1.2.0](https://github.com/amit221/compi/compare/v1.1.0...v1.2.0) (2026-04-18)
+
+
+### Features
+
+* add HTML template foundation and HtmlAppRenderer for Cursor MCP Apps ([b218e1b](https://github.com/amit221/compi/commit/b218e1b53857fa0626a7a0b9a76de8f62ca11ff5))
+* add HTTP sidecar server for Cursor iframe interactivity ([7f12523](https://github.com/amit221/compi/commit/7f12523f244be3e0aeb18a9f2cfe7fc8038ccbf4))
+* wire HtmlAppRenderer and sidecar into Cursor MCP server ([036b828](https://github.com/amit221/compi/commit/036b82845c7527c73cc3fab0dfd63ef9a022bd9b))
+
+
+### Bug Fixes
+
+* hybrid breed produces proper slots and art in result screen ([f2de813](https://github.com/amit221/compi/commit/f2de813f9405844c04d89e1e83fdb943d23bfeb0))
+* overhaul Cursor UI — compact layout, rich animations, remove sidecar clicks ([937672d](https://github.com/amit221/compi/commit/937672de6eef74245ea76f779bf0c269667b23a5))
+
 ## [1.1.0](https://github.com/amit221/compi/compare/v1.0.0...v1.1.0) (2026-04-18)
 
 
