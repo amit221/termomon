@@ -29,9 +29,9 @@ echo "Source:  $REPO_ROOT"
 echo "Target:  $INSTALL_DIR"
 echo ""
 
-# 1. Check dist/ exists
-if [ ! -f "$REPO_ROOT/dist/cli.js" ]; then
-  echo "ERROR: dist/ not found. Run 'npm run build' first."
+# 1. Check scripts/ bundle exists
+if [ ! -f "$REPO_ROOT/scripts/mcp-server-cursor.js" ]; then
+  echo "ERROR: scripts/mcp-server-cursor.js not found. Run 'npm run bundle' first."
   exit 1
 fi
 

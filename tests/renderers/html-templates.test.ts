@@ -50,7 +50,7 @@ describe("html-templates", () => {
       expect(html).toContain("--bg-primary");
       expect(html).toContain("--bg-card");
       expect(html).toContain(".game-card");
-      expect(html).toContain("@keyframes slideUp");
+      expect(html).toContain("@keyframes cardDeal");
     });
 
     it("does not include sidecar script when port is null", () => {
@@ -59,18 +59,17 @@ describe("html-templates", () => {
       expect(html).not.toContain("pickCard");
     });
 
-    it("includes sidecar script with correct port when provided", () => {
+    it("ignores sidecar port (sidecar removed)", () => {
       const html = wrapPage("", { sidecarPort: 9123 });
-      expect(html).toContain("SIDECAR_PORT = 9123");
-      expect(html).toContain("pickCard");
-      expect(html).toContain("skipTurn");
-      expect(html).toContain("127.0.0.1");
+      // Sidecar was removed — port is accepted but not embedded
+      expect(html).not.toContain("SIDECAR_PORT");
+      expect(html).toContain("<!DOCTYPE html>");
     });
   });
 
   describe("BASE_CSS", () => {
     it("includes key CSS variables", () => {
-      expect(BASE_CSS).toContain("--bg-primary: #0a0a0f");
+      expect(BASE_CSS).toContain("--bg-primary: #080810");
       expect(BASE_CSS).toContain("--accent: #7c5cff");
       expect(BASE_CSS).toContain("--font-mono");
     });
@@ -82,10 +81,11 @@ describe("html-templates", () => {
     });
 
     it("includes animation keyframes", () => {
-      expect(BASE_CSS).toContain("@keyframes slideUp");
+      expect(BASE_CSS).toContain("@keyframes cardDeal");
       expect(BASE_CSS).toContain("@keyframes heartbeat");
-      expect(BASE_CSS).toContain("@keyframes burst");
       expect(BASE_CSS).toContain("@keyframes shake");
+      expect(BASE_CSS).toContain("@keyframes cardShine");
+      expect(BASE_CSS).toContain("@keyframes dotGlow");
     });
   });
 

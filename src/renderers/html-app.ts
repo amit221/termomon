@@ -1,6 +1,6 @@
 /**
  * HtmlAppRenderer — renders Compi game UI as full HTML documents
- * for Cursor MCP Apps iframes. Terminal vibe, game-like polish.
+ * for Cursor MCP Apps iframes. Terminal hacker vibe, game-like polish.
  */
 
 import {
@@ -31,7 +31,6 @@ import { buildAppHtml } from "./ansi-to-html";
 import { SimpleTextRenderer } from "./simple-text";
 import {
   wrapPage,
-  RARITY_HEX,
   RARITY_NAMES,
   rarityHex,
   RESULT_AUTO_DISMISS_SCRIPT,
@@ -140,21 +139,14 @@ function renderTraitsHtml(slots: CreatureSlot[], speciesId: string): string {
 /**
  * Render a single catch card as HTML.
  */
-function renderCatchCardHtml(
-  card: Card,
-  letter: string,
-  sidecarPort: number | null,
-): string {
+function renderCatchCardHtml(card: Card, letter: string): string {
   const data = card.data as CatchCardData;
   const creature = data.creature;
   const rate = Math.round(data.catchRate * 100);
   const speciesDisplay = creature.speciesId.charAt(0).toUpperCase() + creature.speciesId.slice(1);
+  const rateClass = rate >= 70 ? "card-rate-high" : rate < 40 ? "card-rate-low" : "card-rate";
 
-  const clickAttr = sidecarPort != null
-    ? ` onclick="pickCard('${letter.toLowerCase()}')" `
-    : "";
-
-  return `<div class="game-card" data-choice="${letter.toLowerCase()}" ${clickAttr}>
+  return `<div class="game-card" data-choice="${letter.toLowerCase()}">
   <div class="card-badge">${letter.toUpperCase()}</div>
   <div class="card-type-banner">catch</div>
   <div class="card-art">${renderCreatureArtHtml(creature.slots, creature.speciesId)}</div>
@@ -162,7 +154,7 @@ function renderCatchCardHtml(
   <div class="card-traits">${renderTraitsHtml(creature.slots, creature.speciesId)}</div>
   <div class="card-footer">
     <span class="card-energy">&#9889; ${data.energyCost}</span>
-    <span class="card-rate">${rate}%</span>
+    <span class="${rateClass}">${rate}%</span>
   </div>
 </div>`;
 }
@@ -170,21 +162,11 @@ function renderCatchCardHtml(
 /**
  * Render a breed card (big) as HTML.
  */
-function renderBreedCardHtml(
-  card: Card,
-  sidecarPort: number | null,
-): string {
+function renderBreedCardHtml(card: Card): string {
   const data = card.data as BreedCardData;
   const pA = data.parentA.creature;
   const pB = data.parentB.creature;
   const order: SlotId[] = ["eyes", "mouth", "body", "tail"];
-
-  const clickBreed = sidecarPort != null
-    ? ` onclick="pickCard('a')"`
-    : "";
-  const clickPass = sidecarPort != null
-    ? ` onclick="pickCard('b')"`
-    : "";
 
   const slotsHtml = order.map(slotId => {
     const info = data.upgradeChances.find(u => u.slotId === slotId);
@@ -212,19 +194,25 @@ function renderBreedCardHtml(
   </div>
   <div class="breed-slots">${slotsHtml}</div>
   <div class="breed-actions">
-    <button class="breed-btn primary" ${clickBreed}>[A] Breed &#9889;${data.energyCost}</button>
-    <button class="breed-btn" ${clickPass}>[B] Pass</button>
+    <div class="breed-btn primary">[A] Breed &#9889;${data.energyCost}</div>
+    <div class="breed-btn">[B] Pass</div>
   </div>
 </div>`;
 }
 
 /**
+ * Build the prompt hint shown below cards.
+ */
+function promptHint(letters: string[], hasSkip: boolean): string {
+  const keys = letters.map(l => `<kbd>${l}</kbd>`).join(" ");
+  const skip = hasSkip ? ` or <kbd>s</kbd> skip` : "";
+  return `<div class="prompt-hint">reply ${keys}${skip} in chat</div>`;
+}
+
+/**
  * Render the "next draw" cards section (no HUD, used inside PlayResult).
  */
-function renderDrawCardsOnly(
-  draw: DrawResult,
-  sidecarPort: number | null,
-): string {
+function renderDrawCardsOnly(draw: DrawResult): string {
   if (draw.noEnergy) {
     return `<div class="empty-state">
   <div class="empty-state-icon">&#9889;</div>
@@ -241,21 +229,17 @@ function renderDrawCardsOnly(
 
   // Single breed card
   if (draw.cards.length === 1 && draw.cards[0].type === "breed") {
-    return renderBreedCardHtml(draw.cards[0], sidecarPort);
+    return renderBreedCardHtml(draw.cards[0]) + promptHint(["a", "b"], false);
   }
 
   // Catch cards
-  const letters = ["a", "b", "c", "d", "e", "f"];
+  const letters = ["a", "b", "c"];
+  const usedLetters = letters.slice(0, draw.cards.length);
   const cardsHtml = draw.cards.map((card, i) =>
-    renderCatchCardHtml(card, letters[i], sidecarPort)
+    renderCatchCardHtml(card, usedLetters[i])
   ).join("\n");
 
-  const skipClick = sidecarPort != null ? ` onclick="skipTurn()"` : "";
-
-  return `<div class="card-row">${cardsHtml}</div>
-<div style="text-align:center">
-  <button class="skip-btn"${skipClick}>[S] Skip &#9889;1</button>
-</div>`;
+  return `<div class="card-row">${cardsHtml}</div>` + promptHint(usedLetters, true);
 }
 
 /**
@@ -264,23 +248,23 @@ function renderDrawCardsOnly(
 function renderCatchResultOverlay(cr: CatchResult): string {
   const c = cr.creature;
   if (cr.success) {
-    return `<div class="result-overlay catch-success anim-burst">
-  <div class="result-title" style="color:var(--success)">&#10022; CAUGHT! &#10022;</div>
+    return `<div class="result-overlay catch-success">
+  <div class="result-title success-text">&#10022; CAUGHT! &#10022;</div>
   <div class="result-creature-name">${esc(c.name)}</div>
-  ${renderCreatureArtHtml(c.slots, c.speciesId)}
-  ${cr.discovery?.isNew ? `<div style="color:var(--warning);margin:8px 0;font-weight:bold">&#10022; NEW SPECIES: ${esc(cr.discovery.speciesId)} &#10022;</div>` : ""}
+  <div class="result-creature-art">${renderCreatureArtHtml(c.slots, c.speciesId)}</div>
+  ${cr.discovery?.isNew ? `<div style="color:var(--warning);margin:4px 0;font-weight:bold;text-shadow:0 0 12px rgba(255,234,0,0.4)">&#10022; NEW SPECIES: ${esc(cr.discovery.speciesId)} &#10022;</div>` : ""}
   <div class="result-xp">+${cr.xpEarned} XP &nbsp; -${cr.energySpent} &#9889;</div>
 </div>`;
   } else if (cr.fled) {
-    return `<div class="result-overlay catch-fail anim-shake">
-  <div class="result-title" style="color:var(--danger)">&#10022; FLED &#10022;</div>
+    return `<div class="result-overlay catch-fail">
+  <div class="result-title fail-text">&#10022; FLED &#10022;</div>
   <div class="result-creature-name">${esc(c.name)}</div>
   <div class="result-subtitle">The creature is gone.</div>
   <div style="color:var(--text-dim)">-${cr.energySpent} &#9889;</div>
 </div>`;
   } else {
-    return `<div class="result-overlay catch-escaped anim-shake">
-  <div class="result-title" style="color:var(--warning)">&#10022; ESCAPED &#10022;</div>
+    return `<div class="result-overlay catch-escaped">
+  <div class="result-title escaped-text">&#10022; ESCAPED &#10022;</div>
   <div class="result-creature-name">${esc(c.name)}</div>
   <div class="result-subtitle">${cr.attemptsRemaining} attempts remaining</div>
   <div style="color:var(--text-dim)">-${cr.energySpent} &#9889;</div>
@@ -294,8 +278,8 @@ function renderCatchResultOverlay(cr: CatchResult): string {
 function renderBreedResultOverlay(br: BreedResult): string {
   const child = br.child;
   const order: SlotId[] = ["eyes", "mouth", "body", "tail"];
+  const titleClass = br.isCrossSpecies ? "hybrid-text" : "breed-text";
   const titleText = br.isCrossSpecies ? "&#9733; NEW HYBRID BORN! &#9733;" : "&#9733; BABY BORN! &#9733;";
-  const titleColor = br.isCrossSpecies ? "var(--warning)" : "var(--success)";
 
   const traitsHtml = order.map(slotId => {
     const slot = child.slots.find(s => s.slotId === slotId);
@@ -310,11 +294,11 @@ function renderBreedResultOverlay(br: BreedResult): string {
 </div>`;
   }).join("\n");
 
-  return `<div class="result-overlay breed-success anim-burst">
-  <div class="result-title" style="color:${titleColor}">${titleText}</div>
+  return `<div class="result-overlay breed-success">
+  <div class="result-title ${titleClass}">${titleText}</div>
   <div class="result-creature-name">${esc(child.name)}</div>
-  ${renderCreatureArtHtml(child.slots, child.speciesId)}
-  <div style="margin:8px 0">${traitsHtml}</div>
+  <div class="result-creature-art">${renderCreatureArtHtml(child.slots, child.speciesId)}</div>
+  <div style="margin:6px 0">${traitsHtml}</div>
   <div class="result-subtitle">${esc(br.parentA.name)} &times; ${esc(br.parentB.name)}</div>
 </div>`;
 }
@@ -332,7 +316,7 @@ export class HtmlAppRenderer implements Renderer {
 
   renderCardDraw(draw: DrawResult, energy: number, maxEnergy: number, profile: PlayerProfile): string {
     const hud = renderHud(energy, maxEnergy, profile);
-    const cards = renderDrawCardsOnly(draw, this.sidecarPort);
+    const cards = renderDrawCardsOnly(draw);
     return wrapPage(`${hud}\n${cards}`, { sidecarPort: this.sidecarPort });
   }
 
@@ -347,7 +331,7 @@ export class HtmlAppRenderer implements Renderer {
       overlay = renderBreedResultOverlay(result.breedResult);
     }
 
-    const nextCards = renderDrawCardsOnly(result.nextDraw, this.sidecarPort);
+    const nextCards = renderDrawCardsOnly(result.nextDraw);
 
     return wrapPage(
       `${hud}\n${overlay}\n<div class="next-draw-content">${nextCards}</div>\n${RESULT_AUTO_DISMISS_SCRIPT}`,
@@ -368,7 +352,7 @@ export class HtmlAppRenderer implements Renderer {
 
     const cards = collection.map((c, i) => {
       const speciesDisplay = c.speciesId.charAt(0).toUpperCase() + c.speciesId.slice(1);
-      return `<div class="collection-card">
+      return `<div class="collection-card" style="animation-delay:${i * 0.04}s">
   ${renderCreatureArtHtml(c.slots, c.speciesId)}
   <div class="collection-name">${i + 1}. ${esc(c.name)}</div>
   <div class="collection-species">${esc(speciesDisplay)} &middot; Gen ${c.generation}</div>
@@ -377,7 +361,7 @@ export class HtmlAppRenderer implements Renderer {
     }).join("\n");
 
     return wrapPage(
-      `<div style="color:var(--text-secondary);margin-bottom:12px">Collection (${collection.length})</div>
+      `<div class="collection-header">Collection (${collection.length})</div>
 <div class="collection-grid">${cards}</div>`,
       { sidecarPort: this.sidecarPort },
     );
