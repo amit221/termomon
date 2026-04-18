@@ -129,6 +129,25 @@ export function registerTools(server: McpServer, options: RegisterToolsOptions =
         const result = playCard(state, choiceIndex, Math.random);
         // Re-register in case breed created a new hybrid species
         registerPersonalSpecies(state.personalSpecies);
+
+        // If a hybrid was just born, prompt AI to create art before rendering
+        if (result.breedResult?.isCrossSpecies) {
+          const br = result.breedResult;
+          const childSpecies = br.child.speciesId;
+          stateManager.save(state);
+
+          ansiOutput = [
+            `\n  ★ NEW HYBRID SPECIES: ${childSpecies}`,
+            `  Parents: ${br.parentA.name} (${br.parentA.speciesId}) × ${br.parentB.name} (${br.parentB.speciesId})`,
+            `  Baby: ${br.child.name}`,
+            ``,
+            `  IMPORTANT: Before showing the result, you MUST call register_hybrid to create unique art for this new species.`,
+            `  Design a creative name and original ASCII art (4-5 lines using EE/MM/BB/TT placeholders).`,
+            `  Then call play() again with no arguments to see the next cards.`,
+          ].join("\n");
+          return makeText(ansiOutput, options);
+        }
+
         ansiOutput = ansiRenderer.renderPlayResult(result, state.energy, MAX_ENERGY, state.profile);
         if (htmlRenderer) htmlOutput = htmlRenderer.renderPlayResult(result, state.energy, MAX_ENERGY, state.profile);
       }
