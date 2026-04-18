@@ -465,7 +465,7 @@ var logger = {
 function defaultState() {
   const today = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
   return {
-    version: 6,
+    version: 7,
     profile: {
       level: 1,
       xp: 0,
@@ -477,7 +477,6 @@ function defaultState() {
       lastActiveDate: today
     },
     collection: [],
-    archive: [],
     energy: loadConfig().energy.startingEnergy,
     lastEnergyGainAt: Date.now(),
     nearby: [],
@@ -591,6 +590,18 @@ function migrateV5toV6(raw) {
   state2.version = 6;
   return state2;
 }
+function migrateV6toV7(raw) {
+  const state2 = raw;
+  if (Array.isArray(state2.archive)) {
+    for (const creature of state2.archive) {
+      creature.archived = false;
+      state2.collection.push(creature);
+    }
+  }
+  delete state2.archive;
+  state2.version = 7;
+  return state2;
+}
 var StateManager = class {
   constructor(filePath) {
     this.filePath = filePath;
@@ -606,19 +617,29 @@ var StateManager = class {
         logger.info("Migrating state from v4 to v5", { path: this.filePath });
         const v5 = migrateV4toV5(v4);
         logger.info("Migrating state from v5 to v6", { path: this.filePath });
-        return migrateV5toV6(v5);
+        const v6 = migrateV5toV6(v5);
+        logger.info("Migrating state from v6 to v7", { path: this.filePath });
+        return migrateV6toV7(v6);
       }
       if (version === 4) {
         logger.info("Migrating state from v4 to v5", { path: this.filePath });
         const v5 = migrateV4toV5(raw);
         logger.info("Migrating state from v5 to v6", { path: this.filePath });
-        return migrateV5toV6(v5);
+        const v6 = migrateV5toV6(v5);
+        logger.info("Migrating state from v6 to v7", { path: this.filePath });
+        return migrateV6toV7(v6);
       }
       if (version === 5) {
         logger.info("Migrating state from v5 to v6", { path: this.filePath });
-        return migrateV5toV6(raw);
+        const v6 = migrateV5toV6(raw);
+        logger.info("Migrating state from v6 to v7", { path: this.filePath });
+        return migrateV6toV7(v6);
       }
-      if (version !== 6) {
+      if (version === 6) {
+        logger.info("Migrating state from v6 to v7", { path: this.filePath });
+        return migrateV6toV7(raw);
+      }
+      if (version !== 7) {
         logger.info("Incompatible state version, creating fresh state", { path: this.filePath });
         return defaultState();
       }
@@ -1676,6 +1697,14 @@ function getSpeciesById(id) {
   ensureLoaded();
   return _speciesById.get(id);
 }
+function registerPersonalSpecies(species) {
+  ensureLoaded();
+  for (const s of species) {
+    if (!_speciesById.has(s.id)) {
+      _speciesById.set(s.id, s);
+    }
+  }
+}
 function pickSpecies(rng) {
   ensureLoaded();
   const species = _speciesCache;
@@ -1710,8 +1739,15 @@ function pickTraitForSlot(species, slotId, playerLevel, rng) {
 function getTraitDefinition(speciesId, variantId) {
   ensureLoaded();
   const variantMap = _traitIndex.get(speciesId);
-  if (!variantMap) return void 0;
-  return variantMap.get(variantId);
+  if (variantMap) {
+    const found = variantMap.get(variantId);
+    if (found) return found;
+  }
+  for (const [, map] of _traitIndex) {
+    const found = map.get(variantId);
+    if (found) return found;
+  }
+  return void 0;
 }
 
 // config/traits.json
@@ -2073,7 +2109,6 @@ var SESSION_ENERGY_BONUS = getConfig().energy.sessionBonus;
 // src/types.ts
 var SLOT_IDS = ["eyes", "mouth", "body", "tail"];
 var RARITY_COLORS = ["grey", "white", "green", "cyan", "blue", "magenta", "yellow", "red"];
-var MAX_COLLECTION_SIZE = 15;
 
 // src/engine/breed.ts
 init_loader();
@@ -2213,12 +2248,6 @@ function executeBreed(state2, parentAId, parentBId, rng = Math.random) {
       `This pair is on cooldown for ${remaining} more minute(s).`
     );
   }
-  const nonArchived = state2.collection.filter((c) => !c.archived);
-  if (nonArchived.length >= MAX_COLLECTION_SIZE) {
-    throw new Error(
-      `Collection is full (${MAX_COLLECTION_SIZE}). Archive a creature first.`
-    );
-  }
   const energyCost = calculateBreedCost(parentA, parentB);
   if (state2.energy < energyCost) {
     throw new Error(
@@ -2273,6 +2302,20 @@ function executeBreed(state2, parentAId, parentBId, rng = Math.random) {
     mergedFrom: [parentAId, parentBId],
     archived: false
   };
+  if (isCrossSpecies && !state2.personalSpecies.find((s) => s.id === childSpeciesId)) {
+    const parentASpecies = getSpeciesById(parentA.speciesId);
+    const parentBSpecies = getSpeciesById(parentB.speciesId);
+    const templateSpecies = parentASpecies || parentBSpecies;
+    state2.personalSpecies.push({
+      id: childSpeciesId,
+      name: `${parentASpecies?.name ?? parentA.speciesId}${parentBSpecies?.name ?? parentB.speciesId}`,
+      description: `A hybrid of ${parentA.speciesId} and ${parentB.speciesId}`,
+      spawnWeight: 0,
+      art: templateSpecies?.art ?? ["  ???"],
+      zones: templateSpecies?.zones,
+      traitPools: {}
+    });
+  }
   state2.collection.push(child);
   spendEnergy(state2, energyCost);
   state2.sessionBreedCount += 1;
@@ -2486,32 +2529,6 @@ function attemptCatch(state2, nearbyIndex, rng = Math.random) {
   };
 }
 
-// src/engine/archive.ts
-function archiveCreature(state2, creatureId) {
-  const index = state2.collection.findIndex((c) => c.id === creatureId);
-  if (index === -1) {
-    throw new Error(`Creature not found in collection: ${creatureId}`);
-  }
-  const creature = state2.collection[index];
-  if (creature.archived) {
-    throw new Error(`Creature is already archived: ${creatureId}`);
-  }
-  state2.collection.splice(index, 1);
-  creature.archived = true;
-  state2.archive.push(creature);
-  return { creature };
-}
-function releaseCreature(state2, creatureId) {
-  const index = state2.collection.findIndex((c) => c.id === creatureId);
-  if (index === -1) {
-    throw new Error(`Creature not found in collection: ${creatureId}`);
-  }
-  state2.collection.splice(index, 1);
-}
-function isCollectionFull(state2) {
-  return state2.collection.length >= MAX_COLLECTION_SIZE;
-}
-
 // src/engine/discovery.ts
 init_loader();
 init_progression();
@@ -2539,205 +2556,6 @@ function recordDiscovery(state2, speciesId) {
 // src/engine/game-engine.ts
 init_progression();
 init_loader();
-
-// src/engine/advisor.ts
-init_loader();
-init_progression();
-
-// src/engine/tiers.ts
-var TIER_BOUNDARIES = [0, 5, 9, 12, 15, 17];
-var TIER_NAMES = ["common", "uncommon", "rare", "epic", "legendary", "mythic"];
-function extractRank2(variantId) {
-  const m = variantId.match(/_r(\d+)$/);
-  return m ? parseInt(m[1], 10) : 0;
-}
-function getTierName(rank) {
-  for (let i = TIER_BOUNDARIES.length - 1; i >= 0; i--) {
-    if (rank >= TIER_BOUNDARIES[i]) return TIER_NAMES[i];
-  }
-  return "common";
-}
-
-// src/engine/advisor.ts
-function getProgressInfo(state2) {
-  const config2 = loadConfig();
-  const xpToNextLevel = getXpForNextLevel(state2.profile.level);
-  const xpPercent = xpToNextLevel > 0 ? Math.round(state2.profile.xp / xpToNextLevel * 100) : 100;
-  let bestTrait = null;
-  let bestRank = -1;
-  for (const creature of state2.collection) {
-    if (creature.archived) continue;
-    for (const slot of creature.slots) {
-      const rank = extractRank2(slot.variantId);
-      if (rank > bestRank) {
-        bestRank = rank;
-        bestTrait = {
-          creatureName: creature.name,
-          slot: slot.slotId,
-          rank,
-          tierName: getTierName(rank)
-        };
-      }
-    }
-  }
-  let nextSpeciesUnlock = null;
-  const unlockLevels = config2.discovery?.speciesUnlockLevels ?? {};
-  let closestUnlockLevel = Infinity;
-  for (const [species, unlockLevel] of Object.entries(unlockLevels)) {
-    const lvl = unlockLevel;
-    if (lvl > state2.profile.level && lvl < closestUnlockLevel) {
-      closestUnlockLevel = lvl;
-      nextSpeciesUnlock = { species, level: lvl };
-    }
-  }
-  const allSpecies = /* @__PURE__ */ new Set([
-    ...state2.discoveredSpecies,
-    ...Object.keys(unlockLevels)
-  ]);
-  const totalSpecies = Math.max(allSpecies.size, state2.discoveredSpecies.length);
-  return {
-    level: state2.profile.level,
-    xp: state2.profile.xp,
-    xpToNextLevel,
-    xpPercent,
-    nextSpeciesUnlock,
-    bestTrait,
-    collectionSize: state2.collection.filter((c) => !c.archived).length,
-    collectionMax: MAX_COLLECTION_SIZE,
-    energy: state2.energy,
-    energyMax: MAX_ENERGY,
-    discoveredCount: state2.discoveredSpecies.length,
-    totalSpecies,
-    speciesProgress: state2.speciesProgress
-  };
-}
-function getViableActions(state2) {
-  const actions = [];
-  if (state2.nearby.length > 0 && state2.batch && state2.batch.attemptsRemaining > 0) {
-    for (let i = 0; i < state2.nearby.length; i++) {
-      const creature = state2.nearby[i];
-      const energyCost = 1;
-      if (state2.energy >= energyCost) {
-        actions.push({
-          type: "catch",
-          label: `Catch ${creature.name} (#${i + 1})`,
-          cost: { energy: energyCost },
-          priority: 0,
-          reasoning: `Wild ${creature.speciesId} available`,
-          target: { nearbyIndex: i }
-        });
-      }
-    }
-  }
-  const speciesGroups = {};
-  for (let ci = 0; ci < state2.collection.length; ci++) {
-    const creature = state2.collection[ci];
-    if (creature.archived) continue;
-    if (!speciesGroups[creature.speciesId]) speciesGroups[creature.speciesId] = [];
-    speciesGroups[creature.speciesId].push(ci);
-  }
-  for (const [speciesId, indexes] of Object.entries(speciesGroups)) {
-    if (indexes.length < 2) continue;
-    const sorted = [...indexes].sort((a, b) => {
-      const powerA = state2.collection[a].slots.reduce((s, sl) => s + extractRank2(sl.variantId), 0);
-      const powerB = state2.collection[b].slots.reduce((s, sl) => s + extractRank2(sl.variantId), 0);
-      return powerB - powerA;
-    });
-    const ai = sorted[0];
-    const bi = sorted[1];
-    actions.push({
-      type: "breed",
-      label: `Breed ${state2.collection[ai].name} + ${state2.collection[bi].name}`,
-      cost: {},
-      priority: 0,
-      reasoning: `${indexes.length} ${speciesId} available for breeding`,
-      target: { creatureIndex: ai + 1, partnerIndex: bi + 1 }
-    });
-  }
-  if (state2.nearby.length === 0 || !state2.batch) {
-    actions.push({
-      type: "scan",
-      label: "Scan for new creatures",
-      cost: {},
-      priority: 0,
-      reasoning: state2.nearby.length === 0 ? "No creatures nearby -- scan to find some" : "Check for new spawns"
-    });
-  }
-  if (state2.collection.filter((c) => !c.archived).length >= MAX_COLLECTION_SIZE) {
-    actions.push({
-      type: "release",
-      label: "Release or archive a creature to make room",
-      cost: {},
-      priority: 0,
-      reasoning: "Collection is full (15/15)"
-    });
-  }
-  actions.push({
-    type: "collection",
-    label: "View collection",
-    cost: {},
-    priority: 0,
-    reasoning: "Review your creatures"
-  });
-  return actions;
-}
-function getAdvisorMode(action, result, state2) {
-  if (action === "catch") {
-    const catchResult = result;
-    if (catchResult.success) {
-      const speciesId = catchResult.creature.speciesId;
-      if (!state2.discoveredSpecies.includes(speciesId)) {
-        return "advisor";
-      }
-      const breedableCount = state2.collection.filter((c) => !c.archived).length;
-      if (breedableCount >= 2) return "advisor";
-    }
-  }
-  if (action === "breed") return "advisor";
-  if (state2.energy <= 2) {
-    return "advisor";
-  }
-  if (state2.collection.filter((c) => !c.archived).length >= MAX_COLLECTION_SIZE) {
-    return "advisor";
-  }
-  if (action === "level_up") return "advisor";
-  return "autopilot";
-}
-function getSuggestedActions(action, result, state2) {
-  const viable = getViableActions(state2);
-  if (viable.length === 0) return [];
-  for (const a of viable) {
-    a.priority = scoreAction(a, action, result, state2);
-  }
-  viable.sort((a, b) => a.priority - b.priority);
-  const collectionAction = viable.find((a) => a.type === "collection");
-  const nonCollection = viable.filter((a) => a.type !== "collection");
-  const top = nonCollection.slice(0, 4);
-  if (collectionAction) top.push(collectionAction);
-  top.forEach((a, i) => {
-    a.priority = i + 1;
-  });
-  return top;
-}
-function scoreAction(action, lastAction, _lastResult, state2) {
-  let score = 50;
-  if (action.type === "breed") score = 5;
-  if (action.type === "catch" && lastAction === "scan") score = 5;
-  if (action.type === "catch" && lastAction === "catch") score = 15;
-  if (action.type === "scan") score = 40;
-  if (action.type === "release") score = 3;
-  if (action.type === "collection") score = 100;
-  return score;
-}
-function buildAdvisorContext(action, result, state2) {
-  return {
-    mode: getAdvisorMode(action, result, state2),
-    suggestedActions: getSuggestedActions(action, result, state2),
-    progress: getProgressInfo(state2)
-  };
-}
-
-// src/engine/game-engine.ts
 init_species_index();
 var GameEngine = class {
   state;
@@ -2789,9 +2607,6 @@ var GameEngine = class {
     return { nearby, energy: this.state.energy, batch: this.state.batch, nextBatchInMs };
   }
   catch(nearbyIndex, rng = Math.random) {
-    if (isCollectionFull(this.state)) {
-      throw new Error("Collection is full (15 creatures). Archive or release a creature first.");
-    }
     const result = attemptCatch(this.state, nearbyIndex, rng);
     if (result.success) {
       const config2 = loadConfig();
@@ -2812,17 +2627,10 @@ var GameEngine = class {
   buildBreedTable() {
     return buildBreedTable(this.state);
   }
-  archive(creatureId) {
-    return archiveCreature(this.state, creatureId);
-  }
-  release(creatureId) {
-    return releaseCreature(this.state, creatureId);
-  }
   status() {
     return {
       profile: this.state.profile,
       collectionCount: this.state.collection.length,
-      archiveCount: this.state.archive.length,
       energy: this.state.energy,
       nearbyCount: this.state.nearby.length,
       batchAttemptsRemaining: this.state.batch?.attemptsRemaining ?? 0,
@@ -2836,15 +2644,13 @@ var GameEngine = class {
   getDiscoveredSpecies() {
     return [...this.state.discoveredSpecies];
   }
-  getAdvisorContext(action, result) {
-    return buildAdvisorContext(action, result, this.state);
-  }
   getState() {
     return this.state;
   }
 };
 
 // src/renderers/simple-text.ts
+init_progression();
 var stringWidth = require_string_width();
 var RESET = "\x1B[0m";
 var BOLD = "\x1B[1m";
@@ -3154,7 +2960,6 @@ var SimpleTextRenderer = class {
     lines.push(`  Catches:    ${p.totalCatches}`);
     lines.push(`  Merges:     ${p.totalMerges}`);
     lines.push(`  Collection: ${result.collectionCount} creatures`);
-    lines.push(`  Archive:    ${result.archiveCount} creatures`);
     lines.push(`  Discovered: ${result.discoveredCount} species`);
     lines.push(`  Streak:     ${p.currentStreak} days ${DIM}(best: ${p.longestStreak})${RESET}`);
     lines.push(`  Nearby:     ${result.nearbyCount} creatures`);
@@ -3340,7 +3145,449 @@ var SimpleTextRenderer = class {
   renderCompanionOverview(_overview) {
     return "";
   }
+  renderCardDraw(draw, energy, maxEnergy, profile) {
+    const lines = [];
+    lines.push(this.renderStatusHeader(energy, maxEnergy, profile));
+    lines.push("");
+    if (draw.noEnergy) {
+      lines.push(`  ${DIM}Out of energy. Come back later!${RESET}`);
+      return lines.join("\n");
+    }
+    if (draw.empty) {
+      lines.push(`  ${DIM}Nothing happening right now. New creatures spawn every 30 min.${RESET}`);
+      return lines.join("\n");
+    }
+    if (draw.cards.length === 1 && draw.cards[0].type === "breed") {
+      const bigLines = this.renderBreedCardBig(draw.cards[0]);
+      for (const l of bigLines) lines.push(l);
+      lines.push("");
+      lines.push(`  ${DIM}Reply ${RESET}${BOLD}a${RESET}${DIM} or ${RESET}${BOLD}b${RESET}`);
+      return lines.join("\n");
+    }
+    const letters = ["A", "B", "C", "D", "E", "F"];
+    const cardLineArrays = [];
+    for (let i = 0; i < draw.cards.length; i++) {
+      cardLineArrays.push(this.renderCatchCardLines(draw.cards[i], letters[i]));
+    }
+    const maxHeight = Math.max(...cardLineArrays.map((a) => a.length));
+    for (const arr of cardLineArrays) {
+      while (arr.length < maxHeight) arr.push(" ".repeat(22));
+    }
+    for (let row = 0; row < maxHeight; row++) {
+      const parts = [];
+      for (const arr of cardLineArrays) {
+        parts.push(arr[row]);
+      }
+      lines.push("  " + parts.join("  "));
+    }
+    lines.push("");
+    lines.push(`  ${DIM}[S] Skip${RESET} ${ENERGY_ICON}${DIM}1${RESET}`);
+    return lines.join("\n");
+  }
+  renderPlayResult(result, energy, maxEnergy, profile) {
+    const lines = [];
+    lines.push(this.renderStatusHeader(energy, maxEnergy, profile));
+    lines.push("");
+    if (result.action === "catch" && result.catchResult) {
+      const cr = result.catchResult;
+      if (cr.success) {
+        lines.push(`  ${GREEN}${BOLD}\u2726 CAUGHT! \u2726${RESET}  ${BOLD}${cr.creature.name}${RESET} added to collection`);
+        if (cr.discovery?.isNew) {
+          lines.push(`  ${YELLOW}${BOLD}\u2726 NEW SPECIES: ${cr.discovery.speciesId} \u2726${RESET}  ${GREEN}+${cr.discovery.bonusXp} bonus XP${RESET}`);
+        }
+        lines.push(`  ${DIM}+${cr.xpEarned} XP   -${cr.energySpent}${RESET}${ENERGY_ICON}`);
+      } else if (cr.fled) {
+        lines.push(`  ${RED}${BOLD}\u2726 FLED \u2726${RESET}  ${BOLD}${cr.creature.name}${RESET} is gone`);
+      } else {
+        lines.push(`  ${YELLOW}${BOLD}\u2726 ESCAPED \u2726${RESET}  ${BOLD}${cr.creature.name}${RESET} got away`);
+        lines.push(`  ${DIM}${cr.attemptsRemaining} attempts remaining${RESET}`);
+      }
+    }
+    if (result.action === "breed" && result.breedResult) {
+      const br = result.breedResult;
+      const child = br.child;
+      const W = 40;
+      const IW = W - 2;
+      const border = "  +" + "-".repeat(IW) + "+";
+      const pad = (s, rawLen) => s + " ".repeat(Math.max(0, IW - rawLen));
+      lines.push("");
+      lines.push(border);
+      if (br.isCrossSpecies) {
+        const title = "\u2605 NEW HYBRID BORN! \u2605";
+        const titlePad = Math.floor((IW - title.length) / 2);
+        lines.push(`  |${" ".repeat(titlePad)}${YELLOW}${BOLD}${title}${RESET}${" ".repeat(IW - titlePad - title.length)}|`);
+      } else {
+        const title = "\u2605 BABY BORN! \u2605";
+        const titlePad = Math.floor((IW - title.length) / 2);
+        lines.push(`  |${" ".repeat(titlePad)}${GREEN}${BOLD}${title}${RESET}${" ".repeat(IW - titlePad - title.length)}|`);
+      }
+      lines.push(`  |${" ".repeat(IW)}|`);
+      const artLines = renderCreatureLines(child.slots, child.speciesId);
+      for (const artLine of artLines) {
+        const stripped = artLine.replace(/\x1b\[[0-9;]*m/g, "");
+        const artPad = Math.max(0, IW - stringWidth(stripped));
+        lines.push(`  |${artLine}${" ".repeat(artPad)}|`);
+      }
+      lines.push(`  |${" ".repeat(IW)}|`);
+      const nameStr = ` ${BOLD}${child.name}${RESET}`;
+      lines.push(`  |${pad(nameStr, 1 + child.name.length)}|`);
+      const order = ["eyes", "mouth", "body", "tail"];
+      for (const slotId of order) {
+        const slot = child.slots.find((s) => s.slotId === slotId);
+        if (slot) {
+          const rColor = rarityColor(slot.rarity);
+          const rName = RARITY_NAMES[slot.rarity] ?? "Common";
+          const label = ` ${rName} ${slotId.charAt(0).toUpperCase() + slotId.slice(1)}`;
+          const upgrade = br.upgrades?.find((u) => u.slotId === slotId);
+          let display;
+          let rawLen;
+          if (upgrade) {
+            const arrow = ` ${YELLOW}\u2191${RESET}`;
+            display = ` ${rColor}\u25A0${RESET}${label}${arrow}`;
+            rawLen = 1 + 1 + label.length + 2;
+          } else {
+            display = ` ${rColor}\u25A0${RESET}${label}`;
+            rawLen = 1 + 1 + label.length;
+          }
+          lines.push(`  |${pad(display, rawLen)}|`);
+        }
+      }
+      lines.push(`  |${" ".repeat(IW)}|`);
+      const parentLine = ` ${DIM}${br.parentA.name} \xD7 ${br.parentB.name}${RESET}`;
+      const parentRaw = 1 + br.parentA.name.length + 3 + br.parentB.name.length;
+      lines.push(`  |${pad(parentLine, parentRaw)}|`);
+      lines.push(border);
+      lines.push("");
+    }
+    lines.push("");
+    const nextDraw = result.nextDraw;
+    if (nextDraw.noEnergy) {
+      lines.push(`  ${DIM}Out of energy. Come back later!${RESET}`);
+    } else if (nextDraw.empty) {
+      lines.push(`  ${DIM}Nothing happening right now. New creatures spawn every 30 min.${RESET}`);
+    } else if (nextDraw.cards.length === 1 && nextDraw.cards[0].type === "breed") {
+      const bigLines = this.renderBreedCardBig(nextDraw.cards[0]);
+      for (const l of bigLines) lines.push(l);
+      lines.push("");
+      lines.push(`  ${DIM}Reply ${RESET}${BOLD}a${RESET}${DIM} or ${RESET}${BOLD}b${RESET}`);
+    } else {
+      const letters = ["A", "B", "C", "D", "E", "F"];
+      const cardLineArrays = [];
+      for (let i = 0; i < nextDraw.cards.length; i++) {
+        cardLineArrays.push(this.renderCatchCardLines(nextDraw.cards[i], letters[i]));
+      }
+      const maxHeight = Math.max(...cardLineArrays.map((a) => a.length));
+      for (const arr of cardLineArrays) {
+        while (arr.length < maxHeight) arr.push(" ".repeat(22));
+      }
+      for (let row = 0; row < maxHeight; row++) {
+        const parts = [];
+        for (const arr of cardLineArrays) {
+          parts.push(arr[row]);
+        }
+        lines.push("  " + parts.join("  "));
+      }
+      lines.push("");
+      lines.push(`  ${DIM}[S] Skip${RESET} ${ENERGY_ICON}${DIM}1${RESET}`);
+    }
+    return lines.join("\n");
+  }
+  renderStatusHeader(energy, maxEnergy, profile) {
+    const filled = Math.min(10, Math.round(energy / maxEnergy * 10));
+    const bar = `${GREEN}${"\u2588".repeat(filled)}${"\u2591".repeat(10 - filled)}${RESET}`;
+    const nextXp = getXpForNextLevel(profile.level);
+    return `  ${ENERGY_ICON} ${bar} ${energy}/${maxEnergy}  ${BOLD}Lv.${profile.level}${RESET}  ${DIM}${profile.xp}/${nextXp} XP${RESET}`;
+  }
+  renderCatchCardLines(card, letter) {
+    const CARD_WIDTH = 22;
+    const INNER = CARD_WIDTH - 2;
+    const data = card.data;
+    const creature = data.creature;
+    const lines = [];
+    const topBot = "+" + "-".repeat(INNER) + "+";
+    lines.push(topBot);
+    const headerText = `[${letter}] CATCH`;
+    const headerPad = INNER - stringWidth(headerText);
+    lines.push("|" + headerText + " ".repeat(Math.max(0, headerPad)) + "|");
+    lines.push("|" + "-".repeat(INNER) + "|");
+    const artLines = renderCreatureLines(creature.slots, creature.speciesId);
+    for (let i = 0; i < 4; i++) {
+      const artLine = artLines[i] ?? "";
+      const visW = stringWidth(artLine);
+      const pad = Math.max(0, INNER - visW);
+      lines.push("|" + artLine + " ".repeat(pad) + "|");
+    }
+    const speciesDisplay = creature.speciesId.charAt(0).toUpperCase() + creature.speciesId.slice(1);
+    const nameStr = `${BOLD}${speciesDisplay}${RESET}`;
+    const nameVisW = stringWidth(speciesDisplay);
+    const namePad = Math.max(0, INNER - nameVisW);
+    lines.push("|" + nameStr + " ".repeat(namePad) + "|");
+    lines.push("|" + "-".repeat(INNER) + "|");
+    const order = ["eyes", "mouth", "body", "tail"];
+    for (const slotId of order) {
+      const slot = creature.slots.find((s) => s.slotId === slotId);
+      if (slot) {
+        const color = rarityColor(slot.rarity);
+        const variant = creature.speciesId ? getTraitDefinition(creature.speciesId, slot.variantId) : getVariantById(slot.variantId);
+        const traitName = variant?.name ?? slot.variantId;
+        const traitStr = `${color}\u25A0${RESET} ${traitName}`;
+        const traitVisW = stringWidth("\u25A0 " + traitName);
+        const traitPad = Math.max(0, INNER - traitVisW);
+        lines.push("|" + traitStr + " ".repeat(traitPad) + "|");
+      } else {
+        const emptyStr = `${DIM}\u2014${RESET}`;
+        const pad = Math.max(0, INNER - 1);
+        lines.push("|" + emptyStr + " ".repeat(pad) + "|");
+      }
+    }
+    lines.push("|" + "-".repeat(INNER) + "|");
+    const rate = Math.round(data.catchRate * 100);
+    const costStr = `${ENERGY_ICON}${data.energyCost}  ${rate}%`;
+    const costVisW = stringWidth(`\u26A1${data.energyCost}  ${rate}%`);
+    const costPad = Math.max(0, INNER - costVisW);
+    lines.push("|" + costStr + " ".repeat(costPad) + "|");
+    lines.push(topBot);
+    return lines;
+  }
+  renderBreedCardBig(card) {
+    const CARD_WIDTH = 60;
+    const INNER = CARD_WIDTH - 2;
+    const data = card.data;
+    const lines = [];
+    const topBot = "+" + "-".repeat(INNER) + "+";
+    lines.push(topBot);
+    const title = "\u2665 BREEDING MATCH \u2665";
+    const titleVisW = stringWidth(title);
+    const titleLeftPad = Math.floor((INNER - titleVisW) / 2);
+    const titleRightPad = INNER - titleVisW - titleLeftPad;
+    lines.push("|" + " ".repeat(titleLeftPad) + title + " ".repeat(titleRightPad) + "|");
+    lines.push("|" + "-".repeat(INNER) + "|");
+    const artA = renderCreatureLines(data.parentA.creature.slots, data.parentA.creature.speciesId);
+    const artB = renderCreatureLines(data.parentB.creature.slots, data.parentB.creature.speciesId);
+    const artHeight = Math.max(artA.length, artB.length);
+    const ART_COL = 22;
+    const HEART_COL = INNER - ART_COL * 2;
+    for (let i = 0; i < artHeight; i++) {
+      const leftArt = artA[i] ?? "";
+      const rightArt = artB[i] ?? "";
+      const leftPadded = padArtLine(leftArt, ART_COL);
+      const heartStr = i === Math.floor(artHeight / 2) ? "\u2665" : " ";
+      const heartVisW = stringWidth(heartStr);
+      const heartPad = Math.max(0, HEART_COL - heartVisW);
+      const heartPadLeft = Math.floor(heartPad / 2);
+      const heartPadRight = heartPad - heartPadLeft;
+      const rightPadded = padArtLine(rightArt, ART_COL);
+      const combined = leftPadded + " ".repeat(heartPadLeft) + heartStr + " ".repeat(heartPadRight) + rightPadded;
+      const combinedW = stringWidth(combined);
+      const finalPad = Math.max(0, INNER - combinedW);
+      lines.push("|" + combined + " ".repeat(finalPad) + "|");
+    }
+    const nameA = data.parentA.creature.name;
+    const nameB = data.parentB.creature.name;
+    const nameAPadded = nameA + " ".repeat(Math.max(0, ART_COL - stringWidth(nameA)));
+    const nameCenterPad = " ".repeat(HEART_COL);
+    const nameBStr = nameB;
+    const nameLineContent = nameAPadded + nameCenterPad + nameBStr;
+    const nameLineW = stringWidth(nameLineContent);
+    const nameLinePad = Math.max(0, INNER - nameLineW);
+    lines.push("|" + nameLineContent + " ".repeat(nameLinePad) + "|");
+    lines.push("|" + "-".repeat(INNER) + "|");
+    const order = ["eyes", "mouth", "body", "tail"];
+    for (const slotId of order) {
+      const upgrade = data.upgradeChances.find((u) => u.slotId === slotId);
+      const matchStr = upgrade?.match ? `${GREEN}\u2191${Math.round(upgrade.upgradeChance * 100)}%${RESET}` : `${DIM}\u2014${RESET}`;
+      const matchVisW = upgrade?.match ? stringWidth(`\u2191${Math.round(upgrade.upgradeChance * 100)}%`) : 1;
+      const slotLabel = slotId.padEnd(6);
+      const content = `  ${slotLabel} ${matchStr}`;
+      const contentVisW = 2 + 6 + 1 + matchVisW;
+      const pad = Math.max(0, INNER - contentVisW);
+      lines.push("|" + content + " ".repeat(pad) + "|");
+    }
+    lines.push("|" + "-".repeat(INNER) + "|");
+    const breedOpt = `[A] Breed ${ENERGY_ICON}${data.energyCost}`;
+    const breedVisW = stringWidth(`[A] Breed \u26A1${data.energyCost}`);
+    const breedPad = Math.max(0, INNER - breedVisW);
+    lines.push("|" + breedOpt + " ".repeat(breedPad) + "|");
+    const passOpt = `[B] Pass`;
+    const passPad = Math.max(0, INNER - stringWidth(passOpt));
+    lines.push("|" + passOpt + " ".repeat(passPad) + "|");
+    lines.push(topBot);
+    return lines;
+  }
 };
+
+// src/engine/cards.ts
+init_progression();
+init_loader();
+function buildPool(state2) {
+  const cards = [];
+  const config2 = loadConfig();
+  if (state2.batch && state2.batch.attemptsRemaining > 0) {
+    for (let i = 0; i < state2.nearby.length; i++) {
+      const creature = state2.nearby[i];
+      const catchRate = calculateCatchRate(creature.speciesId, creature.slots, state2.batch.failPenalty);
+      const energyCost = calculateEnergyCost(creature.speciesId, creature.slots);
+      const data = {
+        nearbyIndex: i,
+        creature,
+        catchRate,
+        energyCost
+      };
+      cards.push({
+        id: `catch_${creature.id}`,
+        type: "catch",
+        label: `Catch ${creature.name}`,
+        energyCost,
+        data
+      });
+    }
+  }
+  const maxBreedsPerSession = config2.breed.maxBreedsPerSession ?? 3;
+  if (state2.sessionBreedCount < maxBreedsPerSession) {
+    const nonArchived = [];
+    for (let i = 0; i < state2.collection.length; i++) {
+      if (!state2.collection[i].archived) {
+        nonArchived.push({ index: i, creature: state2.collection[i] });
+      }
+    }
+    const now = Date.now();
+    for (let a = 0; a < nonArchived.length; a++) {
+      for (let b = a + 1; b < nonArchived.length; b++) {
+        const parentA = nonArchived[a];
+        const parentB = nonArchived[b];
+        const key = [parentA.creature.id, parentB.creature.id].sort().join(":");
+        const cooldownUntil = state2.breedCooldowns[key] ?? 0;
+        if (now < cooldownUntil) continue;
+        const energyCost = calculateBreedCost(parentA.creature, parentB.creature);
+        const isSameSpecies = parentA.creature.speciesId === parentB.creature.speciesId;
+        const upgradeChances = [];
+        const slotIds = ["eyes", "mouth", "body", "tail"];
+        for (const slotId of slotIds) {
+          const slotA = parentA.creature.slots.find((s) => s.slotId === slotId);
+          const slotB = parentB.creature.slots.find((s) => s.slotId === slotId);
+          if (!slotA || !slotB) continue;
+          const match = slotA.variantId === slotB.variantId;
+          let upgradeChance;
+          if (match) {
+            const sameRarity = slotA.rarity === slotB.rarity;
+            upgradeChance = sameRarity ? config2.breed.sameTraitUpgradeChance ?? 0.35 : config2.breed.sameTraitHigherParentUpgradeChance ?? 0.15;
+          } else {
+            upgradeChance = isSameSpecies ? config2.breed.diffTraitSameSpeciesUpgradeChance ?? 0.1 : config2.breed.diffTraitCrossSpeciesUpgradeChance ?? 0.05;
+          }
+          upgradeChances.push({ slotId, match, upgradeChance });
+        }
+        const breedData = {
+          parentA: { index: parentA.index, creature: parentA.creature },
+          parentB: { index: parentB.index, creature: parentB.creature },
+          upgradeChances,
+          energyCost
+        };
+        cards.push({
+          id: `breed_${parentA.creature.id}_${parentB.creature.id}`,
+          type: "breed",
+          label: `Breed ${parentA.creature.name} + ${parentB.creature.name}`,
+          energyCost,
+          data: breedData
+        });
+      }
+    }
+  }
+  return cards;
+}
+function shuffle(arr, rng) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+function drawCardsFree(state2, rng = Math.random) {
+  if (state2.energy <= 0) {
+    return { cards: [], empty: false, noEnergy: true };
+  }
+  const pool = buildPool(state2);
+  if (pool.length === 0) {
+    return { cards: [], empty: true, noEnergy: false };
+  }
+  const catchPool = pool.filter((c) => c.type === "catch");
+  const breedPool = pool.filter((c) => c.type === "breed");
+  let drawn;
+  const breedProb = catchPool.length > 0 ? 0.2 : 1;
+  if (breedPool.length > 0 && rng() < breedProb) {
+    shuffle(breedPool, rng);
+    drawn = [breedPool[0]];
+  } else if (catchPool.length > 0) {
+    shuffle(catchPool, rng);
+    drawn = catchPool.slice(0, 3);
+  } else if (breedPool.length > 0) {
+    shuffle(breedPool, rng);
+    drawn = [breedPool[0]];
+  } else {
+    return { cards: [], empty: true, noEnergy: false };
+  }
+  state2.currentHand = drawn.map((card) => {
+    const ref = { id: card.id, type: card.type };
+    if (card.type === "catch") {
+      ref.nearbyIndex = card.data.nearbyIndex;
+    } else {
+      const bd = card.data;
+      ref.parentIndices = [bd.parentA.index, bd.parentB.index];
+    }
+    return ref;
+  });
+  return { cards: drawn, empty: false, noEnergy: false };
+}
+function drawCards(state2, rng = Math.random) {
+  if (state2.energy < 1) {
+    return { cards: [], empty: false, noEnergy: true };
+  }
+  const pool = buildPool(state2);
+  if (pool.length === 0) {
+    return { cards: [], empty: true, noEnergy: false };
+  }
+  spendEnergy(state2, 1);
+  return drawCardsFree(state2, rng);
+}
+function playCard(state2, choiceIndex, rng = Math.random) {
+  if (!state2.currentHand || state2.currentHand.length === 0) {
+    throw new Error("No cards in hand");
+  }
+  if (choiceIndex < 0 || choiceIndex >= state2.currentHand.length) {
+    throw new Error(`Invalid choice index: ${choiceIndex}`);
+  }
+  const cardRef = state2.currentHand[choiceIndex];
+  if (cardRef.type === "catch") {
+    const nearbyIndex = cardRef.nearbyIndex;
+    const catchResult = attemptCatch(state2, nearbyIndex, rng);
+    if (catchResult.success) {
+      grantXp(state2, 0);
+      recordDiscovery(state2, catchResult.creature.speciesId);
+    }
+    state2.currentHand = void 0;
+    const nextDraw = drawCardsFree(state2, rng);
+    return {
+      action: "catch",
+      catchResult,
+      nextDraw
+    };
+  } else {
+    const [idxA, idxB] = cardRef.parentIndices;
+    const parentA = state2.collection[idxA];
+    const parentB = state2.collection[idxB];
+    const breedResult = executeBreed(state2, parentA.id, parentB.id, rng);
+    state2.currentHand = void 0;
+    const nextDraw = drawCardsFree(state2, rng);
+    return {
+      action: "breed",
+      breedResult,
+      nextDraw
+    };
+  }
+}
+function skipHand(state2, rng = Math.random) {
+  state2.currentHand = void 0;
+  return drawCardsFree(state2, rng);
+}
 
 // src/cli.ts
 var statePath = process.env.COMPI_STATE_PATH || path3.join(os2.homedir(), ".compi", "state.json");
@@ -3349,6 +3596,7 @@ var command = args[0];
 var jsonMode = args.includes("--json");
 var stateManager = new StateManager(statePath);
 var state = stateManager.load();
+registerPersonalSpecies(state.personalSpecies);
 var engine = new GameEngine(state);
 var renderer = new SimpleTextRenderer();
 function output(data, text) {
@@ -3360,20 +3608,6 @@ function output(data, text) {
 }
 function save() {
   stateManager.save(engine.getState());
-}
-function printAdvisorOutput(actionType, result) {
-  if (jsonMode) return;
-  const ctx = engine.getAdvisorContext(actionType, result);
-  console.log("");
-  console.log(renderer.renderStatusBar(ctx.progress));
-  if (ctx.mode === "advisor" && ctx.suggestedActions.length > 0) {
-    const entries = ctx.suggestedActions.map((a) => ({
-      number: a.priority,
-      label: a.label,
-      cost: a.cost.energy ? `${a.cost.energy}\u26A1` : void 0
-    }));
-    console.log(renderer.renderActionMenu(entries));
-  }
 }
 try {
   switch (command) {
@@ -3389,173 +3623,50 @@ try {
       output(result, result.notifications.map((n) => renderer.renderNotification(n)).join("\n"));
       break;
     }
-    case "scan": {
-      const result = engine.scan();
-      save();
-      output(result, renderer.renderScan(result));
-      break;
-    }
-    case "catch": {
-      const index = parseInt(args[1], 10) - 1;
-      if (isNaN(index)) {
-        console.error("Usage: compi catch [number]");
-        process.exit(1);
+    case "play": {
+      const choice = args[1];
+      const gameState = engine.getState();
+      const profile = gameState.profile;
+      if (!choice) {
+        const draw = drawCards(gameState);
+        save();
+        output(draw, renderer.renderCardDraw(draw, gameState.energy, MAX_ENERGY, profile));
+      } else if (choice === "s") {
+        const draw = skipHand(gameState);
+        save();
+        output(draw, renderer.renderCardDraw(draw, gameState.energy, MAX_ENERGY, profile));
+      } else {
+        const index = choice.charCodeAt(0) - "a".charCodeAt(0);
+        if (index < 0 || index > 2) {
+          console.error("Usage: compi play [a|b|c|s]");
+          process.exit(1);
+        }
+        if (gameState.currentHand?.length === 1 && gameState.currentHand[0].type === "breed" && choice === "b") {
+          const draw = skipHand(gameState);
+          save();
+          output(draw, renderer.renderCardDraw(draw, gameState.energy, MAX_ENERGY, profile));
+        } else {
+          const result = playCard(gameState, index);
+          save();
+          output(result, renderer.renderPlayResult(result, gameState.energy, MAX_ENERGY, profile));
+        }
       }
-      const result = engine.catch(index);
-      save();
-      output(result, renderer.renderCatch(result));
-      printAdvisorOutput("catch", result);
       break;
     }
     case "collection": {
-      const collection = engine.getState().collection;
-      output(collection, renderer.renderCollection(collection));
-      break;
-    }
-    case "breed":
-    case "merge": {
-      const argA = args[1];
-      const argB = args[2];
-      const confirm = args.includes("--confirm");
-      if (!argA || !argB) {
-        const breedTable = engine.buildBreedTable();
-        output(breedTable, renderer.renderBreedTable(breedTable));
-        break;
-      }
-      let parentAId = argA;
-      let parentBId = argB;
-      const indexA = parseInt(argA, 10);
-      const indexB = parseInt(argB, 10);
-      if (!isNaN(indexA) && !isNaN(indexB)) {
-        const collection = engine.getState().collection;
-        if (indexA < 1 || indexA > collection.length) {
-          console.error(`No creature at index ${indexA}. You have ${collection.length} creatures.`);
-          process.exit(1);
-        }
-        if (indexB < 1 || indexB > collection.length) {
-          console.error(`No creature at index ${indexB}. You have ${collection.length} creatures.`);
-          process.exit(1);
-        }
-        parentAId = collection[indexA - 1].id;
-        parentBId = collection[indexB - 1].id;
-      }
-      if (confirm) {
-        const result = engine.breedExecute(parentAId, parentBId);
-        save();
-        output(result, renderer.renderBreedResult(result));
-        printAdvisorOutput("breed", result);
-      } else {
-        const preview = engine.breedPreview(parentAId, parentBId);
-        output(preview, renderer.renderBreedPreview(preview));
-      }
-      break;
-    }
-    case "archive": {
-      const creatureId = args[1];
-      if (creatureId) {
-        const result = engine.archive(creatureId);
-        save();
-        output(result, `Archived ${result.creature.name}.`);
-      } else {
-        const archive = engine.getState().archive;
-        output(archive, renderer.renderArchive(archive));
-      }
-      break;
-    }
-    case "release": {
-      const creatureId = args[1];
-      if (!creatureId) {
-        console.error("Usage: compi release <id>");
-        process.exit(1);
-      }
-      engine.release(creatureId);
-      save();
-      output({ released: creatureId }, `Released creature ${creatureId}.`);
-      break;
-    }
-    case "energy": {
-      const currentState = engine.getState();
-      const energyText = renderer.renderEnergy(currentState.energy, MAX_ENERGY);
-      output({ energy: currentState.energy, maxEnergy: MAX_ENERGY }, energyText);
-      break;
-    }
-    case "status": {
-      const result = engine.status();
-      output(result, renderer.renderStatus(result));
-      break;
-    }
-    case "settings": {
-      const setting = args[1];
-      const value = args[2];
-      if (setting && value) {
-        const gameState = engine.getState();
-        if (setting === "notifications") {
-          gameState.settings.notificationLevel = value;
-        }
-        save();
-        output(gameState.settings, `Settings updated: ${setting} = ${value}`);
-      } else {
-        const settings = engine.getState().settings;
-        output(settings, `SETTINGS
-
-Notifications: ${settings.notificationLevel}`);
-      }
-      break;
-    }
-    case "species": {
-      const currentState = engine.getState();
-      const speciesText = renderer.renderSpeciesIndex(currentState.speciesProgress);
-      output(engine.species(), speciesText);
-      break;
-    }
-    case "register-hybrid": {
-      const speciesId = args[1];
-      const name = args[2];
-      const art = args[3];
-      const description = args[4];
-      if (!speciesId || !name || !art || !description) {
-        console.error("Usage: compi register-hybrid <speciesId> <name> <art> <description>");
-        process.exit(1);
-      }
-      const currentState = engine.getState();
-      if (currentState.personalSpecies.find((s) => s.id === speciesId)) {
-        output({ registered: false }, `Hybrid species "${name}" (${speciesId}) is already registered.`);
-        break;
-      }
-      const artLines = art.split("\\n");
-      const species = {
-        id: speciesId,
-        name,
-        description,
-        spawnWeight: 0,
-        art: artLines,
-        zones: ["eyes", "mouth", "body", "tail"],
-        traitPools: {}
-      };
-      currentState.personalSpecies.push(species);
-      save();
-      output({ registered: true, speciesId, name }, `\u2605 Hybrid species "${name}" registered!
-
-${artLines.join("\n")}
-
-"${description}"`);
+      const gameState = engine.getState();
+      const active = gameState.collection.filter((c) => !c.archived);
+      output(active, renderer.renderCollection(active));
       break;
     }
     default:
       console.log("Compi \u2014 Terminal Creature Collection Game\n");
       console.log("Commands:");
       console.log("  tick                    Record activity tick");
-      console.log("  scan                    Show nearby creatures");
-      console.log("  catch [n]               Catch creature #n");
+      console.log("  play                    Draw cards");
+      console.log("  play [a|b|c]            Pick a card");
+      console.log("  play s                  Skip hand (free redraw)");
       console.log("  collection              View your creatures");
-      console.log("  breed [N] [M] [--confirm]  Show breed table, preview, or execute");
-      console.log("  archive [id]            View archive or archive a creature");
-      console.log("  release <id>            Permanently release a creature");
-      console.log("  energy                  Show current energy");
-      console.log("  status                  Your profile");
-      console.log("  settings [key] [value]  View/change settings");
-      console.log("  species                 Show species index");
-      console.log("  register-hybrid <id> <name> <art> <desc>  Register a hybrid species (for testing)");
       console.log("\nAdd --json for machine-readable output.");
       break;
   }

@@ -30549,7 +30549,7 @@ var logger = {
 function defaultState() {
   const today = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
   return {
-    version: 6,
+    version: 7,
     profile: {
       level: 1,
       xp: 0,
@@ -30561,7 +30561,6 @@ function defaultState() {
       lastActiveDate: today
     },
     collection: [],
-    archive: [],
     energy: loadConfig().energy.startingEnergy,
     lastEnergyGainAt: Date.now(),
     nearby: [],
@@ -30675,6 +30674,18 @@ function migrateV5toV6(raw) {
   state.version = 6;
   return state;
 }
+function migrateV6toV7(raw) {
+  const state = raw;
+  if (Array.isArray(state.archive)) {
+    for (const creature of state.archive) {
+      creature.archived = false;
+      state.collection.push(creature);
+    }
+  }
+  delete state.archive;
+  state.version = 7;
+  return state;
+}
 var StateManager = class {
   constructor(filePath) {
     this.filePath = filePath;
@@ -30690,19 +30701,29 @@ var StateManager = class {
         logger.info("Migrating state from v4 to v5", { path: this.filePath });
         const v5 = migrateV4toV5(v4);
         logger.info("Migrating state from v5 to v6", { path: this.filePath });
-        return migrateV5toV6(v5);
+        const v6 = migrateV5toV6(v5);
+        logger.info("Migrating state from v6 to v7", { path: this.filePath });
+        return migrateV6toV7(v6);
       }
       if (version2 === 4) {
         logger.info("Migrating state from v4 to v5", { path: this.filePath });
         const v5 = migrateV4toV5(raw);
         logger.info("Migrating state from v5 to v6", { path: this.filePath });
-        return migrateV5toV6(v5);
+        const v6 = migrateV5toV6(v5);
+        logger.info("Migrating state from v6 to v7", { path: this.filePath });
+        return migrateV6toV7(v6);
       }
       if (version2 === 5) {
         logger.info("Migrating state from v5 to v6", { path: this.filePath });
-        return migrateV5toV6(raw);
+        const v6 = migrateV5toV6(raw);
+        logger.info("Migrating state from v6 to v7", { path: this.filePath });
+        return migrateV6toV7(v6);
       }
-      if (version2 !== 6) {
+      if (version2 === 6) {
+        logger.info("Migrating state from v6 to v7", { path: this.filePath });
+        return migrateV6toV7(raw);
+      }
+      if (version2 !== 7) {
         logger.info("Incompatible state version, creating fresh state", { path: this.filePath });
         return defaultState();
       }
@@ -31760,6 +31781,14 @@ function getSpeciesById(id) {
   ensureLoaded();
   return _speciesById.get(id);
 }
+function registerPersonalSpecies(species) {
+  ensureLoaded();
+  for (const s of species) {
+    if (!_speciesById.has(s.id)) {
+      _speciesById.set(s.id, s);
+    }
+  }
+}
 function pickSpecies(rng) {
   ensureLoaded();
   const species = _speciesCache;
@@ -31794,8 +31823,15 @@ function pickTraitForSlot(species, slotId, playerLevel, rng) {
 function getTraitDefinition(speciesId, variantId) {
   ensureLoaded();
   const variantMap = _traitIndex.get(speciesId);
-  if (!variantMap) return void 0;
-  return variantMap.get(variantId);
+  if (variantMap) {
+    const found = variantMap.get(variantId);
+    if (found) return found;
+  }
+  for (const [, map2] of _traitIndex) {
+    const found = map2.get(variantId);
+    if (found) return found;
+  }
+  return void 0;
 }
 
 // config/traits.json
@@ -32157,7 +32193,6 @@ var SESSION_ENERGY_BONUS = getConfig().energy.sessionBonus;
 // src/types.ts
 var SLOT_IDS = ["eyes", "mouth", "body", "tail"];
 var RARITY_COLORS = ["grey", "white", "green", "cyan", "blue", "magenta", "yellow", "red"];
-var MAX_COLLECTION_SIZE = 15;
 
 // src/engine/breed.ts
 init_loader();
@@ -32297,12 +32332,6 @@ function executeBreed(state, parentAId, parentBId, rng = Math.random) {
       `This pair is on cooldown for ${remaining} more minute(s).`
     );
   }
-  const nonArchived = state.collection.filter((c) => !c.archived);
-  if (nonArchived.length >= MAX_COLLECTION_SIZE) {
-    throw new Error(
-      `Collection is full (${MAX_COLLECTION_SIZE}). Archive a creature first.`
-    );
-  }
   const energyCost = calculateBreedCost(parentA, parentB);
   if (state.energy < energyCost) {
     throw new Error(
@@ -32357,6 +32386,20 @@ function executeBreed(state, parentAId, parentBId, rng = Math.random) {
     mergedFrom: [parentAId, parentBId],
     archived: false
   };
+  if (isCrossSpecies && !state.personalSpecies.find((s) => s.id === childSpeciesId)) {
+    const parentASpecies = getSpeciesById(parentA.speciesId);
+    const parentBSpecies = getSpeciesById(parentB.speciesId);
+    const templateSpecies = parentASpecies || parentBSpecies;
+    state.personalSpecies.push({
+      id: childSpeciesId,
+      name: `${parentASpecies?.name ?? parentA.speciesId}${parentBSpecies?.name ?? parentB.speciesId}`,
+      description: `A hybrid of ${parentA.speciesId} and ${parentB.speciesId}`,
+      spawnWeight: 0,
+      art: templateSpecies?.art ?? ["  ???"],
+      zones: templateSpecies?.zones,
+      traitPools: {}
+    });
+  }
   state.collection.push(child);
   spendEnergy(state, energyCost);
   state.sessionBreedCount += 1;
@@ -32570,32 +32613,6 @@ function attemptCatch(state, nearbyIndex, rng = Math.random) {
   };
 }
 
-// src/engine/archive.ts
-function archiveCreature(state, creatureId) {
-  const index = state.collection.findIndex((c) => c.id === creatureId);
-  if (index === -1) {
-    throw new Error(`Creature not found in collection: ${creatureId}`);
-  }
-  const creature = state.collection[index];
-  if (creature.archived) {
-    throw new Error(`Creature is already archived: ${creatureId}`);
-  }
-  state.collection.splice(index, 1);
-  creature.archived = true;
-  state.archive.push(creature);
-  return { creature };
-}
-function releaseCreature(state, creatureId) {
-  const index = state.collection.findIndex((c) => c.id === creatureId);
-  if (index === -1) {
-    throw new Error(`Creature not found in collection: ${creatureId}`);
-  }
-  state.collection.splice(index, 1);
-}
-function isCollectionFull(state) {
-  return state.collection.length >= MAX_COLLECTION_SIZE;
-}
-
 // src/engine/discovery.ts
 init_loader();
 init_progression();
@@ -32623,205 +32640,6 @@ function recordDiscovery(state, speciesId) {
 // src/engine/game-engine.ts
 init_progression();
 init_loader();
-
-// src/engine/advisor.ts
-init_loader();
-init_progression();
-
-// src/engine/tiers.ts
-var TIER_BOUNDARIES = [0, 5, 9, 12, 15, 17];
-var TIER_NAMES = ["common", "uncommon", "rare", "epic", "legendary", "mythic"];
-function extractRank2(variantId) {
-  const m = variantId.match(/_r(\d+)$/);
-  return m ? parseInt(m[1], 10) : 0;
-}
-function getTierName(rank) {
-  for (let i = TIER_BOUNDARIES.length - 1; i >= 0; i--) {
-    if (rank >= TIER_BOUNDARIES[i]) return TIER_NAMES[i];
-  }
-  return "common";
-}
-
-// src/engine/advisor.ts
-function getProgressInfo(state) {
-  const config3 = loadConfig();
-  const xpToNextLevel = getXpForNextLevel(state.profile.level);
-  const xpPercent = xpToNextLevel > 0 ? Math.round(state.profile.xp / xpToNextLevel * 100) : 100;
-  let bestTrait = null;
-  let bestRank = -1;
-  for (const creature of state.collection) {
-    if (creature.archived) continue;
-    for (const slot of creature.slots) {
-      const rank = extractRank2(slot.variantId);
-      if (rank > bestRank) {
-        bestRank = rank;
-        bestTrait = {
-          creatureName: creature.name,
-          slot: slot.slotId,
-          rank,
-          tierName: getTierName(rank)
-        };
-      }
-    }
-  }
-  let nextSpeciesUnlock = null;
-  const unlockLevels = config3.discovery?.speciesUnlockLevels ?? {};
-  let closestUnlockLevel = Infinity;
-  for (const [species, unlockLevel] of Object.entries(unlockLevels)) {
-    const lvl = unlockLevel;
-    if (lvl > state.profile.level && lvl < closestUnlockLevel) {
-      closestUnlockLevel = lvl;
-      nextSpeciesUnlock = { species, level: lvl };
-    }
-  }
-  const allSpecies = /* @__PURE__ */ new Set([
-    ...state.discoveredSpecies,
-    ...Object.keys(unlockLevels)
-  ]);
-  const totalSpecies = Math.max(allSpecies.size, state.discoveredSpecies.length);
-  return {
-    level: state.profile.level,
-    xp: state.profile.xp,
-    xpToNextLevel,
-    xpPercent,
-    nextSpeciesUnlock,
-    bestTrait,
-    collectionSize: state.collection.filter((c) => !c.archived).length,
-    collectionMax: MAX_COLLECTION_SIZE,
-    energy: state.energy,
-    energyMax: MAX_ENERGY,
-    discoveredCount: state.discoveredSpecies.length,
-    totalSpecies,
-    speciesProgress: state.speciesProgress
-  };
-}
-function getViableActions(state) {
-  const actions = [];
-  if (state.nearby.length > 0 && state.batch && state.batch.attemptsRemaining > 0) {
-    for (let i = 0; i < state.nearby.length; i++) {
-      const creature = state.nearby[i];
-      const energyCost = 1;
-      if (state.energy >= energyCost) {
-        actions.push({
-          type: "catch",
-          label: `Catch ${creature.name} (#${i + 1})`,
-          cost: { energy: energyCost },
-          priority: 0,
-          reasoning: `Wild ${creature.speciesId} available`,
-          target: { nearbyIndex: i }
-        });
-      }
-    }
-  }
-  const speciesGroups = {};
-  for (let ci = 0; ci < state.collection.length; ci++) {
-    const creature = state.collection[ci];
-    if (creature.archived) continue;
-    if (!speciesGroups[creature.speciesId]) speciesGroups[creature.speciesId] = [];
-    speciesGroups[creature.speciesId].push(ci);
-  }
-  for (const [speciesId, indexes] of Object.entries(speciesGroups)) {
-    if (indexes.length < 2) continue;
-    const sorted = [...indexes].sort((a, b) => {
-      const powerA = state.collection[a].slots.reduce((s, sl) => s + extractRank2(sl.variantId), 0);
-      const powerB = state.collection[b].slots.reduce((s, sl) => s + extractRank2(sl.variantId), 0);
-      return powerB - powerA;
-    });
-    const ai = sorted[0];
-    const bi = sorted[1];
-    actions.push({
-      type: "breed",
-      label: `Breed ${state.collection[ai].name} + ${state.collection[bi].name}`,
-      cost: {},
-      priority: 0,
-      reasoning: `${indexes.length} ${speciesId} available for breeding`,
-      target: { creatureIndex: ai + 1, partnerIndex: bi + 1 }
-    });
-  }
-  if (state.nearby.length === 0 || !state.batch) {
-    actions.push({
-      type: "scan",
-      label: "Scan for new creatures",
-      cost: {},
-      priority: 0,
-      reasoning: state.nearby.length === 0 ? "No creatures nearby -- scan to find some" : "Check for new spawns"
-    });
-  }
-  if (state.collection.filter((c) => !c.archived).length >= MAX_COLLECTION_SIZE) {
-    actions.push({
-      type: "release",
-      label: "Release or archive a creature to make room",
-      cost: {},
-      priority: 0,
-      reasoning: "Collection is full (15/15)"
-    });
-  }
-  actions.push({
-    type: "collection",
-    label: "View collection",
-    cost: {},
-    priority: 0,
-    reasoning: "Review your creatures"
-  });
-  return actions;
-}
-function getAdvisorMode(action, result, state) {
-  if (action === "catch") {
-    const catchResult = result;
-    if (catchResult.success) {
-      const speciesId = catchResult.creature.speciesId;
-      if (!state.discoveredSpecies.includes(speciesId)) {
-        return "advisor";
-      }
-      const breedableCount = state.collection.filter((c) => !c.archived).length;
-      if (breedableCount >= 2) return "advisor";
-    }
-  }
-  if (action === "breed") return "advisor";
-  if (state.energy <= 2) {
-    return "advisor";
-  }
-  if (state.collection.filter((c) => !c.archived).length >= MAX_COLLECTION_SIZE) {
-    return "advisor";
-  }
-  if (action === "level_up") return "advisor";
-  return "autopilot";
-}
-function getSuggestedActions(action, result, state) {
-  const viable = getViableActions(state);
-  if (viable.length === 0) return [];
-  for (const a of viable) {
-    a.priority = scoreAction(a, action, result, state);
-  }
-  viable.sort((a, b) => a.priority - b.priority);
-  const collectionAction = viable.find((a) => a.type === "collection");
-  const nonCollection = viable.filter((a) => a.type !== "collection");
-  const top = nonCollection.slice(0, 4);
-  if (collectionAction) top.push(collectionAction);
-  top.forEach((a, i) => {
-    a.priority = i + 1;
-  });
-  return top;
-}
-function scoreAction(action, lastAction, _lastResult, state) {
-  let score = 50;
-  if (action.type === "breed") score = 5;
-  if (action.type === "catch" && lastAction === "scan") score = 5;
-  if (action.type === "catch" && lastAction === "catch") score = 15;
-  if (action.type === "scan") score = 40;
-  if (action.type === "release") score = 3;
-  if (action.type === "collection") score = 100;
-  return score;
-}
-function buildAdvisorContext(action, result, state) {
-  return {
-    mode: getAdvisorMode(action, result, state),
-    suggestedActions: getSuggestedActions(action, result, state),
-    progress: getProgressInfo(state)
-  };
-}
-
-// src/engine/game-engine.ts
 init_species_index();
 var GameEngine = class {
   state;
@@ -32873,9 +32691,6 @@ var GameEngine = class {
     return { nearby, energy: this.state.energy, batch: this.state.batch, nextBatchInMs };
   }
   catch(nearbyIndex, rng = Math.random) {
-    if (isCollectionFull(this.state)) {
-      throw new Error("Collection is full (15 creatures). Archive or release a creature first.");
-    }
     const result = attemptCatch(this.state, nearbyIndex, rng);
     if (result.success) {
       const config3 = loadConfig();
@@ -32896,17 +32711,10 @@ var GameEngine = class {
   buildBreedTable() {
     return buildBreedTable(this.state);
   }
-  archive(creatureId) {
-    return archiveCreature(this.state, creatureId);
-  }
-  release(creatureId) {
-    return releaseCreature(this.state, creatureId);
-  }
   status() {
     return {
       profile: this.state.profile,
       collectionCount: this.state.collection.length,
-      archiveCount: this.state.archive.length,
       energy: this.state.energy,
       nearbyCount: this.state.nearby.length,
       batchAttemptsRemaining: this.state.batch?.attemptsRemaining ?? 0,
@@ -32920,15 +32728,13 @@ var GameEngine = class {
   getDiscoveredSpecies() {
     return [...this.state.discoveredSpecies];
   }
-  getAdvisorContext(action, result) {
-    return buildAdvisorContext(action, result, this.state);
-  }
   getState() {
     return this.state;
   }
 };
 
 // src/renderers/simple-text.ts
+init_progression();
 var stringWidth = require_string_width();
 var RESET = "\x1B[0m";
 var BOLD = "\x1B[1m";
@@ -33238,7 +33044,6 @@ var SimpleTextRenderer = class {
     lines.push(`  Catches:    ${p.totalCatches}`);
     lines.push(`  Merges:     ${p.totalMerges}`);
     lines.push(`  Collection: ${result.collectionCount} creatures`);
-    lines.push(`  Archive:    ${result.archiveCount} creatures`);
     lines.push(`  Discovered: ${result.discoveredCount} species`);
     lines.push(`  Streak:     ${p.currentStreak} days ${DIM}(best: ${p.longestStreak})${RESET}`);
     lines.push(`  Nearby:     ${result.nearbyCount} creatures`);
@@ -33424,54 +33229,448 @@ var SimpleTextRenderer = class {
   renderCompanionOverview(_overview) {
     return "";
   }
-};
-
-// src/engine/companion.ts
-function getCompanionOverview(state) {
-  const progress = getProgressInfo(state);
-  const suggestedActions = getSuggestedActions("companion", null, state);
-  const nearbyHighlights = state.nearby.map((creature, i) => {
-    const totalRarity = creature.slots.reduce((sum, slot) => sum + (slot.rarity ?? 0), 0);
-    return {
-      index: i + 1,
-      name: creature.name,
-      speciesId: creature.speciesId,
-      isNewSpecies: !state.discoveredSpecies.includes(creature.speciesId),
-      catchRate: calculateCatchRate(creature.speciesId, creature.slots, state.batch?.failPenalty ?? 0),
-      energyCost: calculateEnergyCost(creature.speciesId, creature.slots),
-      totalRarity
-    };
-  });
-  const breedablePairs = [];
-  const nonArchived = state.collection.map((c, i) => ({ creature: c, index: i })).filter(({ creature }) => !creature.archived);
-  if (nonArchived.length >= 2) {
-    const pairs = [];
-    for (let i = 0; i < nonArchived.length; i++) {
-      for (let j = i + 1; j < nonArchived.length; j++) {
-        const scoreA = nonArchived[i].creature.slots.reduce((s, sl) => s + (sl.rarity ?? 0), 0);
-        const scoreB = nonArchived[j].creature.slots.reduce((s, sl) => s + (sl.rarity ?? 0), 0);
-        pairs.push({ a: i, b: j, score: scoreA + scoreB });
+  renderCardDraw(draw, energy, maxEnergy, profile) {
+    const lines = [];
+    lines.push(this.renderStatusHeader(energy, maxEnergy, profile));
+    lines.push("");
+    if (draw.noEnergy) {
+      lines.push(`  ${DIM}Out of energy. Come back later!${RESET}`);
+      return lines.join("\n");
+    }
+    if (draw.empty) {
+      lines.push(`  ${DIM}Nothing happening right now. New creatures spawn every 30 min.${RESET}`);
+      return lines.join("\n");
+    }
+    if (draw.cards.length === 1 && draw.cards[0].type === "breed") {
+      const bigLines = this.renderBreedCardBig(draw.cards[0]);
+      for (const l of bigLines) lines.push(l);
+      lines.push("");
+      lines.push(`  ${DIM}Reply ${RESET}${BOLD}a${RESET}${DIM} or ${RESET}${BOLD}b${RESET}`);
+      return lines.join("\n");
+    }
+    const letters = ["A", "B", "C", "D", "E", "F"];
+    const cardLineArrays = [];
+    for (let i = 0; i < draw.cards.length; i++) {
+      cardLineArrays.push(this.renderCatchCardLines(draw.cards[i], letters[i]));
+    }
+    const maxHeight = Math.max(...cardLineArrays.map((a) => a.length));
+    for (const arr of cardLineArrays) {
+      while (arr.length < maxHeight) arr.push(" ".repeat(22));
+    }
+    for (let row = 0; row < maxHeight; row++) {
+      const parts = [];
+      for (const arr of cardLineArrays) {
+        parts.push(arr[row]);
+      }
+      lines.push("  " + parts.join("  "));
+    }
+    lines.push("");
+    lines.push(`  ${DIM}[S] Skip${RESET} ${ENERGY_ICON}${DIM}1${RESET}`);
+    return lines.join("\n");
+  }
+  renderPlayResult(result, energy, maxEnergy, profile) {
+    const lines = [];
+    lines.push(this.renderStatusHeader(energy, maxEnergy, profile));
+    lines.push("");
+    if (result.action === "catch" && result.catchResult) {
+      const cr = result.catchResult;
+      if (cr.success) {
+        lines.push(`  ${GREEN}${BOLD}\u2726 CAUGHT! \u2726${RESET}  ${BOLD}${cr.creature.name}${RESET} added to collection`);
+        if (cr.discovery?.isNew) {
+          lines.push(`  ${YELLOW}${BOLD}\u2726 NEW SPECIES: ${cr.discovery.speciesId} \u2726${RESET}  ${GREEN}+${cr.discovery.bonusXp} bonus XP${RESET}`);
+        }
+        lines.push(`  ${DIM}+${cr.xpEarned} XP   -${cr.energySpent}${RESET}${ENERGY_ICON}`);
+      } else if (cr.fled) {
+        lines.push(`  ${RED}${BOLD}\u2726 FLED \u2726${RESET}  ${BOLD}${cr.creature.name}${RESET} is gone`);
+      } else {
+        lines.push(`  ${YELLOW}${BOLD}\u2726 ESCAPED \u2726${RESET}  ${BOLD}${cr.creature.name}${RESET} got away`);
+        lines.push(`  ${DIM}${cr.attemptsRemaining} attempts remaining${RESET}`);
       }
     }
-    pairs.sort((a, b) => b.score - a.score);
-    for (const pair of pairs.slice(0, 3)) {
-      const ca = nonArchived[pair.a];
-      const cb = nonArchived[pair.b];
-      breedablePairs.push({
-        indexA: ca.index + 1,
-        nameA: ca.creature.name,
-        indexB: cb.index + 1,
-        nameB: cb.creature.name,
-        speciesId: ca.creature.speciesId === cb.creature.speciesId ? ca.creature.speciesId : `${ca.creature.speciesId}\xD7${cb.creature.speciesId}`
+    if (result.action === "breed" && result.breedResult) {
+      const br = result.breedResult;
+      const child = br.child;
+      const W = 40;
+      const IW = W - 2;
+      const border = "  +" + "-".repeat(IW) + "+";
+      const pad = (s, rawLen) => s + " ".repeat(Math.max(0, IW - rawLen));
+      lines.push("");
+      lines.push(border);
+      if (br.isCrossSpecies) {
+        const title = "\u2605 NEW HYBRID BORN! \u2605";
+        const titlePad = Math.floor((IW - title.length) / 2);
+        lines.push(`  |${" ".repeat(titlePad)}${YELLOW}${BOLD}${title}${RESET}${" ".repeat(IW - titlePad - title.length)}|`);
+      } else {
+        const title = "\u2605 BABY BORN! \u2605";
+        const titlePad = Math.floor((IW - title.length) / 2);
+        lines.push(`  |${" ".repeat(titlePad)}${GREEN}${BOLD}${title}${RESET}${" ".repeat(IW - titlePad - title.length)}|`);
+      }
+      lines.push(`  |${" ".repeat(IW)}|`);
+      const artLines = renderCreatureLines(child.slots, child.speciesId);
+      for (const artLine of artLines) {
+        const stripped = artLine.replace(/\x1b\[[0-9;]*m/g, "");
+        const artPad = Math.max(0, IW - stringWidth(stripped));
+        lines.push(`  |${artLine}${" ".repeat(artPad)}|`);
+      }
+      lines.push(`  |${" ".repeat(IW)}|`);
+      const nameStr = ` ${BOLD}${child.name}${RESET}`;
+      lines.push(`  |${pad(nameStr, 1 + child.name.length)}|`);
+      const order = ["eyes", "mouth", "body", "tail"];
+      for (const slotId of order) {
+        const slot = child.slots.find((s) => s.slotId === slotId);
+        if (slot) {
+          const rColor = rarityColor(slot.rarity);
+          const rName = RARITY_NAMES[slot.rarity] ?? "Common";
+          const label = ` ${rName} ${slotId.charAt(0).toUpperCase() + slotId.slice(1)}`;
+          const upgrade = br.upgrades?.find((u) => u.slotId === slotId);
+          let display;
+          let rawLen;
+          if (upgrade) {
+            const arrow = ` ${YELLOW}\u2191${RESET}`;
+            display = ` ${rColor}\u25A0${RESET}${label}${arrow}`;
+            rawLen = 1 + 1 + label.length + 2;
+          } else {
+            display = ` ${rColor}\u25A0${RESET}${label}`;
+            rawLen = 1 + 1 + label.length;
+          }
+          lines.push(`  |${pad(display, rawLen)}|`);
+        }
+      }
+      lines.push(`  |${" ".repeat(IW)}|`);
+      const parentLine = ` ${DIM}${br.parentA.name} \xD7 ${br.parentB.name}${RESET}`;
+      const parentRaw = 1 + br.parentA.name.length + 3 + br.parentB.name.length;
+      lines.push(`  |${pad(parentLine, parentRaw)}|`);
+      lines.push(border);
+      lines.push("");
+    }
+    lines.push("");
+    const nextDraw = result.nextDraw;
+    if (nextDraw.noEnergy) {
+      lines.push(`  ${DIM}Out of energy. Come back later!${RESET}`);
+    } else if (nextDraw.empty) {
+      lines.push(`  ${DIM}Nothing happening right now. New creatures spawn every 30 min.${RESET}`);
+    } else if (nextDraw.cards.length === 1 && nextDraw.cards[0].type === "breed") {
+      const bigLines = this.renderBreedCardBig(nextDraw.cards[0]);
+      for (const l of bigLines) lines.push(l);
+      lines.push("");
+      lines.push(`  ${DIM}Reply ${RESET}${BOLD}a${RESET}${DIM} or ${RESET}${BOLD}b${RESET}`);
+    } else {
+      const letters = ["A", "B", "C", "D", "E", "F"];
+      const cardLineArrays = [];
+      for (let i = 0; i < nextDraw.cards.length; i++) {
+        cardLineArrays.push(this.renderCatchCardLines(nextDraw.cards[i], letters[i]));
+      }
+      const maxHeight = Math.max(...cardLineArrays.map((a) => a.length));
+      for (const arr of cardLineArrays) {
+        while (arr.length < maxHeight) arr.push(" ".repeat(22));
+      }
+      for (let row = 0; row < maxHeight; row++) {
+        const parts = [];
+        for (const arr of cardLineArrays) {
+          parts.push(arr[row]);
+        }
+        lines.push("  " + parts.join("  "));
+      }
+      lines.push("");
+      lines.push(`  ${DIM}[S] Skip${RESET} ${ENERGY_ICON}${DIM}1${RESET}`);
+    }
+    return lines.join("\n");
+  }
+  renderStatusHeader(energy, maxEnergy, profile) {
+    const filled = Math.min(10, Math.round(energy / maxEnergy * 10));
+    const bar = `${GREEN}${"\u2588".repeat(filled)}${"\u2591".repeat(10 - filled)}${RESET}`;
+    const nextXp = getXpForNextLevel(profile.level);
+    return `  ${ENERGY_ICON} ${bar} ${energy}/${maxEnergy}  ${BOLD}Lv.${profile.level}${RESET}  ${DIM}${profile.xp}/${nextXp} XP${RESET}`;
+  }
+  renderCatchCardLines(card, letter) {
+    const CARD_WIDTH = 22;
+    const INNER = CARD_WIDTH - 2;
+    const data = card.data;
+    const creature = data.creature;
+    const lines = [];
+    const topBot = "+" + "-".repeat(INNER) + "+";
+    lines.push(topBot);
+    const headerText = `[${letter}] CATCH`;
+    const headerPad = INNER - stringWidth(headerText);
+    lines.push("|" + headerText + " ".repeat(Math.max(0, headerPad)) + "|");
+    lines.push("|" + "-".repeat(INNER) + "|");
+    const artLines = renderCreatureLines(creature.slots, creature.speciesId);
+    for (let i = 0; i < 4; i++) {
+      const artLine = artLines[i] ?? "";
+      const visW = stringWidth(artLine);
+      const pad = Math.max(0, INNER - visW);
+      lines.push("|" + artLine + " ".repeat(pad) + "|");
+    }
+    const speciesDisplay = creature.speciesId.charAt(0).toUpperCase() + creature.speciesId.slice(1);
+    const nameStr = `${BOLD}${speciesDisplay}${RESET}`;
+    const nameVisW = stringWidth(speciesDisplay);
+    const namePad = Math.max(0, INNER - nameVisW);
+    lines.push("|" + nameStr + " ".repeat(namePad) + "|");
+    lines.push("|" + "-".repeat(INNER) + "|");
+    const order = ["eyes", "mouth", "body", "tail"];
+    for (const slotId of order) {
+      const slot = creature.slots.find((s) => s.slotId === slotId);
+      if (slot) {
+        const color = rarityColor(slot.rarity);
+        const variant = creature.speciesId ? getTraitDefinition(creature.speciesId, slot.variantId) : getVariantById(slot.variantId);
+        const traitName = variant?.name ?? slot.variantId;
+        const traitStr = `${color}\u25A0${RESET} ${traitName}`;
+        const traitVisW = stringWidth("\u25A0 " + traitName);
+        const traitPad = Math.max(0, INNER - traitVisW);
+        lines.push("|" + traitStr + " ".repeat(traitPad) + "|");
+      } else {
+        const emptyStr = `${DIM}\u2014${RESET}`;
+        const pad = Math.max(0, INNER - 1);
+        lines.push("|" + emptyStr + " ".repeat(pad) + "|");
+      }
+    }
+    lines.push("|" + "-".repeat(INNER) + "|");
+    const rate = Math.round(data.catchRate * 100);
+    const costStr = `${ENERGY_ICON}${data.energyCost}  ${rate}%`;
+    const costVisW = stringWidth(`\u26A1${data.energyCost}  ${rate}%`);
+    const costPad = Math.max(0, INNER - costVisW);
+    lines.push("|" + costStr + " ".repeat(costPad) + "|");
+    lines.push(topBot);
+    return lines;
+  }
+  renderBreedCardBig(card) {
+    const CARD_WIDTH = 60;
+    const INNER = CARD_WIDTH - 2;
+    const data = card.data;
+    const lines = [];
+    const topBot = "+" + "-".repeat(INNER) + "+";
+    lines.push(topBot);
+    const title = "\u2665 BREEDING MATCH \u2665";
+    const titleVisW = stringWidth(title);
+    const titleLeftPad = Math.floor((INNER - titleVisW) / 2);
+    const titleRightPad = INNER - titleVisW - titleLeftPad;
+    lines.push("|" + " ".repeat(titleLeftPad) + title + " ".repeat(titleRightPad) + "|");
+    lines.push("|" + "-".repeat(INNER) + "|");
+    const artA = renderCreatureLines(data.parentA.creature.slots, data.parentA.creature.speciesId);
+    const artB = renderCreatureLines(data.parentB.creature.slots, data.parentB.creature.speciesId);
+    const artHeight = Math.max(artA.length, artB.length);
+    const ART_COL = 22;
+    const HEART_COL = INNER - ART_COL * 2;
+    for (let i = 0; i < artHeight; i++) {
+      const leftArt = artA[i] ?? "";
+      const rightArt = artB[i] ?? "";
+      const leftPadded = padArtLine(leftArt, ART_COL);
+      const heartStr = i === Math.floor(artHeight / 2) ? "\u2665" : " ";
+      const heartVisW = stringWidth(heartStr);
+      const heartPad = Math.max(0, HEART_COL - heartVisW);
+      const heartPadLeft = Math.floor(heartPad / 2);
+      const heartPadRight = heartPad - heartPadLeft;
+      const rightPadded = padArtLine(rightArt, ART_COL);
+      const combined = leftPadded + " ".repeat(heartPadLeft) + heartStr + " ".repeat(heartPadRight) + rightPadded;
+      const combinedW = stringWidth(combined);
+      const finalPad = Math.max(0, INNER - combinedW);
+      lines.push("|" + combined + " ".repeat(finalPad) + "|");
+    }
+    const nameA = data.parentA.creature.name;
+    const nameB = data.parentB.creature.name;
+    const nameAPadded = nameA + " ".repeat(Math.max(0, ART_COL - stringWidth(nameA)));
+    const nameCenterPad = " ".repeat(HEART_COL);
+    const nameBStr = nameB;
+    const nameLineContent = nameAPadded + nameCenterPad + nameBStr;
+    const nameLineW = stringWidth(nameLineContent);
+    const nameLinePad = Math.max(0, INNER - nameLineW);
+    lines.push("|" + nameLineContent + " ".repeat(nameLinePad) + "|");
+    lines.push("|" + "-".repeat(INNER) + "|");
+    const order = ["eyes", "mouth", "body", "tail"];
+    for (const slotId of order) {
+      const upgrade = data.upgradeChances.find((u) => u.slotId === slotId);
+      const matchStr = upgrade?.match ? `${GREEN}\u2191${Math.round(upgrade.upgradeChance * 100)}%${RESET}` : `${DIM}\u2014${RESET}`;
+      const matchVisW = upgrade?.match ? stringWidth(`\u2191${Math.round(upgrade.upgradeChance * 100)}%`) : 1;
+      const slotLabel = slotId.padEnd(6);
+      const content = `  ${slotLabel} ${matchStr}`;
+      const contentVisW = 2 + 6 + 1 + matchVisW;
+      const pad = Math.max(0, INNER - contentVisW);
+      lines.push("|" + content + " ".repeat(pad) + "|");
+    }
+    lines.push("|" + "-".repeat(INNER) + "|");
+    const breedOpt = `[A] Breed ${ENERGY_ICON}${data.energyCost}`;
+    const breedVisW = stringWidth(`[A] Breed \u26A1${data.energyCost}`);
+    const breedPad = Math.max(0, INNER - breedVisW);
+    lines.push("|" + breedOpt + " ".repeat(breedPad) + "|");
+    const passOpt = `[B] Pass`;
+    const passPad = Math.max(0, INNER - stringWidth(passOpt));
+    lines.push("|" + passOpt + " ".repeat(passPad) + "|");
+    lines.push(topBot);
+    return lines;
+  }
+};
+
+// src/engine/cards.ts
+init_progression();
+init_loader();
+function buildPool(state) {
+  const cards = [];
+  const config3 = loadConfig();
+  if (state.batch && state.batch.attemptsRemaining > 0) {
+    for (let i = 0; i < state.nearby.length; i++) {
+      const creature = state.nearby[i];
+      const catchRate = calculateCatchRate(creature.speciesId, creature.slots, state.batch.failPenalty);
+      const energyCost = calculateEnergyCost(creature.speciesId, creature.slots);
+      const data = {
+        nearbyIndex: i,
+        creature,
+        catchRate,
+        energyCost
+      };
+      cards.push({
+        id: `catch_${creature.id}`,
+        type: "catch",
+        label: `Catch ${creature.name}`,
+        energyCost,
+        data
       });
     }
   }
-  return {
-    progress,
-    nearbyHighlights,
-    breedablePairs,
-    suggestedActions
-  };
+  const maxBreedsPerSession = config3.breed.maxBreedsPerSession ?? 3;
+  if (state.sessionBreedCount < maxBreedsPerSession) {
+    const nonArchived = [];
+    for (let i = 0; i < state.collection.length; i++) {
+      if (!state.collection[i].archived) {
+        nonArchived.push({ index: i, creature: state.collection[i] });
+      }
+    }
+    const now = Date.now();
+    for (let a = 0; a < nonArchived.length; a++) {
+      for (let b = a + 1; b < nonArchived.length; b++) {
+        const parentA = nonArchived[a];
+        const parentB = nonArchived[b];
+        const key = [parentA.creature.id, parentB.creature.id].sort().join(":");
+        const cooldownUntil = state.breedCooldowns[key] ?? 0;
+        if (now < cooldownUntil) continue;
+        const energyCost = calculateBreedCost(parentA.creature, parentB.creature);
+        const isSameSpecies = parentA.creature.speciesId === parentB.creature.speciesId;
+        const upgradeChances = [];
+        const slotIds = ["eyes", "mouth", "body", "tail"];
+        for (const slotId of slotIds) {
+          const slotA = parentA.creature.slots.find((s) => s.slotId === slotId);
+          const slotB = parentB.creature.slots.find((s) => s.slotId === slotId);
+          if (!slotA || !slotB) continue;
+          const match = slotA.variantId === slotB.variantId;
+          let upgradeChance;
+          if (match) {
+            const sameRarity = slotA.rarity === slotB.rarity;
+            upgradeChance = sameRarity ? config3.breed.sameTraitUpgradeChance ?? 0.35 : config3.breed.sameTraitHigherParentUpgradeChance ?? 0.15;
+          } else {
+            upgradeChance = isSameSpecies ? config3.breed.diffTraitSameSpeciesUpgradeChance ?? 0.1 : config3.breed.diffTraitCrossSpeciesUpgradeChance ?? 0.05;
+          }
+          upgradeChances.push({ slotId, match, upgradeChance });
+        }
+        const breedData = {
+          parentA: { index: parentA.index, creature: parentA.creature },
+          parentB: { index: parentB.index, creature: parentB.creature },
+          upgradeChances,
+          energyCost
+        };
+        cards.push({
+          id: `breed_${parentA.creature.id}_${parentB.creature.id}`,
+          type: "breed",
+          label: `Breed ${parentA.creature.name} + ${parentB.creature.name}`,
+          energyCost,
+          data: breedData
+        });
+      }
+    }
+  }
+  return cards;
+}
+function shuffle(arr, rng) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+function drawCardsFree(state, rng = Math.random) {
+  if (state.energy <= 0) {
+    return { cards: [], empty: false, noEnergy: true };
+  }
+  const pool = buildPool(state);
+  if (pool.length === 0) {
+    return { cards: [], empty: true, noEnergy: false };
+  }
+  const catchPool = pool.filter((c) => c.type === "catch");
+  const breedPool = pool.filter((c) => c.type === "breed");
+  let drawn;
+  const breedProb = catchPool.length > 0 ? 0.2 : 1;
+  if (breedPool.length > 0 && rng() < breedProb) {
+    shuffle(breedPool, rng);
+    drawn = [breedPool[0]];
+  } else if (catchPool.length > 0) {
+    shuffle(catchPool, rng);
+    drawn = catchPool.slice(0, 3);
+  } else if (breedPool.length > 0) {
+    shuffle(breedPool, rng);
+    drawn = [breedPool[0]];
+  } else {
+    return { cards: [], empty: true, noEnergy: false };
+  }
+  state.currentHand = drawn.map((card) => {
+    const ref = { id: card.id, type: card.type };
+    if (card.type === "catch") {
+      ref.nearbyIndex = card.data.nearbyIndex;
+    } else {
+      const bd = card.data;
+      ref.parentIndices = [bd.parentA.index, bd.parentB.index];
+    }
+    return ref;
+  });
+  return { cards: drawn, empty: false, noEnergy: false };
+}
+function drawCards(state, rng = Math.random) {
+  if (state.energy < 1) {
+    return { cards: [], empty: false, noEnergy: true };
+  }
+  const pool = buildPool(state);
+  if (pool.length === 0) {
+    return { cards: [], empty: true, noEnergy: false };
+  }
+  spendEnergy(state, 1);
+  return drawCardsFree(state, rng);
+}
+function playCard(state, choiceIndex, rng = Math.random) {
+  if (!state.currentHand || state.currentHand.length === 0) {
+    throw new Error("No cards in hand");
+  }
+  if (choiceIndex < 0 || choiceIndex >= state.currentHand.length) {
+    throw new Error(`Invalid choice index: ${choiceIndex}`);
+  }
+  const cardRef = state.currentHand[choiceIndex];
+  if (cardRef.type === "catch") {
+    const nearbyIndex = cardRef.nearbyIndex;
+    const catchResult = attemptCatch(state, nearbyIndex, rng);
+    if (catchResult.success) {
+      grantXp(state, 0);
+      recordDiscovery(state, catchResult.creature.speciesId);
+    }
+    state.currentHand = void 0;
+    const nextDraw = drawCardsFree(state, rng);
+    return {
+      action: "catch",
+      catchResult,
+      nextDraw
+    };
+  } else {
+    const [idxA, idxB] = cardRef.parentIndices;
+    const parentA = state.collection[idxA];
+    const parentB = state.collection[idxB];
+    const breedResult = executeBreed(state, parentA.id, parentB.id, rng);
+    state.currentHand = void 0;
+    const nextDraw = drawCardsFree(state, rng);
+    return {
+      action: "breed",
+      breedResult,
+      nextDraw
+    };
+  }
+}
+function skipHand(state, rng = Math.random) {
+  state.currentHand = void 0;
+  return drawCardsFree(state, rng);
 }
 
 // src/mcp-tools.ts
@@ -33483,18 +33682,6 @@ function loadEngine() {
   return { stateManager, engine };
 }
 var displayPath = path3.join(os2.tmpdir(), "compi_display.txt");
-function appendAdvisorContext(displayContent, advisorCtx) {
-  const json2 = JSON.stringify(advisorCtx, null, 2);
-  return `${displayContent}
-
-<advisor_context>
-${json2}
-</advisor_context>`;
-}
-function prependStatusBar(engine, renderer, content) {
-  const progress = getProgressInfo(engine.getState());
-  return renderer.renderStatusBar(progress) + "\n\n" + content;
-}
 function makeText(content, options) {
   if (options.writeDisplayFile) {
     fs3.writeFileSync(displayPath, content);
@@ -33523,206 +33710,53 @@ function addTool(server2, name, description, inputSchema, handler, appMeta) {
     }
   }
 }
-function runBreedCommand(engine, renderer, args) {
-  const { indexA, indexB, confirm } = args;
-  const collection = engine.getState().collection;
-  if (indexA === void 0 && indexB === void 0) {
-    return {
-      output: renderer.renderBreedTable(engine.buildBreedTable()),
-      mutated: false
-    };
-  }
-  if (indexA !== void 0 && indexB === void 0) {
-    throw new Error(
-      "Pick two creatures to breed. Run /breed to see all breedable creatures, or /breed N M to preview a pair."
-    );
-  }
-  if (indexA === void 0 && indexB !== void 0) {
-    throw new Error(
-      "indexA is required. Run /breed to see all breedable creatures, or /breed N M to preview a pair."
-    );
-  }
-  if (indexA === void 0 || indexB === void 0) {
-    throw new Error("Both indexA and indexB are required to preview or confirm a breed.");
-  }
-  if (indexA < 1 || indexA > collection.length) {
-    throw new Error(
-      `No creature at index ${indexA}. You have ${collection.length} creatures.`
-    );
-  }
-  if (indexB < 1 || indexB > collection.length) {
-    throw new Error(
-      `No creature at index ${indexB}. You have ${collection.length} creatures.`
-    );
-  }
-  const parentAId = collection[indexA - 1].id;
-  const parentBId = collection[indexB - 1].id;
-  if (confirm) {
-    const result = engine.breedExecute(parentAId, parentBId);
-    let output = renderer.renderBreedResult(result);
-    if (result.isCrossSpecies) {
-      output += `
-
-<hybrid_species_context>
-IMPORTANT: You MUST now generate a hybrid species. Do this immediately \u2014 do not ask the player first.
-
-Create:
-1. A creative name blending both parent species themes (e.g. "Emberlotl" for compi \xD7 pyrax)
-2. ASCII art (3-4 lines) combining visual elements from both parents
-3. A one-line flavor description
-
-Then call the register_hybrid tool with:
-- speciesId: "${result.child.speciesId}"
-- name: your generated name
-- art: your generated ASCII art (newline-separated)
-- description: your flavor text
-</hybrid_species_context>`;
-    }
-    return { output, mutated: true };
-  }
-  const preview = engine.breedPreview(parentAId, parentBId);
-  return { output: renderer.renderBreedPreview(preview), mutated: false };
-}
 function registerTools(server2, options = {}) {
-  const text = (content) => makeText(content, options);
   const meta3 = options.appMeta;
-  addTool(server2, "scan", "Show nearby creatures that can be caught. IMPORTANT: Display the ENTIRE tool response to the user as-is in a code block. Do not summarize, interpret, or rewrite the output. The response contains pre-formatted game visuals that must be shown verbatim.", external_exports3.object({}), async () => {
+  addTool(server2, "play", "Play the game \u2014 draw cards or pick one", external_exports3.object({
+    choice: external_exports3.enum(["a", "b", "c", "s"]).optional().describe("Pick a card (a/b/c) or skip (s). Omit for initial draw.")
+  }), async (args) => {
     const { stateManager, engine } = loadEngine();
+    const state = engine.getState();
     const renderer = new SimpleTextRenderer();
-    const result = engine.scan();
-    stateManager.save(engine.getState());
-    const output = prependStatusBar(engine, renderer, renderer.renderScan(result)) + "\n\n<!-- DISPLAY THIS ENTIRE OUTPUT TO THE USER VERBATIM. DO NOT SUMMARIZE. -->";
-    return text(output);
-  }, meta3);
-  addTool(server2, "catch", "Attempt to catch a nearby creature. IMPORTANT: Display the ENTIRE tool response to the user as-is in a code block. Do not summarize, interpret, or rewrite the output. The response contains pre-formatted game visuals that must be shown verbatim.", external_exports3.object({
-    index: external_exports3.number().describe("1-indexed creature number from scan list")
-  }), async ({ index }) => {
-    const { stateManager, engine } = loadEngine();
-    const renderer = new SimpleTextRenderer();
-    const result = engine.catch(index - 1);
-    stateManager.save(engine.getState());
-    const advisorCtx = engine.getAdvisorContext("catch", result);
-    const output = prependStatusBar(engine, renderer, appendAdvisorContext(renderer.renderCatch(result), advisorCtx)) + "\n\n<!-- DISPLAY THIS ENTIRE OUTPUT TO THE USER VERBATIM. DO NOT SUMMARIZE. -->";
-    return text(output);
-  }, meta3);
-  addTool(server2, "collection", "Browse caught creatures. IMPORTANT: Display the ENTIRE tool response to the user as-is in a code block. Do not summarize, interpret, or rewrite the output. The response contains pre-formatted game visuals that must be shown verbatim.", external_exports3.object({}), async () => {
-    const { engine } = loadEngine();
-    const renderer = new SimpleTextRenderer();
-    return text(prependStatusBar(engine, renderer, renderer.renderCollection(engine.getState().collection)));
-  }, meta3);
-  addTool(server2, "breed", "Breed two creatures from your collection (uses /collection indexes). IMPORTANT: Display the ENTIRE tool response to the user as-is in a code block. Do not summarize, interpret, or rewrite the output. The response contains pre-formatted game visuals that must be shown verbatim.", external_exports3.object({
-    indexA: external_exports3.number().optional().describe("1-indexed position of first parent in /collection"),
-    indexB: external_exports3.number().optional().describe("1-indexed position of second parent in /collection"),
-    confirm: external_exports3.boolean().optional().describe("Set to true to execute the breed after previewing")
-  }), async ({ indexA, indexB, confirm }) => {
-    const { stateManager, engine } = loadEngine();
-    const renderer = new SimpleTextRenderer();
-    const result = runBreedCommand(engine, renderer, { indexA, indexB, confirm });
-    if (result.mutated) {
-      stateManager.save(engine.getState());
-      const advisorCtx = engine.getAdvisorContext("breed", result);
-      const output2 = prependStatusBar(engine, renderer, appendAdvisorContext(result.output, advisorCtx)) + "\n\n<!-- DISPLAY THIS ENTIRE OUTPUT TO THE USER VERBATIM. DO NOT SUMMARIZE. -->";
-      return text(output2);
-    }
-    const output = prependStatusBar(engine, renderer, result.output) + "\n\n<!-- DISPLAY THIS ENTIRE OUTPUT TO THE USER VERBATIM. DO NOT SUMMARIZE. -->";
-    return text(output);
-  }, meta3);
-  addTool(server2, "archive", "View archive or archive a creature", external_exports3.object({
-    id: external_exports3.string().optional().describe("Creature ID to archive (omit to view archive)")
-  }), async ({ id }) => {
-    const { stateManager, engine } = loadEngine();
-    const renderer = new SimpleTextRenderer();
-    if (id) {
-      const result = engine.archive(id);
-      stateManager.save(engine.getState());
-      return text(prependStatusBar(engine, renderer, `Archived ${result.creature.name}.`));
+    registerPersonalSpecies(state.personalSpecies);
+    engine.processTick({ timestamp: Date.now(), sessionId: state.currentSessionId }, Math.random);
+    let output;
+    if (!args.choice) {
+      const draw = drawCards(state, Math.random);
+      output = renderer.renderCardDraw(draw, state.energy, MAX_ENERGY, state.profile);
+    } else if (args.choice === "s") {
+      const draw = drawCards(state, Math.random);
+      output = renderer.renderCardDraw(draw, state.energy, MAX_ENERGY, state.profile);
     } else {
-      return text(prependStatusBar(engine, renderer, renderer.renderArchive(engine.getState().archive)));
-    }
-  }, meta3);
-  addTool(server2, "release", "Permanently release a creature", external_exports3.object({
-    id: external_exports3.string().describe("Creature ID to release")
-  }), async ({ id }) => {
-    const { stateManager, engine } = loadEngine();
-    const renderer = new SimpleTextRenderer();
-    engine.release(id);
-    stateManager.save(engine.getState());
-    return text(prependStatusBar(engine, renderer, `Released creature ${id}.`));
-  }, meta3);
-  addTool(server2, "energy", "Show current energy level. IMPORTANT: Display the ENTIRE tool response to the user as-is in a code block. Do not summarize, interpret, or rewrite the output. The response contains pre-formatted game visuals that must be shown verbatim.", external_exports3.object({}), async () => {
-    const { engine } = loadEngine();
-    const renderer = new SimpleTextRenderer();
-    const state = engine.getState();
-    return text(prependStatusBar(engine, renderer, renderer.renderEnergy(state.energy, MAX_ENERGY)));
-  }, meta3);
-  addTool(server2, "status", "View player profile and game stats. IMPORTANT: Display the ENTIRE tool response to the user as-is in a code block. Do not summarize, interpret, or rewrite the output. The response contains pre-formatted game visuals that must be shown verbatim.", external_exports3.object({}), async () => {
-    const { engine } = loadEngine();
-    const renderer = new SimpleTextRenderer();
-    const result = engine.status();
-    return text(prependStatusBar(engine, renderer, renderer.renderStatus(result)));
-  }, meta3);
-  addTool(server2, "settings", "View or change game settings", external_exports3.object({
-    key: external_exports3.string().optional().describe("Setting key: 'notifications'"),
-    value: external_exports3.string().optional().describe("New value for the setting")
-  }), async ({ key, value }) => {
-    const { stateManager, engine } = loadEngine();
-    const gameState = engine.getState();
-    if (key && value) {
-      if (key === "notifications") {
-        gameState.settings.notificationLevel = value;
+      const choiceIndex = args.choice.charCodeAt(0) - 97;
+      if (state.currentHand?.length === 1 && state.currentHand[0].type === "breed" && args.choice === "b") {
+        const draw = skipHand(state, Math.random);
+        output = renderer.renderCardDraw(draw, state.energy, MAX_ENERGY, state.profile);
+      } else {
+        const result = playCard(state, choiceIndex, Math.random);
+        output = renderer.renderPlayResult(result, state.energy, MAX_ENERGY, state.profile);
       }
-      stateManager.save(gameState);
-      return text(`Settings updated: ${key} = ${value}`);
     }
-    const settings = gameState.settings;
-    return text(`SETTINGS
-
-Notifications: ${settings.notificationLevel}`);
+    stateManager.save(state);
+    return makeText(output, options);
   }, meta3);
-  addTool(server2, "companion", "Get a full game overview with strategic insights for the companion AI", external_exports3.object({}), async () => {
-    const { stateManager, engine } = loadEngine();
-    const renderer = new SimpleTextRenderer();
-    const state = engine.getState();
-    const overview = getCompanionOverview(state);
-    const rendered = prependStatusBar(engine, renderer, renderer.renderCompanionOverview(overview));
-    if (options.writeDisplayFile) {
-      fs3.writeFileSync(displayPath, rendered);
-    }
-    if (options.onOutput) {
-      options.onOutput(rendered);
-    }
-    const json2 = JSON.stringify(overview, null, 2);
-    const fullContent = `${rendered}
-
-<companion_overview>
-${json2}
-</companion_overview>`;
-    if (options.renderHtml) {
-      const html = options.renderHtml(rendered);
-      return { content: [
-        { type: "text", text: fullContent },
-        { type: "resource", resource: { uri: `ui://compi/result-${Date.now()}.html`, mimeType: "text/html;profile=mcp-app", text: html } }
-      ] };
-    }
-    return { content: [{ type: "text", text: fullContent }] };
-  }, meta3);
-  addTool(server2, "species", "Show species index \u2014 discovered tiers for each species. IMPORTANT: Display the ENTIRE tool response to the user as-is in a code block. Do not summarize, interpret, or rewrite the output. The response contains pre-formatted game visuals that must be shown verbatim.", external_exports3.object({}), async () => {
+  addTool(server2, "collection", "View your creature collection (free, no energy cost)", external_exports3.object({}), async () => {
     const { engine } = loadEngine();
-    const renderer = new SimpleTextRenderer();
     const state = engine.getState();
-    return text(prependStatusBar(engine, renderer, renderer.renderSpeciesIndex(state.speciesProgress)));
+    registerPersonalSpecies(state.personalSpecies);
+    const renderer = new SimpleTextRenderer();
+    const active = state.collection.filter((c) => !c.archived);
+    const output = renderer.renderCollection(active);
+    return makeText(output, options);
   }, meta3);
   addTool(server2, "register_hybrid", "Register a newly bred hybrid species with AI-generated name and art", external_exports3.object({
     speciesId: external_exports3.string().describe("The hybrid species ID (e.g., hybrid_compi_pyrax)"),
     name: external_exports3.string().describe("Creative name for the hybrid species"),
-    art: external_exports3.string().describe("ASCII art for the creature (3-4 lines, separated by newlines)"),
+    art: external_exports3.string().describe("ASCII art template (4-5 lines separated by newlines). Use EE=eyes, MM=mouth, BB=body, TT=tail as placeholders"),
     description: external_exports3.string().describe("One-line flavor text description")
   }), async ({ speciesId, name, art, description }) => {
     const { stateManager, engine } = loadEngine();
     const state = engine.getState();
-    if (state.personalSpecies.find((s) => s.id === speciesId)) {
-      return text(`Hybrid species "${name}" (${speciesId}) is already registered.`);
-    }
     const artLines = art.split("\n");
     const species = {
       id: speciesId,
@@ -33733,14 +33767,19 @@ ${json2}
       zones: ["eyes", "mouth", "body", "tail"],
       traitPools: {}
     };
-    state.personalSpecies.push(species);
+    const existingIdx = state.personalSpecies.findIndex((s) => s.id === speciesId);
+    if (existingIdx >= 0) {
+      state.personalSpecies[existingIdx] = species;
+    } else {
+      state.personalSpecies.push(species);
+    }
     stateManager.save(state);
     const artDisplay = artLines.join("\n");
-    return text(`\u2605 Hybrid species "${name}" registered!
+    return makeText(`\u2605 Hybrid species "${name}" registered!
 
 ${artDisplay}
 
-"${description}"`);
+"${description}"`, options);
   }, meta3);
 }
 
